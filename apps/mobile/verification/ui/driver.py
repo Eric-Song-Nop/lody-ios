@@ -1,6 +1,8 @@
 """Small shared AXe helpers; every command is bounded and uses an explicit device."""
 import json
+import select
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -30,6 +32,47 @@ class UI:
             self.axe('key', '42')
         self.axe('type', text)
         assert self.element(identifier).get('AXValue') == text, 'Typed text did not commit'
+
+    def paste_file(self, identifier):
+        import catalog
+        with tempfile.TemporaryDirectory(prefix='lody-pasteboard-') as output:
+            binary = Path(output) / 'file-pasteboard'
+            sdk = subprocess.check_output(['xcrun', '--sdk', 'iphonesimulator', '--show-sdk-path'], text=True).strip()
+            subprocess.run([
+                'xcrun', '--sdk', 'iphonesimulator', 'swiftc', '-sdk', sdk,
+                '-target', 'arm64-apple-ios18.0-simulator',
+                str(Path(__file__).with_name('file-pasteboard.swift')), '-o', str(binary),
+            ], check=True, timeout=60)
+            provider = subprocess.Popen(
+                ['xcrun', 'simctl', 'spawn', self.udid, str(binary)],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            )
+            try:
+                if not select.select([provider.stdout], [], [], 10)[0] or provider.stdout.readline().strip() != 'READY':
+                    raise RuntimeError('File pasteboard helper did not become ready')
+                self.axe('tap', '--id', identifier, '--post-delay', '.3')
+                frame = self.element(identifier)['frame']
+                self.axe('touch', '-x', str(frame['x'] + frame['width'] / 2), '-y', str(frame['y'] + frame['height'] / 2), '--down', '--up', '--delay', '.8')
+                paste = self.wait(
+                    lambda items: max(
+                        (item for item in items if item.get('AXLabel') == catalog.system('paste')),
+                        key=lambda item: item['frame']['width'] * item['frame']['height'], default=None,
+                    ), 'Paste did not appear in the edit menu', timeout=5,
+                )
+                frame = paste['frame']
+                self.axe('tap', '-x', str(frame['x'] + frame['width'] / 2), '-y', str(frame['y'] + frame['height'] / 2), '--post-delay', '.5')
+                label = catalog.text('native.chat.attachment.preview', name='clipboard-fixture.txt')
+                self.wait(lambda items: any(item.get('AXLabel') == label for item in items), 'Pasted file did not appear as an attachment')
+                return label
+            finally:
+                provider.terminate()
+                try:
+                    provider.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    provider.kill()
+                    provider.wait()
+                provider.stdout.close()
+                provider.stderr.close()
 
     def state(self):
         def walk(node):

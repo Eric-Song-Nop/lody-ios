@@ -73,9 +73,9 @@ let source = FileManager.default.temporaryDirectory.appendingPathComponent("lody
 try! Data("clipboard file".utf8).write(to: source)
 let fileProvider = NSItemProvider(contentsOf: source)!
 precondition(pasteInput.canPaste([fileProvider]), "A copied file must enable the system Paste action")
-UIPasteboard.general.setItemProviders([fileProvider], localOnly: true, expirationDate: nil)
+UIPasteboard.general.setObjects([source as NSURL])
 precondition(pasteInput.canPerformAction(#selector(UIResponderStandardEditActions.paste(_:)), withSender: nil), "A copied file must expose Paste in the edit menu")
-pasteInput.paste(nil)
+pasteInput.paste(itemProviders: [fileProvider])
 let deadline = Date().addingTimeInterval(3)
 while !pasteSend.isEnabled && Date() < deadline { RunLoop.current.run(until: Date().addingTimeInterval(0.01)) }
 precondition(pasteSend.isEnabled, "Pasting a file must add a sendable attachment")
@@ -90,8 +90,7 @@ precondition(pastedURL != source && (try? Data(contentsOf: pastedURL)) == Data("
 let textProvider = NSItemProvider(object: "normal text paste" as NSString)
 pasteComposer.restoreDraft(token: 1)
 pasteInput.text = ""
-UIPasteboard.general.setItemProviders([textProvider], localOnly: true, expirationDate: nil)
-pasteInput.paste(nil)
+pasteInput.paste(itemProviders: [textProvider])
 let textDeadline = Date().addingTimeInterval(3)
 while pasteInput.text.isEmpty && Date() < textDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.01)) }
 precondition(pasteInput.text == "normal text paste", "Ordinary text paste must keep UIKit behavior")

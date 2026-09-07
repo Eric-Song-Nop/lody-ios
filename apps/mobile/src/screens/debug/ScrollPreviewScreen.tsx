@@ -7,9 +7,18 @@ import { useProcessSheet } from '@/hooks/screens/useProcessSheet';
 const cached = Array.from({ length: 12 }, (_, index) => ({
   id: `scroll-cache-${index}`,
   role: index % 2 ? 'assistant' : 'user',
-  status: 'completed',
-  finished: true,
+  status: index === 11 ? 'running' : 'completed',
+  finished: index !== 11,
   items: [
+    ...(index === 11
+      ? [
+          {
+            itemId: 'intro',
+            type: 'text',
+            text: '缓存里的回答仍在进行。\n\n这一段会在同步完成后折叠。\n\n同时还有更新的多轮消息到达。',
+          },
+        ]
+      : []),
     {
       itemId: 'text',
       type: 'text',
@@ -18,20 +27,21 @@ const cached = Array.from({ length: 12 }, (_, index) => ({
   ],
 }));
 const latest = [
-  ...cached.map((entry, index) =>
-    index === 8
-      ? {
-          ...entry,
-          items: [
-            {
-              itemId: 'text',
-              type: 'text',
-              text: `${entry.items[0].text}\n\n同步补全了上方的内容。\n\n可见消息的位置应保持不变。`,
-            },
-          ],
-        }
-      : entry,
-  ),
+  ...cached.map((entry, index) => {
+    if (index === 11) return { ...entry, status: 'completed', finished: true };
+    if (index === 8)
+      return {
+        ...entry,
+        items: [
+          {
+            itemId: 'text',
+            type: 'text',
+            text: `${entry.items[0].text}\n\n同步补全了上方的内容。\n\n可见消息的位置应保持不变。`,
+          },
+        ],
+      };
+    return entry;
+  }),
   ...Array.from({ length: 6 }, (_, index) => ({
     id: `scroll-new-${index}`,
     role: index % 2 ? 'assistant' : 'user',

@@ -31,6 +31,8 @@ def settled_positions():
     raise AssertionError('The injected drag did not finish decelerating')
 
 ui.element('scroll-cache-11:text')
+ui.wait(lambda items: any(i.get('AXUniqueId') == 'scroll-cache-11:text' and '这段内容已经显示在本地' in (i.get('AXLabel') or '') for i in items), 'Cached running text did not settle')
+settled_positions()
 ui.capture('cache-visible')
 tap('Sync History')
 ui.element('scroll-new-5:text')
@@ -40,6 +42,7 @@ assert not any(i.get('AXUniqueId') == 'chat-scroll-to-bottom' for i in ui.state(
 
 tap('Cached History')
 ui.element('scroll-cache-11:text')
+settled_positions()
 ui.axe('swipe', '--start-x', '200', '--start-y', '300', '--end-x', '200', '--end-y', '580', '--duration', '.8', '--post-delay', '1')
 before = settled_positions()
 ui.capture('reading-cache')
@@ -88,10 +91,10 @@ for path in sorted(set((container / 'tmp').glob('lody-scroll-*.json')) - existin
 assert traces, 'Missing opt-in native frame samples; rebuild the Debug app'
 
 cache = next((trace['samples'] for trace in traces if trace['host'] == 'chat'
-              and any(s['count'] == 12 for s in trace['samples'])
-              and any(s['count'] == 18 and s['following'] for s in trace['samples'])), None)
+              and any(s['count'] == 13 for s in trace['samples'])
+              and any(s['count'] == 19 and s['following'] for s in trace['samples'])), None)
 assert cache, 'Missing cache-to-live transition'
-start = next(i for i, sample in enumerate(cache) if sample['count'] == 18)
+start = next(i for i, sample in enumerate(cache) if sample['count'] == 19)
 motion = [s for s in cache[start:] if s['t'] - cache[start]['t'] < 1.5]
 distance = motion[0]['bottom'] - cache[start - 1]['offset']
 steps = [b['offset'] - a['offset'] for a, b in zip(motion, motion[1:])]

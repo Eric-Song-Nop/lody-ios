@@ -81,9 +81,14 @@ detail action, then checks live segment boundaries and conclusion-only completio
 The title is installed directly as `UINavigationItem.titleView`, with UIKit owning
 its layout and scroll edge; no React Native header title wrapper is involved.
 
-Automatic tracking scrolls directly to the actual collection bottom after each
-content update and layout, including Markdown reflow and contraction. There is
-no line-count target, scrolling ticker or locked offset.
+The first history positions immediately. Subsequent snapshots preserve a visible
+row's screen position before following the new bottom. A display link converges
+on the current bottom without restarting on every text update, and interpolates
+streaming row heights so neighboring cells move continuously. Only active height
+transitions invalidate layout each frame; text keeps its natural layout and is
+clipped to the expanding cell. The link stops once settled or detached.
+Historical user messages never trigger the local-send anchor. A manual gesture
+also cancels any deferred send anchor before an acknowledgement can restore it.
 
 Dragging immediately pauses tracking, even inside the old 80 pt range. Tracking
 resumes only after a gesture ends at the tail or the down arrow is tapped.

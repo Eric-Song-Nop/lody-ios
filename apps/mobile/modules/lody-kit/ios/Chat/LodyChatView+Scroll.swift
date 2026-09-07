@@ -70,6 +70,7 @@ extension LodyChatView {
   func pauseTracking() {
     followsBottom = false
     trackingPausedByGesture = true
+    awaitingUserAnchor = false
   }
 
   func scrollViewDidScroll(_ scrollView: UIScrollView) {
@@ -102,7 +103,7 @@ extension LodyChatView {
 
   func updateBottomButton() {
     let bottom = bottomOffset
-    let visible = processEntryID.isEmpty && bottom - collection.contentOffset.y > CGFloat(ChatScroll.resumeDistance)
+    let visible = processEntryID.isEmpty && !followsBottom && bottom - collection.contentOffset.y > CGFloat(ChatScroll.resumeDistance)
     guard visible != bottomButton.isUserInteractionEnabled else { return }
     bottomButton.isUserInteractionEnabled = visible
     bottomButton.accessibilityElementsHidden = !visible
@@ -133,9 +134,9 @@ extension LodyChatView {
     let elapsed = min(1.0 / 30, max(0, link.targetTimestamp - motionTime))
     motionTime = link.targetTimestamp
     let reduce = UIAccessibility.isReduceMotionEnabled
-    let anchor = visibleAnchor()
     movingLayout = true
     if !rowHeights.isEmpty {
+      let anchor = visibleAnchor()
       for (id, height) in rowHeights {
         let current = reduce ? height.target : CGFloat(ChatScroll.advance(
           Double(height.current), toward: Double(height.target), elapsed: elapsed, response: 0.06))
@@ -152,6 +153,7 @@ extension LodyChatView {
         Double(collection.contentOffset.y), toward: Double(bottomOffset), elapsed: elapsed, response: 0.10))
       collection.setContentOffset(CGPoint(x: 0, y: y), animated: false)
     }
+    deliverPendingContent()
     movingLayout = false
     updateBottomButton()
     if rowHeights.isEmpty && (!tracking || abs(collection.contentOffset.y - bottomOffset) <= 0.5) {

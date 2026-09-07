@@ -50,13 +50,13 @@ visual smoothness. The probe contains fixture IDs and geometry only.
 | tracking         | NativeChat                                | User drag releases following, stable history, return button during/after streaming                                        |
 | model-options    | ChatComposerView                          | Model/effort controls, RN echo, reopen persistence                                                                        |
 | image-preview    | ChatImageCell + ChatImagePreview          | Synthetic bitmap, zoom/restore, button and gesture dismissal                                                              |
-| composer         | NativeComposer in a real form sheet       | Keyboard clearance, pending draft clearing, rejection restore, duplicate suppression                                      |
-| composer-success | NativeChat composer                       | Pending clear/lock, text and attachment stay cleared after acceptance                                                     |
+| composer         | NativeComposer in a real form sheet       | File paste, keyboard clearance, pending draft clearing, rejection restore, duplicate suppression                          |
+| composer-success | NativeChat composer                       | File paste, pending clear/lock, text and attachments stay cleared after acceptance                                        |
 | markdown         | MarkdownView code block                   | Copy preserves complete code and indentation through the Simulator clipboard                                              |
 | background       | DataRuntime + BGContinuedProcessingTask   | 同一 WebView 跨后台恢复、真实系统申请、完成/到期释放；系统拒绝时明确记录未验证长时执行                                    |
 | changes          | NativeChat + file diff page               | Grouped file rows after completion, header totals, long paths, direct diff navigation, hidden warnings                    |
 | inbox            | NativeGroupedList + inboxSections         | 动态分组；会话行是对话列表（标题前进行中圆点、时间在右、确认胶囊）；未读完成不进今天                                      |
-| composer-failure | NativeChat composer                       | Exact text and attachment restoration after rejection                                                                     |
+| composer-failure | NativeChat composer                       | Pasted-file, text and attachment restoration after rejection                                                              |
 
 Every case starts a fresh app process and navigates from Debug. Both light and
 dark appearances run with default text size and English system controls. Product

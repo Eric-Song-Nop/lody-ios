@@ -131,7 +131,10 @@ extension LodyChatView {
     let following = followsBottom || (starting && nearTail && !trackingPausedByGesture)
     followsBottom = following
     let completing = self.liveEntryID != nil && liveEntryID == nil
-    let anchorID = completing && following
+    // A stale running reply can complete together with an entire newer history.
+    // Only fold in place when it is still the tail; bulk sync keeps the viewport anchor.
+    let folding = completing && processEntryID.isEmpty && window != nil && projected.last?.entryID == self.liveEntryID
+    let anchorID = folding && following
       ? projected.last(where: { $0.entryID == self.liveEntryID && $0.kind == "text" })?.id
       : collection.indexPathsForVisibleItems.sorted().compactMap { dataSource.itemIdentifier(for: $0) }.first(where: { id in projected.contains { $0.id == id } })
     let anchor = anchorID.flatMap { id -> (String, CGFloat)? in
@@ -144,7 +147,6 @@ extension LodyChatView {
       return
     }
     self.liveEntryID = liveEntryID
-    let folding = completing && processEntryID.isEmpty && window != nil
     let previous = rows
     prepareRowHeights(projected, previous: previous, animate: !folding)
     rows = Dictionary(projected.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })

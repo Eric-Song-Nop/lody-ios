@@ -21,6 +21,10 @@ struct ChatAttachment: Equatable {
   }
 
   static func store(_ url: URL) -> URL? {
+    let access = url.startAccessingSecurityScopedResource()
+    defer { if access { url.stopAccessingSecurityScopedResource() } }
+    var directory: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: url.path, isDirectory: &directory), !directory.boolValue else { return nil }
     let destination = FileManager.default.temporaryDirectory
       .appendingPathComponent(UUID().uuidString + "-" + url.lastPathComponent)
     return (try? FileManager.default.copyItem(at: url, to: destination)) == nil ? nil : destination
@@ -34,25 +38,16 @@ struct ChatAttachment: Equatable {
 
   private static func pastedType(for provider: NSItemProvider) -> UTType? {
     if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) { return .fileURL }
+    if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) { return nil }
     return provider.registeredContentTypes.first { type in
       !type.conforms(to: .directory)
         && !type.conforms(to: .url)
-        && (!type.conforms(to: .text) || provider.suggestedName != nil)
+        && !type.conforms(to: .text)
     }
   }
 
   static func canPaste(_ providers: [NSItemProvider]) -> Bool {
     providers.contains { pastedType(for: $0) != nil }
-  }
-
-  private static func pastedURL(from item: NSSecureCoding?) -> URL? {
-    if let url = item as? URL { return url }
-    if let string = item as? String { return URL(string: string) }
-    guard let data = item as? Data,
-      let property = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil)
-    else { return nil }
-    if let string = property as? String { return URL(string: string) }
-    return (property as? [Any])?.compactMap { $0 as? String }.compactMap(URL.init(string:)).first
   }
 
   @discardableResult
@@ -79,9 +74,9 @@ struct ChatAttachment: Equatable {
     for (index, provider, type) in items {
       group.enter()
       if type == .fileURL {
-        provider.loadItem(forTypeIdentifier: type.identifier, options: nil) { item, _ in
+        provider.loadObject(ofClass: NSURL.self) { object, _ in
           defer { group.leave() }
-          guard let source = pastedURL(from: item), source.isFileURL else { return }
+          guard let source = object as? URL, source.isFileURL else { return }
           append(index, provider, UTType(filenameExtension: source.pathExtension) ?? .item, source)
         }
       } else {
@@ -92,7 +87,10 @@ struct ChatAttachment: Equatable {
         }
       }
     }
-    group.notify(queue: .main) { completion(pasted.sorted { $0.0 < $1.0 }.map(\.1)) }
+    group.notify(queue: .main) {
+      let ordered = pasted.sorted { $0.0 < $1.0 }.map(\.1)
+      if !ordered.isEmpty { completion(ordered) }
+    }
     return true
   }
 }

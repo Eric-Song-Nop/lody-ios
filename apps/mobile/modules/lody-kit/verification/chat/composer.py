@@ -13,7 +13,7 @@ parser.add_argument('--output', required=True)
 args = parser.parse_args()
 ui = UI(args.udid, args.output)
 assert ui.element('composer-result')['AXLabel'] == 'Requests: 0', 'Use the offline composer scene'
-ui.axe('tap', '--id', 'session-input')
+pasted = ui.paste_file('session-input')
 ui.axe('type', 'Offline draft\nKeep the attachment')
 draft = ui.element('session-input')['AXValue']
 def attachments(items):
@@ -21,6 +21,7 @@ def attachments(items):
     return [i['AXLabel'] for i in items if (i.get('AXLabel') or '').startswith(prefix)]
 picked = attachments(ui.state())
 assert picked, 'Synthetic attachment missing'
+assert pasted in picked, 'Clipboard file missing from NativeChat composer'
 ui.capture('draft')
 send = ui.element('session-send')
 ui.axe('tap', '--id', 'session-send')
@@ -38,4 +39,4 @@ else:
     assert not ui.element('session-input').get('AXValue') and not attachments(ui.state())
 assert ui.element('composer-result')['AXLabel'] == 'Requests: 1', 'Double tap must produce one request'
 ui.capture('settled')
-print(f'PASS: offline composer {args.expect}, text + attachment, duplicate suppression')
+print(f'PASS: offline composer {args.expect}, pasted file + attachment, duplicate suppression')
