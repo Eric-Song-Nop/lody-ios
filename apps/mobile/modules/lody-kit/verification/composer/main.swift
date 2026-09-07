@@ -65,6 +65,39 @@ sendAttachment()
 precondition(sentAttachments.first?["uri"] == "file:///tmp/lody-composer-test.txt", "Retry must preserve the original attachment URI")
 print("Composer: plus menu and attachment-only send/restore/retry passed")
 
+let pasteComposer = ChatComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 64))
+pasteComposer.setComposerState(ready)
+let pasteInput = descendants(pasteComposer).compactMap { $0 as? UITextView }.first!
+let pasteSend = descendants(pasteComposer).compactMap { $0 as? UIButton }.first { $0.accessibilityIdentifier == "session-send" }!
+let source = FileManager.default.temporaryDirectory.appendingPathComponent("lody-paste-source.txt")
+try! Data("clipboard file".utf8).write(to: source)
+let fileProvider = NSItemProvider(contentsOf: source)!
+precondition(pasteInput.canPaste([fileProvider]), "A copied file must enable the system Paste action")
+UIPasteboard.general.setItemProviders([fileProvider], localOnly: true, expirationDate: nil)
+precondition(pasteInput.canPerformAction(#selector(UIResponderStandardEditActions.paste(_:)), withSender: nil), "A copied file must expose Paste in the edit menu")
+pasteInput.paste(nil)
+let deadline = Date().addingTimeInterval(3)
+while !pasteSend.isEnabled && Date() < deadline { RunLoop.current.run(until: Date().addingTimeInterval(0.01)) }
+precondition(pasteSend.isEnabled, "Pasting a file must add a sendable attachment")
+var pastedAttachments: [[String: String]] = []
+pasteComposer.onSend = { pastedAttachments = $0["attachments"] as! [[String: String]] }
+for action in pasteSend.actions(forTarget: pasteComposer, forControlEvent: .touchUpInside) ?? [] {
+  pasteComposer.perform(NSSelectorFromString(action))
+}
+precondition(pastedAttachments.first?["name"] == source.lastPathComponent, "A pasted file must retain its name")
+let pastedURL = URL(string: pastedAttachments.first!["uri"]!)!
+precondition(pastedURL != source && (try? Data(contentsOf: pastedURL)) == Data("clipboard file".utf8), "A pasted file must be copied before the provider expires")
+let textProvider = NSItemProvider(object: "normal text paste" as NSString)
+pasteComposer.restoreDraft(token: 1)
+pasteInput.text = ""
+UIPasteboard.general.setItemProviders([textProvider], localOnly: true, expirationDate: nil)
+pasteInput.paste(nil)
+let textDeadline = Date().addingTimeInterval(3)
+while pasteInput.text.isEmpty && Date() < textDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.01)) }
+precondition(pasteInput.text == "normal text paste", "Ordinary text paste must keep UIKit behavior")
+UIPasteboard.general.items = []
+print("Composer paste: file attachment and ordinary text fallback passed")
+
 let draftComposer = ChatComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 64))
 draftComposer.setComposerState(ready)
 let draftInput = descendants(draftComposer).compactMap { $0 as? UITextView }.first!

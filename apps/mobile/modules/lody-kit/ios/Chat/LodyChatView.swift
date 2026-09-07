@@ -74,8 +74,14 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
   var lastUserID: String?
   var anchoredUserID: String?
   var awaitingUserAnchor = false
-  var pendingAnchorAnimation = false
-  var anchorScrollInFlight = false
+  var motionLink: CADisplayLink?
+  var motionTime: CFTimeInterval = 0
+  var movingLayout = false
+  var hasPositionedContent = false
+  var rowHeights: [String: (current: CGFloat, target: CGFloat, width: CGFloat)] = [:]
+  #if DEBUG
+  var scrollProbe: ChatScrollProbe?
+  #endif
   private var laidOutHeight: CGFloat = 0
   private var hasInitialDraft = false
   var pendingSend: ChatPendingSend?
@@ -169,7 +175,7 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
     collection.contentInsetAdjustmentBehavior = .automatic
     collection.delegate = self
     collection.contentDidLayout = { [weak self] in
-      guard let self, !self.applying else { return }
+      guard let self, !self.applying, !self.movingLayout else { return }
       self.updateBottomInset()
       if self.followsBottom { self.scrollToBottom() }
     }
@@ -243,7 +249,6 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
       self.collection.setContentOffset(self.collection.contentOffset, animated: false)
       self.trackingPausedByGesture = false
       self.followsBottom = true
-      self.pendingAnchorAnimation = true
       self.scrollToBottom()
     }, for: .touchUpInside)
     addSubview(bottomButton)
@@ -374,7 +379,11 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
     super.didMoveToWindow()
     if window == nil {
       if let handoffID { ChatSendHandoff.cancel(id: handoffID) }
-      anchorScrollInFlight = false
+      motionLink?.invalidate(); motionLink = nil
+      rowHeights.removeAll()
+      #if DEBUG
+      scrollProbe?.stop(); scrollProbe = nil
+      #endif
       liveEntryID = nil
       update?.cancel(); update = nil
       frameTimer?.invalidate(); frameTimer = nil
@@ -389,6 +398,12 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
       }
       scrollOwner = nil
     } else {
+      #if DEBUG
+      if ProcessInfo.processInfo.arguments.contains("--ui-verify-scroll"),
+         ProcessInfo.processInfo.arguments.contains("--ui-verify") {
+        scrollProbe = ChatScrollProbe(self)
+      }
+      #endif
       if pendingEntries != nil { scheduleUpdate() }
       renderFrame()
     }
@@ -442,7 +457,6 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
       composerHasAcknowledgedSend = false
       handoffID = value.id
       anchoredUserID = value.id + ":user"
-      pendingAnchorAnimation = false
       followsBottom = true
       trackingPausedByGesture = false
     }

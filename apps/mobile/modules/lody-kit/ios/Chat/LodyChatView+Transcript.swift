@@ -45,11 +45,9 @@ extension LodyChatView {
             self.displayError = nil
             let userID = entries.last { $0.role == "user" }?.id
             if self.processEntryID.isEmpty, let userID, userID != self.lastUserID,
-               self.lastUserID != nil || self.awaitingUserAnchor {
+               self.awaitingUserAnchor {
               self.liveEntryID = nil
               self.anchoredUserID = userID + ":user"
-              self.pendingAnchorAnimation = true
-              self.anchorScrollInFlight = false
               self.awaitingUserAnchor = false
               self.trackingPausedByGesture = false
               self.followsBottom = true
@@ -148,6 +146,7 @@ extension LodyChatView {
     self.liveEntryID = liveEntryID
     let folding = completing && processEntryID.isEmpty && window != nil
     let previous = rows
+    prepareRowHeights(projected, previous: previous, animate: !folding)
     rows = Dictionary(projected.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
     measurements = measurements.filter { rows[$0.key] != nil }
     store.retain(Set(rows.keys))
@@ -166,10 +165,12 @@ extension LodyChatView {
       self.collection.collectionViewLayout.invalidateLayout()
       self.collection.layoutIfNeeded()
       self.updateBottomInset()
-      if following { self.scrollToBottom() }
-      else if let (id, offset) = anchor, let index = self.dataSource.indexPath(for: id), let frame = self.collection.layoutAttributesForItem(at: index)?.frame {
+      if !folding || !self.followsBottom, let (id, offset) = anchor, let index = self.dataSource.indexPath(for: id), let frame = self.collection.layoutAttributesForItem(at: index)?.frame {
         self.collection.contentOffset.y = max(-self.collection.adjustedContentInset.top, frame.minY - offset)
       }
+      if self.followsBottom { self.scrollToBottom() }
+      if !projected.isEmpty { self.hasPositionedContent = true }
+      if !self.rowHeights.isEmpty { self.startMotion() }
       self.updateBottomButton()
       self.deliverPendingContent()
     }

@@ -34,6 +34,13 @@ preferences are changed. Remove the disposable Simulator when finished. It never
 
 ## Baseline inventory
 
+`smooth-scroll` exercises cached history replacement, anchor preservation while
+reading, streamed paragraphs/code, drag interruption and the production process
+Sheet. It records video plus opt-in Debug-only UIKit geometry at display refresh
+cadence (`--ui-verify-scroll`); the check requires intermediate scroll/height
+frames in both hosts. Review the video for clipping and flashes before claiming
+visual smoothness. The probe contains fixture IDs and geometry only.
+
 | Case             | Production surface                        | Behavior                                                                                                                  |
 | ---------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | home             | NativeTabs + InboxScreen + creation Sheet | 首页导航栏搜索、已归档结果、取消恢复；右下角新建反复打开并保留当前 Tab                                                    |

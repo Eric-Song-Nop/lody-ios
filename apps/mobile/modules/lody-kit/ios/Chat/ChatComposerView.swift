@@ -1,5 +1,6 @@
 import UIKit
 import MetalKit
+import UniformTypeIdentifiers
 
 private struct ChatComposerState: Decodable {
   var editable = true
@@ -304,10 +305,37 @@ private final class ChatComposerPopover: UIViewController, UIPopoverPresentation
   func adaptivePresentationStyle(for controller: UIPresentationController, traitCollection: UITraitCollection) -> UIModalPresentationStyle { .none }
 }
 
+private final class ChatComposerInput: UITextView {
+  var onPasteItems: (([NSItemProvider]) -> Bool)?
+
+  override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+    if action == #selector(paste(_:)), isEditable, UIPasteboard.general.numberOfItems > 0 { return true }
+    return super.canPerformAction(action, withSender: sender)
+  }
+
+  override func canPaste(_ itemProviders: [NSItemProvider]) -> Bool {
+    ChatAttachment.canPaste(itemProviders) || super.canPaste(itemProviders)
+  }
+
+  override func paste(itemProviders: [NSItemProvider]) {
+    guard onPasteItems?(itemProviders) == true else {
+      super.paste(itemProviders: itemProviders)
+      return
+    }
+  }
+
+  override func paste(_ sender: Any?) {
+    guard onPasteItems?(UIPasteboard.general.itemProviders) == true else {
+      super.paste(sender)
+      return
+    }
+  }
+}
+
 final class ChatComposerView: UIView, UITextViewDelegate {
   private let composer = UIVisualEffectView(effect: nil)
   private let inputSurface = UIVisualEffectView(effect: nil)
-  private let input = UITextView()
+  private let input = ChatComposerInput()
   private let hint = UILabel()
   private let notice = UIButton(type: .system)
   private let send = UIButton(type: .system)
@@ -403,6 +431,11 @@ final class ChatComposerView: UIView, UITextViewDelegate {
     input.textColor = .label
     input.textContainerInset = UIEdgeInsets(top: 13, left: 16, bottom: 13, right: 46)
     input.delegate = self
+    input.pasteConfiguration = UIPasteConfiguration(acceptableTypeIdentifiers: [UTType.item.identifier])
+    input.onPasteItems = { [weak self] providers in
+      guard let self, self.state.editable else { return false }
+      return ChatAttachment.paste(providers) { [weak self] in self?.addAttachments($0) }
+    }
     input.accessibilityIdentifier = "session-input"
     input.accessibilityLabel = LodyStrings.text("native.chat.composer.input")
     hint.text = state.placeholder

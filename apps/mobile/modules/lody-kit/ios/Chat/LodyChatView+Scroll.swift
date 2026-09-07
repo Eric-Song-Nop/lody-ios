@@ -70,8 +70,6 @@ extension LodyChatView {
   func pauseTracking() {
     followsBottom = false
     trackingPausedByGesture = true
-    anchorScrollInFlight = false
-    pendingAnchorAnimation = false
   }
 
   func scrollViewDidScroll(_ scrollView: UIScrollView) {
@@ -96,12 +94,6 @@ extension LodyChatView {
     scrollToBottom()
   }
 
-  func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
-    guard scrollView === collection else { return }
-    anchorScrollInFlight = false
-    if followsBottom { scrollToBottom() }
-  }
-
   var bottomOffset: CGFloat {
     CGFloat(ChatScroll.bottom(contentHeight: Double(collection.contentSize.height),
       viewportHeight: Double(collection.bounds.height), topInset: Double(collection.adjustedContentInset.top),
@@ -120,14 +112,87 @@ extension LodyChatView {
   }
 
   func scrollToBottom() {
-    guard !anchorScrollInFlight, !collection.isDragging, !collection.isDecelerating else { return }
-    if pendingAnchorAnimation, let id = anchoredUserID, dataSource.indexPath(for: id) == nil { return }
-    let bottom = bottomOffset
-    let animate = pendingAnchorAnimation && !UIAccessibility.isReduceMotionEnabled && abs(collection.contentOffset.y - bottom) > 1
-    pendingAnchorAnimation = false
-    anchorScrollInFlight = animate
-    if abs(collection.contentOffset.y - bottom) > 0.5 {
-      collection.setContentOffset(CGPoint(x: 0, y: bottom), animated: animate)
+    guard !movingLayout, !collection.isDragging, !collection.isDecelerating else { return }
+    if !hasPositionedContent || UIAccessibility.isReduceMotionEnabled || window == nil {
+      collection.setContentOffset(CGPoint(x: 0, y: bottomOffset), animated: false)
+    } else if abs(collection.contentOffset.y - bottomOffset) > 0.5 {
+      startMotion()
+    }
+  }
+
+  func startMotion() {
+    guard motionLink == nil, window != nil else { return }
+    let link = CADisplayLink(target: ChatMotionTarget(self), selector: #selector(ChatMotionTarget.tick(_:)))
+    motionTime = CACurrentMediaTime()
+    motionLink = link
+    link.add(to: .main, forMode: .common)
+  }
+
+  func advanceMotion(_ link: CADisplayLink) {
+    guard !applying else { motionTime = link.targetTimestamp; return }
+    let elapsed = min(1.0 / 30, max(0, link.targetTimestamp - motionTime))
+    motionTime = link.targetTimestamp
+    let reduce = UIAccessibility.isReduceMotionEnabled
+    let anchor = visibleAnchor()
+    movingLayout = true
+    if !rowHeights.isEmpty {
+      for (id, height) in rowHeights {
+        let current = reduce ? height.target : CGFloat(ChatScroll.advance(
+          Double(height.current), toward: Double(height.target), elapsed: elapsed, response: 0.06))
+        rowHeights[id] = current == height.target ? nil : (current, height.target, height.width)
+      }
+      collection.collectionViewLayout.invalidateLayout()
+      collection.layoutIfNeeded()
+      updateBottomInset()
+      restoreAnchor(anchor)
+    }
+    let tracking = followsBottom && !collection.isDragging && !collection.isDecelerating
+    if tracking {
+      let y = reduce ? bottomOffset : CGFloat(ChatScroll.advance(
+        Double(collection.contentOffset.y), toward: Double(bottomOffset), elapsed: elapsed, response: 0.10))
+      collection.setContentOffset(CGPoint(x: 0, y: y), animated: false)
+    }
+    movingLayout = false
+    updateBottomButton()
+    if rowHeights.isEmpty && (!tracking || abs(collection.contentOffset.y - bottomOffset) <= 0.5) {
+      link.invalidate()
+      motionLink = nil
+    }
+  }
+
+  func visibleAnchor() -> (String, CGFloat)? {
+    for index in collection.indexPathsForVisibleItems.sorted() {
+      if let id = dataSource.itemIdentifier(for: index), let frame = collection.layoutAttributesForItem(at: index)?.frame {
+        return (id, frame.minY - collection.contentOffset.y)
+      }
+    }
+    return nil
+  }
+
+  func restoreAnchor(_ anchor: (String, CGFloat)?) {
+    guard let (id, y) = anchor, let index = dataSource.indexPath(for: id),
+          let frame = collection.layoutAttributesForItem(at: index)?.frame else { return }
+    collection.contentOffset.y = max(-collection.adjustedContentInset.top, frame.minY - y)
+  }
+
+  func prepareRowHeights(_ projected: [ChatRow], previous: [String: ChatRow], animate: Bool) {
+    let ids = Set(projected.map(\.id))
+    rowHeights = rowHeights.filter { ids.contains($0.key) }
+    guard animate, hasPositionedContent, window != nil, !UIAccessibility.isReduceMotionEnabled else {
+      rowHeights.removeAll()
+      return
+    }
+    let width = max(1, collection.bounds.width - 40)
+    for row in projected where row != previous[row.id] {
+      guard row.streaming || previous[row.id]?.streaming == true else {
+        rowHeights[row.id] = nil
+        continue
+      }
+      let oldFrame = dataSource.indexPath(for: row.id).flatMap { collection.layoutAttributesForItem(at: $0)?.frame }
+      let current = rowHeights[row.id]?.current ?? oldFrame?.height ?? 12
+      let target = rowHeight(row, width: width)
+      if abs(current - target) > 0.5 { rowHeights[row.id] = (current, target, width) }
+      else { rowHeights[row.id] = nil }
     }
   }
 
@@ -153,14 +218,18 @@ extension LodyChatView {
   func collectionView(_ collectionView: UICollectionView, layout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
     let width = max(1, collectionView.bounds.width - 40)
     guard let id = dataSource.itemIdentifier(for: indexPath), let row = rows[id] else { return CGSize(width: width, height: 0) }
-    if row.kind == "changesHeader" {
-      return CGSize(width: width, height: 32)
+    if let height = rowHeights[id], height.width == width {
+      return CGSize(width: width, height: height.current)
     }
-    if row.kind == "changes" {
-      return CGSize(width: width, height: ChatFileCell.rowHeight())
-    }
+    rowHeights[id] = nil
+    return CGSize(width: width, height: rowHeight(row, width: width))
+  }
+
+  func rowHeight(_ row: ChatRow, width: CGFloat) -> CGFloat {
+    if row.kind == "changesHeader" { return 32 }
+    if row.kind == "changes" { return ChatFileCell.rowHeight() }
     let measured = measure(row, width: width)
-    return CGSize(width: width, height: max(row.actionable || row.kind == "summary" ? 44 : 0, measured + (row.kind == "user" ? 44 : 12)))
+    return max(row.actionable || row.kind == "summary" ? 44 : 0, measured + (row.kind == "user" ? 44 : 12))
   }
 
   func setAttachmentContext(_ json: String) {
@@ -195,3 +264,58 @@ extension LodyChatView {
     }
   }
 }
+
+private final class ChatMotionTarget: NSObject {
+  weak var view: LodyChatView?
+  init(_ view: LodyChatView) { self.view = view }
+  @objc func tick(_ link: CADisplayLink) {
+    guard let view else { link.invalidate(); return }
+    view.advanceMotion(link)
+  }
+}
+
+#if DEBUG
+// Opt-in, offline fixture geometry only. No message text or account data leaves
+// the view. The independent sampler observes UIKit, not the motion's targets.
+final class ChatScrollProbe: NSObject {
+  weak var view: LodyChatView?
+  private var link: CADisplayLink?
+  private var samples: [[String: Any]] = []
+  private let id = UUID().uuidString
+  private let started = CACurrentMediaTime()
+  init(_ view: LodyChatView) {
+    self.view = view
+    super.init()
+    let link = CADisplayLink(target: self, selector: #selector(sample(_:)))
+    self.link = link
+    link.add(to: .main, forMode: .common)
+  }
+  @objc private func sample(_ link: CADisplayLink) {
+    guard let view, samples.count < 10800 else { stop(); return }
+    guard view.rows.keys.contains(where: { $0.hasPrefix("scroll-") }) else { return }
+    let list = view.collection
+    var visible: [String: Any] = [:]
+    for index in list.indexPathsForVisibleItems {
+      guard let id = view.dataSource.itemIdentifier(for: index), id.hasPrefix("scroll-"),
+            let cell = list.cellForItem(at: index) else { continue }
+      let frame = cell.layer.presentation()?.frame ?? cell.frame
+      let offset = list.layer.presentation()?.bounds.minY ?? list.contentOffset.y
+      visible[id] = ["y": frame.minY - offset, "height": frame.height]
+    }
+    samples.append(["t": link.timestamp - started, "offset": list.contentOffset.y,
+      "bottom": view.bottomOffset, "contentHeight": list.contentSize.height,
+      "inset": list.adjustedContentInset.bottom, "following": view.followsBottom,
+      "dragging": list.isDragging || list.isDecelerating,
+      "count": view.rows.count, "rows": visible])
+  }
+  func stop() {
+    link?.invalidate(); link = nil
+    guard !samples.isEmpty else { return }
+    let report: [String: Any] = ["host": view?.processEntryID.isEmpty == false ? "process" : "chat", "samples": samples]
+    if let data = try? JSONSerialization.data(withJSONObject: report) {
+      try? data.write(to: FileManager.default.temporaryDirectory.appendingPathComponent("lody-scroll-\(id).json"), options: .atomic)
+    }
+    samples.removeAll()
+  }
+}
+#endif

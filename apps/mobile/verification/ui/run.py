@@ -13,8 +13,9 @@ from driver import UI
 
 ROOT = Path(__file__).resolve().parents[4]
 CHAT = ROOT / 'apps/mobile/modules/lody-kit/verification/chat'
-CASES = ['send', 'send-handoff', 'layout', 'tracking', 'model-options', 'image-preview', 'composer', 'composer-success', 'composer-failure', 'markdown', 'changes', 'inbox', 'background', 'permission', 'home']
+CASES = ['send', 'send-handoff', 'layout', 'tracking', 'smooth-scroll', 'model-options', 'image-preview', 'composer', 'composer-success', 'composer-failure', 'markdown', 'changes', 'inbox', 'background', 'permission', 'home']
 PREVIEW = {
+    'smooth-scroll': 'scroll-preview',
     'send': 'send-preview',
     'send-handoff': 'send-handoff',
     'background': 'background-preview',
@@ -112,7 +113,7 @@ try:
             result = {'case': case, 'appearance': appearance, 'language': args.language, 'status': 'failed'}
             try:
                 sim('terminate', args.udid, 'app.innei.lody', check=False)
-                sim('launch', args.udid, 'app.innei.lody', '--ui-verify', '--initialUrl', f'http://localhost:{args.port}?disableOnboarding=1', '-expo.devlauncher.hasGrantedNetworkPermission', 'YES', '-AppleLanguages', f'({args.language})', '-AppleLocale', 'en_US' if args.language == 'en' else 'zh_CN',
+                sim('launch', args.udid, 'app.innei.lody', '--ui-verify', *(['--ui-verify-scroll'] if case == 'smooth-scroll' else []), '--initialUrl', f'http://localhost:{args.port}?disableOnboarding=1', '-expo.devlauncher.hasGrantedNetworkPermission', 'YES', '-AppleLanguages', f'({args.language})', '-AppleLocale', 'en_US' if args.language == 'en' else 'zh_CN',
                     '-AppleKeyboards', '(en_US@sw=QWERTY)')
                 ui.element('ui-verify-ready', timeout=90)
                 preview = PREVIEW.get(case, 'chat-preview')
@@ -122,7 +123,7 @@ try:
                 try:
                     ui.element(ready)
                 except AssertionError:
-                    if case in ['inbox', 'send', 'send-handoff'] and any(item.get('AXUniqueId') == preview for item in ui.state()):
+                    if case in ['inbox', 'send', 'send-handoff', 'smooth-scroll'] and any(item.get('AXUniqueId') == preview for item in ui.state()):
                         ui.axe('tap', '--id', preview, '--pre-delay', '0.5', '--post-delay', '1.2')
                         ui.element(ready)
                     else:
@@ -142,7 +143,7 @@ try:
                 else:
                     raise TimeoutError('Video recorder did not start')
                 ui.capture('before')
-                script = Path(__file__).with_name(f'{case}.py') if case in ['send', 'send-handoff', 'composer', 'markdown', 'changes', 'background', 'inbox', 'permission', 'home'] else CHAT / ('composer.py' if case.startswith('composer-') else f'{case}.py')
+                script = Path(__file__).with_name(f'{case}.py') if case in ['send', 'send-handoff', 'smooth-scroll', 'composer', 'markdown', 'changes', 'background', 'inbox', 'permission', 'home'] else CHAT / ('composer.py' if case.startswith('composer-') else f'{case}.py')
                 command = [sys.executable, str(script), args.udid]
                 if case.startswith('composer-'):
                     command += ['--expect', case.removeprefix('composer-'), '--output', str(output)]

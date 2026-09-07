@@ -3,6 +3,7 @@ import { BackgroundPreviewScreen } from './BackgroundPreviewScreen';
 import { uiVerify } from './uiVerify';
 import { ComposerPreviewScreen } from './ComposerPreviewScreen';
 import { ChatPreviewScreen } from './ChatPreviewScreen';
+import { ScrollPreviewScreen } from './ScrollPreviewScreen';
 import { ShinePreviewScreen } from './ShinePreviewScreen';
 import { InboxPreviewScreen } from './InboxPreviewScreen';
 import { Link, useTheme } from 'expo-router';
@@ -145,6 +146,12 @@ function View() {
         onPress={() => void present(ShinePreviewScreen, {})}
       >
         过程高光
+      </Button>
+      <Button
+        testID="scroll-preview"
+        onPress={() => void present(ScrollPreviewScreen, {})}
+      >
+        滚动连续性验收
       </Button>
       <Text style={{ color: colors.text, fontSize: 22, fontWeight: '600' }}>
         数据运行时

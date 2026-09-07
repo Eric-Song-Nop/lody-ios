@@ -24,6 +24,7 @@ final class ChatMarkdownCell: UICollectionViewCell {
     contentView.addSubview(markdown)
     contentView.addSubview(icon)
     contentView.addSubview(spinner)
+    contentView.clipsToBounds = true
     isAccessibilityElement = true
   }
   required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }

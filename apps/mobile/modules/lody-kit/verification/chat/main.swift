@@ -179,6 +179,25 @@ imageTranscript.entries[0].items.removeFirst()
 assert(imageTranscript.rows().map(\.kind) == ["image"], "Image-only messages must not add an empty bubble")
 print("Chat image rows: media before caption, stable anchor, and image-only layout passed")
 
+// A moving tail must traverse intermediate positions, never overshoot, and
+// converge to the same place on different refresh-rate displays.
+func follow(_ rate: Int) -> Double {
+  var y = 0.0
+  for frame in 0..<rate {
+    let target = frame < rate / 2 ? 600.0 : 1000.0
+    let next = ChatScroll.advance(y, toward: target, elapsed: 1.0 / Double(rate), response: 0.10)
+    precondition(next > y && next < target)
+    y = next
+  }
+  return y
+}
+precondition(abs(follow(60) - follow(120)) < 0.001)
+precondition(ChatScroll.advance(100, toward: 100.2, elapsed: 1.0 / 60, response: 0.10) == 100.2)
+let shrink = ChatScroll.advance(100, toward: 20, elapsed: 1.0 / 60, response: 0.06)
+precondition(shrink > 20 && shrink < 100)
+precondition(ChatScroll.advance(100, toward: 20, elapsed: 0, response: 0.06) == 100)
+print("Chat motion: continuous retargeting, contraction, convergence, and refresh-rate independence passed")
+
 let localPending = try! JSONDecoder().decode(ChatPendingSend.self, from: Data(#"{"id":"local-send","text":"hello","attachments":[{"id":"photo","name":"cat.png","uri":"file:///tmp/cat.png","kind":"image"}],"status":"正在上传…"}"#.utf8))
 let pendingRows = localPending.rows(entries: [])
 precondition(pendingRows.map(\.kind) == ["image", "user", "summary"], "A send must show its attachment, text and processing immediately")

@@ -31,6 +31,70 @@ struct ChatAttachment: Equatable {
       .appendingPathComponent(UUID().uuidString + "-" + name)
     return (try? data.write(to: destination)) == nil ? nil : destination
   }
+
+  private static func pastedType(for provider: NSItemProvider) -> UTType? {
+    if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) { return .fileURL }
+    return provider.registeredContentTypes.first { type in
+      !type.conforms(to: .directory)
+        && !type.conforms(to: .url)
+        && (!type.conforms(to: .text) || provider.suggestedName != nil)
+    }
+  }
+
+  static func canPaste(_ providers: [NSItemProvider]) -> Bool {
+    providers.contains { pastedType(for: $0) != nil }
+  }
+
+  private static func pastedURL(from item: NSSecureCoding?) -> URL? {
+    if let url = item as? URL { return url }
+    if let string = item as? String { return URL(string: string) }
+    guard let data = item as? Data,
+      let property = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil)
+    else { return nil }
+    if let string = property as? String { return URL(string: string) }
+    return (property as? [Any])?.compactMap { $0 as? String }.compactMap(URL.init(string:)).first
+  }
+
+  @discardableResult
+  static func paste(_ providers: [NSItemProvider], completion: @escaping ([ChatAttachment]) -> Void) -> Bool {
+    let items = providers.enumerated().compactMap { index, provider in
+      pastedType(for: provider).map { (index, provider, $0) }
+    }
+    guard !items.isEmpty else { return false }
+    let group = DispatchGroup()
+    let lock = NSLock()
+    var pasted: [(Int, ChatAttachment)] = []
+    func append(_ index: Int, _ provider: NSItemProvider, _ type: UTType, _ source: URL) {
+      guard source.isFileURL, let copy = store(source) else { return }
+      var name = provider.suggestedName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+      if name.isEmpty { name = source.lastPathComponent }
+      if URL(fileURLWithPath: name).pathExtension.isEmpty, let suffix = type.preferredFilenameExtension {
+        name += "." + suffix
+      }
+      let isImage = type.conforms(to: .image) || UTType(filenameExtension: URL(fileURLWithPath: name).pathExtension)?.conforms(to: .image) == true
+      lock.lock()
+      pasted.append((index, ChatAttachment(id: UUID().uuidString, name: name, url: copy, isImage: isImage)))
+      lock.unlock()
+    }
+    for (index, provider, type) in items {
+      group.enter()
+      if type == .fileURL {
+        provider.loadItem(forTypeIdentifier: type.identifier, options: nil) { item, _ in
+          defer { group.leave() }
+          guard let source = pastedURL(from: item), source.isFileURL else { return }
+          append(index, provider, UTType(filenameExtension: source.pathExtension) ?? .item, source)
+        }
+      } else {
+        provider.loadFileRepresentation(forTypeIdentifier: type.identifier) { source, _ in
+          defer { group.leave() }
+          guard let source else { return }
+          append(index, provider, type, source)
+        }
+      }
+    }
+    group.notify(queue: .main) { completion(pasted.sorted { $0.0 < $1.0 }.map(\.1)) }
+    return true
+  }
 }
 
 final class ChatAttachmentPicker: NSObject, UIDocumentPickerDelegate {

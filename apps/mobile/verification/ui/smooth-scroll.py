@@ -1,0 +1,125 @@
+"""Observe real UIKit geometry alongside the runner's framebuffer recording."""
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import time
+from driver import UI
+
+ui = UI(sys.argv[1], sys.argv[2])
+container = Path(subprocess.check_output(['xcrun', 'simctl', 'get_app_container', ui.udid, 'app.innei.lody', 'data'], text=True).strip())
+existing = set((container / 'tmp').glob('lody-scroll-*.json'))
+
+def tap(label):
+    ui.axe('tap', '--label', label, '--post-delay', '.4')
+
+def positions():
+    return {i['AXUniqueId']: i['frame']['y'] for i in ui.state()
+            if (i.get('AXUniqueId') or '').startswith('scroll-cache-')}
+
+def settled_positions():
+    previous = positions()
+    deadline = time.monotonic() + 6
+    while time.monotonic() < deadline:
+        time.sleep(.4)
+        current = positions()
+        common = previous.keys() & current.keys()
+        if common and max(abs(previous[key] - current[key]) for key in common) <= .34:
+            return current
+        previous = current
+    raise AssertionError('The injected drag did not finish decelerating')
+
+ui.element('scroll-cache-11:text')
+ui.capture('cache-visible')
+tap('Sync History')
+ui.element('scroll-new-5:text')
+time.sleep(1)
+ui.capture('sync-at-bottom')
+assert not any(i.get('AXUniqueId') == 'chat-scroll-to-bottom' for i in ui.state()), 'Sync did not settle at the bottom'
+
+tap('Cached History')
+ui.element('scroll-cache-11:text')
+ui.axe('swipe', '--start-x', '200', '--start-y', '300', '--end-x', '200', '--end-y', '580', '--duration', '.8', '--post-delay', '1')
+before = settled_positions()
+ui.capture('reading-cache')
+tap('Sync History')
+time.sleep(1.5)
+after = positions()
+common = before.keys() & after.keys()
+assert common, 'Sync lost all visible cached rows while reading'
+# The first visible row anchors the viewport. Rows below the corrected row may
+# legitimately move, so compare the first surviving row, not every visible row.
+anchor = min(common, key=lambda key: before[key])
+assert abs(before[anchor] - after[anchor]) <= 1, ('Cache update moved the reader', anchor, before, after)
+ui.capture('reading-preserved')
+
+tap('Stream Lines')
+ui.element('scroll-stream:tail')
+time.sleep(8)
+ui.capture('stream-at-bottom')
+assert not any(i.get('AXUniqueId') == 'chat-scroll-to-bottom' for i in ui.state()), 'Stream did not settle at the bottom'
+
+tap('Stream Lines')
+time.sleep(1)
+ui.axe('swipe', '--start-x', '200', '--start-y', '300', '--end-x', '200', '--end-y', '600', '--duration', '.7', '--post-delay', '.7')
+before = settled_positions()
+time.sleep(2)
+after = positions()
+common = before.keys() & after.keys()
+assert common, 'No history remained visible after interrupting the stream'
+assert max(abs(before[key] - after[key]) for key in common) <= 1, 'Streaming pulled the reader back after a drag'
+ui.capture('stream-interrupted')
+
+tap('Stream Process')
+ui.element('scroll-stream:body')
+time.sleep(8)
+ui.capture('process-stream')
+# Dismiss the production process Sheet with a real grabber drag.
+ui.axe('swipe', '--start-x', '200', '--start-y', '350', '--end-x', '200', '--end-y', '850', '--duration', '.6', '--post-delay', '1')
+ui.wait(lambda items: any(i.get('AXLabel') == 'Finish Trace' for i in items), 'Process Sheet did not dismiss')
+tap('Finish Trace')
+ui.element('ui-verify-ready')
+
+traces = []
+for path in sorted(set((container / 'tmp').glob('lody-scroll-*.json')) - existing):
+    shutil.copy2(path, ui.output / path.name)
+    traces.append(json.loads(path.read_text()))
+assert traces, 'Missing opt-in native frame samples; rebuild the Debug app'
+
+cache = next((trace['samples'] for trace in traces if trace['host'] == 'chat'
+              and any(s['count'] == 12 for s in trace['samples'])
+              and any(s['count'] == 18 and s['following'] for s in trace['samples'])), None)
+assert cache, 'Missing cache-to-live transition'
+start = next(i for i, sample in enumerate(cache) if sample['count'] == 18)
+motion = [s for s in cache[start:] if s['t'] - cache[start]['t'] < 1.5]
+distance = motion[0]['bottom'] - cache[start - 1]['offset']
+steps = [b['offset'] - a['offset'] for a, b in zip(motion, motion[1:])]
+assert distance > 300, ('Fixture did not require a substantial scroll', distance)
+assert sum(step > .5 for step in steps) >= 8, 'Cache update jumped instead of traversing intermediate frames'
+assert max(steps) < distance * .35, ('Cache catch-up jumped too far in one frame', max(steps), distance)
+assert abs(motion[-1]['bottom'] - motion[-1]['offset']) <= 1, 'Cache animation never reached its destination'
+
+growth = []
+for trace in traces:
+    samples = trace['samples']
+    deltas = []
+    for a, b in zip(samples, samples[1:]):
+        if not a['following'] or not b['following'] or a['dragging'] or b['dragging']:
+            continue
+        old = a['rows'].get('scroll-stream:body')
+        new = b['rows'].get('scroll-stream:body')
+        if old and new and 0 < b['t'] - a['t'] < .05:
+            delta = new['height'] - old['height']
+            if delta > .1:
+                deltas.append(delta)
+    if len(deltas) >= 12:
+        growth.append({'host': trace['host'], 'growingFrames': len(deltas),
+                       'subLineFrames': sum(d < 12 for d in deltas), 'maxHeightStep': max(deltas)})
+assert {'chat', 'process'} <= {item['host'] for item in growth}, ('Missing continuous growth in both hosts', growth)
+for item in growth:
+    assert item['subLineFrames'] >= item['growingFrames'] * .8, ('Height still changes by whole lines', item)
+report = {'cacheDistance': distance, 'cacheMovingFrames': sum(step > .5 for step in steps),
+          'cacheMaxStep': max(steps), 'readingAnchor': anchor, 'growth': growth}
+(ui.output / 'motion-summary.json').write_text(json.dumps(report, indent=2))
+print(json.dumps(report, indent=2))

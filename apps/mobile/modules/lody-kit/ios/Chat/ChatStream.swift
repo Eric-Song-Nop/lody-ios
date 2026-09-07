@@ -90,6 +90,13 @@ struct ChatStream {
 enum ChatScroll {
   static let resumeDistance: Double = 80
 
+  // Time-based convergence keeps a moving destination continuous across updates
+  // and behaves the same at 60 and 120 Hz. Snap only a subpixel remainder.
+  static func advance(_ current: Double, toward target: Double, elapsed: Double, response: Double) -> Double {
+    let next = current + (target - current) * (1 - exp(-max(0, elapsed) / response))
+    return abs(target - next) <= 0.5 ? target : next
+  }
+
   static func bottom(contentHeight: Double, viewportHeight: Double, topInset: Double, bottomInset: Double) -> Double {
     max(-topInset, contentHeight - viewportHeight + bottomInset)
   }
