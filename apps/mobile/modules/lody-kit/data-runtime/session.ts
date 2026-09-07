@@ -522,6 +522,9 @@ export async function sendTurn(args: {
 export function docSnapshot() {
   return active?.doc.toJSON();
 }
+function scalar(value: unknown) {
+  return value instanceof LoroText ? value.toString() : value;
+}
 function locateItem(entryId: string, itemId: string) {
   const state = active;
   if (!state) return undefined;
@@ -534,10 +537,11 @@ function locateItem(entryId: string, itemId: string) {
     for (let j = 0; j < items.length; j++) {
       const item = items.get(j);
       if (!(item instanceof LoroMap)) continue;
+      // Desktop writes toolCallId as LoroText; the projection reads it via toJSON.
+      const callId = scalar(item.get('toolCallId'));
       const id =
-        item.get('type') === 'tool_call' &&
-        typeof item.get('toolCallId') === 'string'
-          ? (item.get('toolCallId') as string)
+        scalar(item.get('type')) === 'tool_call' && typeof callId === 'string'
+          ? callId
           : identityAt(items, j);
       if (id === itemId) return item;
     }

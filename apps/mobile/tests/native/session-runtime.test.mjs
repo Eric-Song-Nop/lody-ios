@@ -516,6 +516,46 @@ test('itemDetail 按需取回 blocks，超限分页，缺失不抛错', async ()
   close();
 });
 
+test('tool calls whose toolCallId is a LoroText still resolve for detail and permission answers', async () => {
+  const { runtime, server, pushUpdate, close } = await openTestSession();
+  const entry = server.getList('history').pushContainer(new LoroMap());
+  entry.set('id', 'e10');
+  entry.set('role', 'assistant');
+  const items = entry.setContainer('items', new LoroList());
+  const call = items.pushContainer(new LoroMap());
+  call.setContainer('type', new LoroText()).insert(0, 'tool_call');
+  call.setContainer('toolCallId', new LoroText()).insert(0, 'exec-text');
+  call.set('kind', 'execute');
+  call.set('status', 'pending');
+  call.set('content', [
+    { type: 'terminal_command', command: 'pnpm', args: [], cwd: '/w' },
+  ]);
+  call.set('permissionRequest', {
+    requestId: 'req-1',
+    options: [{ optionId: 'allow_once', name: 'Yes', kind: 'allow_once' }],
+  });
+  server.commit();
+  await pushUpdate();
+
+  const detail = await runtime.itemDetail({
+    sessionId: 's1',
+    entryId: 'e10',
+    itemId: 'exec-text',
+  });
+  assert.equal(detail.blocks.length, 1);
+  assert.equal(detail.options.length, 1);
+
+  const answer = await runtime.respondPermission({
+    sessionId: 's1',
+    entryId: 'e10',
+    itemId: 'exec-text',
+    requestId: 'req-1',
+    optionId: 'allow_once',
+  });
+  assert.equal(answer.state, 'accepted');
+  close();
+});
+
 test(
   'background Sessions keep syncing, visits promote LRU, eviction aborts reads and preserves the final cache',
   { timeout: 15000 },
