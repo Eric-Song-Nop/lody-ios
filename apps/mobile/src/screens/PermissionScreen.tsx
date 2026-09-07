@@ -34,9 +34,7 @@ export type PermissionService = {
 export type PermissionParams = {
   sessionId: string;
   generation: number;
-  /** Known up front when the user taps the transcript row. */
   target?: PermissionTarget;
-  /** Feeds the target in later, so the sheet can open before the replica loads. */
   source?: PermissionTargetSource;
   service?: PermissionService;
 };
@@ -81,12 +79,15 @@ const HEADINGS: Record<string, TranslationKey> = {
 function useTarget(params: PermissionParams, giveUp: () => void) {
   const [target, setTarget] = useState(params.target);
   useEffect(() => {
-    if (params.target || !params.source) return;
+    if (!params.source) return;
+    // The source tracks the synced replica: an answer given on the desktop
+    // clears the pending request, so the sheet moves on or closes by itself.
     return params.source((state) => {
+      if (!state.ready) return;
       if (state.target) setTarget(state.target);
-      else if (state.ready) giveUp();
+      else giveUp();
     });
-  }, [params.target, params.source]);
+  }, [params.source]);
   return target;
 }
 
@@ -105,6 +106,7 @@ function View() {
   useEffect(() => {
     if (!target) return;
     let active = true;
+    setError('');
     void service
       .detail(params.sessionId, target)
       .then((next) => {

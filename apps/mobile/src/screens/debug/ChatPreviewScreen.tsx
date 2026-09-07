@@ -51,14 +51,19 @@ const permissionTarget: PermissionTarget = {
   path: undefined,
 };
 
-/** Resolves late on purpose: the sheet must open before the target is known. */
+// Resolves late so the sheet opens before the target is known, then clears the
+// request the way a desktop answer would, so the sheet must close on its own.
 const permissionSource: PermissionTargetSource = (onState) => {
   onState({ ready: false });
-  const timer = setTimeout(
+  const resolve = setTimeout(
     () => onState({ ready: true, target: permissionTarget }),
     2000,
   );
-  return () => clearTimeout(timer);
+  const answered = setTimeout(() => onState({ ready: true }), 10_000);
+  return () => {
+    clearTimeout(resolve);
+    clearTimeout(answered);
+  };
 };
 
 const permissionService: PermissionService = {

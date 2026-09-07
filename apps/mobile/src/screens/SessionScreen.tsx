@@ -224,7 +224,7 @@ function View() {
           sessionId: session.id,
           generation: cursor.current.generation,
           target,
-          source: target ? undefined : permissionSource,
+          source: permissionSource,
         }),
       );
     } catch {

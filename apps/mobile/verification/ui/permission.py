@@ -38,4 +38,11 @@ ui.wait(lambda items: any(i.get('AXUniqueId') == 'session-input' and i.get('AXVa
         'Answering the request lost the composer draft')
 assert not any(i.get('AXLabel') == 'Allow once' for i in ui.state()), 'Sheet stayed up after answering'
 ui.capture('answered')
-print('PASS: sheet opens before its target, keeps the draft through close and answer')
+
+open_sheet()
+ui.wait(lambda items: not any(i.get('AXLabel') == 'Allow once' for i in items),
+        'Sheet stayed up after the request was answered elsewhere', timeout=15)
+ui.wait(lambda items: any(i.get('AXUniqueId') == 'session-input' and i.get('AXValue') == DRAFT for i in items),
+        'Remote answer lost the composer draft')
+ui.capture('answered-elsewhere')
+print('PASS: sheet opens before its target, keeps the draft through close, answer and remote answer')
