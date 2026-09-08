@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
-import { present } from '@/presentation';
+import { present } from '@/lib/presentation';
 import { showToast } from '@/ui/toast';
 import { subscribeSessionNav } from '@/features/sessions/sessionNav';
 import { SessionScreen } from '@/screens/SessionScreen';
 import { CreateSessionScreen } from '@/screens/CreateSessionScreen';
-import { t } from '../../i18n/index.ts';
+import { t } from '../../lib/i18n/index.ts';
 
 export function useBindSessionNav() {
   useEffect(() => {

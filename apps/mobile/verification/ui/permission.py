@@ -5,7 +5,7 @@ import catalog
 
 ui = UI(sys.argv[1], sys.argv[2])
 close = catalog.text('accessibility.closeSheet', title=catalog.text('permission.title'))
-DRAFT = 'keep this draft'
+DRAFT = '12345'
 
 
 def open_sheet():
@@ -26,6 +26,7 @@ def type_draft():
 type_draft()
 open_sheet()
 assert any(i.get('AXLabel') == close for i in ui.state()), 'Non-dismissible sheet needs a close button'
+assert any(i.get('AXLabel') == 'Custom choice' for i in ui.state()), 'Option without kind must remain actionable'
 ui.capture('pending')
 ui.axe('tap', '--label', close, '--post-delay', '1')
 ui.wait(lambda items: any(i.get('AXUniqueId') == 'session-input' and i.get('AXValue') == DRAFT for i in items),

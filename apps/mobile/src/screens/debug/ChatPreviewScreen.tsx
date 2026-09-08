@@ -3,7 +3,7 @@ import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { NativeChat } from '@lody-ios/kit';
-import { definePage, present } from '@/presentation';
+import { definePage, present } from '@/lib/presentation';
 import { FileDiffScreen } from '@/screens/FileDiffScreen';
 import { basename } from '@/features/sessions/path';
 import { useProcessSheet } from '@/hooks/screens/useProcessSheet';
@@ -46,6 +46,12 @@ const permissionTarget: PermissionTarget = {
   entryId: 'preview',
   itemId: 'edit',
   requestId: 'ui-verify-request',
+  options: [
+    { optionId: 'allow', name: 'Allow once', kind: 'allow_once' },
+    { optionId: 'always', name: 'Always allow', kind: 'allow_always' },
+    { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
+    { optionId: 'custom', name: 'Custom choice' },
+  ],
   kind: 'execute',
   title: '在 lody-ios 中执行命令',
   path: undefined,
@@ -67,12 +73,9 @@ const permissionSource: PermissionTargetSource = (onState) => {
 };
 
 const permissionService: PermissionService = {
+  // Empty detail options prove the sheet renders the synced request's actions.
   detail: async () => ({
-    options: [
-      { optionId: 'allow', name: 'Allow once', kind: 'allow_once' },
-      { optionId: 'always', name: 'Always allow', kind: 'allow_always' },
-      { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
-    ],
+    options: [],
     command: {
       type: 'terminal_command',
       command: 'pnpm',

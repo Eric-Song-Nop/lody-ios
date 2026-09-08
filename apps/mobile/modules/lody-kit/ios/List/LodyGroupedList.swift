@@ -15,6 +15,7 @@ struct LodyListRow: Record {
   @Field var subtitle: String = ""
   @Field var value: String = ""
   @Field var image: String = ""
+  @Field var filePath: String = ""
   @Field var imageTint: String = ""
   @Field var subtitleMono: Bool = false
   @Field var unread: Bool = false
@@ -84,21 +85,13 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
   private var placeholderText = ""
 
   private static var accent: UIColor = .systemBlue
+  private var bottomInset: CGFloat = 0
   private var transparent = false
   private var contentStyle = false
   private var rowsByID: [ListItemID: LodyListRow] = [:]
   private var dataSource: UICollectionViewDiffableDataSource<String, ListItemID>!
 
-  private static let restingCard = UIColor { traits in
-    traits.userInterfaceStyle == .dark
-      ? UIColor(red: 0.11, green: 0.11, blue: 0.12, alpha: 1)
-      : .white
-  }
-  private static let selectedCard = UIColor { traits in
-    traits.userInterfaceStyle == .dark
-      ? UIColor(red: 0.17, green: 0.17, blue: 0.18, alpha: 1)
-      : UIColor(red: 0.898, green: 0.898, blue: 0.918, alpha: 1)
-  }
+  private static let restingCard = UIColor.tertiarySystemGroupedBackground
 
   private let registration = UICollectionView.CellRegistration<UICollectionViewListCell, LodyListRow> { cell, _, row in
     let accent = LodyGroupedList.accent
@@ -115,7 +108,9 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
       )
     }
     content.textProperties.color = row.destructive ? .systemRed : .label
-    if !row.image.isEmpty {
+    if !row.filePath.isEmpty {
+      content.image = MaterialFileIcon.image(for: row.filePath)
+    } else if !row.image.isEmpty {
       content.image = UIImage(systemName: row.image)
       content.imageProperties.tintColor =
         lodyTint(row.imageTint) ?? (row.destructive ? .systemRed : accent)
@@ -156,6 +151,8 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
 
   required init(appContext: AppContext? = nil) {
     var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
+    // The collection owns the ground; the layout must not repaint it at full detent.
+    configuration.backgroundColor = .clear
     configuration.headerMode = .supplementary
     configuration.footerMode = .supplementary
     collection = UICollectionView(frame: .zero, collectionViewLayout: UICollectionViewCompositionalLayout.list(using: configuration))
@@ -222,6 +219,7 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
   override func layoutSubviews() {
     super.layoutSubviews()
     collection.frame = bounds
+    updateBottomInset()
     let insets = collection.adjustedContentInset
     if !segmentContainer.isHidden {
       // Content starts below the bar plus the strip; the strip sits in that gap.
@@ -423,13 +421,25 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
   }
 
   /// A sheet paints its own material. Dropping the list's ground lets that
-  /// material show between groups; cells take `lodyOpaqueCard` so rows still
-  /// read as cards.
+  /// material show between groups. A tertiary grouped surface keeps cells
+  /// distinct when the expanded sheet switches to an opaque background.
   func setTransparent(_ value: Bool) {
     guard value != transparent else { return }
     transparent = value
     collection.backgroundColor = value ? .clear : .systemGroupedBackground
     collection.reloadData()
+  }
+
+  func setBottomInset(_ height: CGFloat) {
+    bottomInset = height
+    updateBottomInset()
+  }
+
+  private func updateBottomInset() {
+    let wanted = max(0, bottomInset - collection.safeAreaInsets.bottom)
+    guard collection.contentInset.bottom != wanted else { return }
+    collection.contentInset.bottom = wanted
+    collection.verticalScrollIndicatorInsets.bottom = wanted
   }
 
   func setAccent(_ value: String) {
@@ -481,9 +491,9 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
       // opaque, which the glass sheet context otherwise makes translucent.
       cell.configurationUpdateHandler = { cell, state in
         var background = UIBackgroundConfiguration.listGroupedCell().updated(for: state)
-        background.backgroundColor = state.isHighlighted || state.isSelected
-          ? LodyGroupedList.selectedCard
-          : LodyGroupedList.restingCard
+        if !state.isHighlighted && !state.isSelected {
+          background.backgroundColor = LodyGroupedList.restingCard
+        }
         cell.backgroundConfiguration = background
       }
     } else {

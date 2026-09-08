@@ -2,16 +2,14 @@ import { useEffect, useState } from 'react';
 import {
   NativeGroupedList,
   listDir,
-  previewContent,
-  readFile,
-  showToast,
   type DirectoryEntry,
   type NativeListSection,
 } from '@lody-ios/kit';
-import { definePage, usePageRuntime } from '@/presentation';
-import { usePalette } from '@/theme/palette';
-import { FileScreen } from '@/screens/FileScreen';
-import { t, type TranslationKey } from '../i18n/index.ts';
+import { definePage } from '@/lib/presentation';
+import { usePalette } from '@/lib/theme/palette';
+import { useOpenFile } from '@/hooks/screens/useOpenFile';
+import { t } from '../lib/i18n/index.ts';
+import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 
 export type FilesParams = {
   workspaceId: string;
@@ -23,14 +21,6 @@ export type FilesParams = {
 
 const join = (base: string, name: string) => (base ? `${base}/${name}` : name);
 
-const READ_ERRORS: Record<string, TranslationKey> = {
-  too_large: 'files.error.tooLarge',
-  file_not_found: 'files.error.notFound',
-  permission_denied: 'files.error.permissionDenied',
-  path_not_allowed: 'files.error.pathNotAllowed',
-  decode_error: 'files.error.decode',
-};
-
 function View() {
   const { params, push } = usePageRuntime<FilesParams>();
   const colors = usePalette();
@@ -38,7 +28,7 @@ function View() {
   const [truncated, setTruncated] = useState(false);
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
-  const [opening, setOpening] = useState('');
+  const openFile = useOpenFile(params.sessionId);
 
   useEffect(() => {
     let active = true;
@@ -77,28 +67,7 @@ function View() {
       );
       return;
     }
-    if (opening) return;
-    setOpening(path);
-    try {
-      const file = await readFile({ sessionId: params.sessionId, path });
-      if (file.status !== 'ok') {
-        const key = READ_ERRORS[file.code];
-        showToast(key ? t(key) : (file.message ?? t('files.error.read')));
-        return;
-      }
-      if (file.kind === 'image' || file.kind === 'binary')
-        await previewContent(file.handle);
-      else
-        void push(
-          FileScreen,
-          { path, handle: file.handle, bytes: file.bytes },
-          { title: entry.name },
-        );
-    } catch {
-      showToast(t('files.error.offline'));
-    } finally {
-      setOpening('');
-    }
+    await openFile(path);
   };
 
   const sections: NativeListSection[] = [
@@ -109,7 +78,9 @@ function View() {
         ...(entries ?? []).map((entry) => ({
           id: `entry:${entry.name}`,
           title: entry.name,
-          image: entry.type === 'directory' ? 'folder' : 'doc.text',
+          image: entry.type === 'directory' ? 'folder' : undefined,
+          filePath:
+            entry.type === 'file' ? join(params.path, entry.name) : undefined,
           imageTint: entry.type === 'directory' ? undefined : 'secondary',
           action: true,
           navigates: entry.type === 'directory',

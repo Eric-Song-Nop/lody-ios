@@ -12,10 +12,12 @@ assert header['AXLabel'] == catalog.text(
     'native.chat.file.diffStats',
     text=catalog.plural('native.chat.transcript.fileCount', 2), add=2, **{'del': 2}
 )
+assert 28 <= header['frame']['height'] < 29, header['frame']['height']
 for path in paths:
     card = ui.element('diff-preview:changes:' + path)
     assert card['AXLabel'] == catalog.text('native.chat.file.diffStats', text=path, add=1, **{'del': 1})
-    assert card['frame']['height'] >= 64
+    height = card['frame']['height']
+    assert 44 <= height < 45, f'{path} height {height}'
 answer = ui.element('diff-preview:answer')
 first_id = 'diff-preview:changes:' + paths[0]
 second_id = 'diff-preview:changes:' + paths[1]

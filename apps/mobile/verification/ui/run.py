@@ -1,4 +1,4 @@
-"""Run offline UI baselines on a disposable Simulator; see README.md."""
+"""Run offline UI baselines on a managed Simulator lease; see README.md."""
 import argparse
 import json
 import os
@@ -12,9 +12,19 @@ from urllib.request import Request, urlopen
 from driver import UI
 
 ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from simulator import run_with_simulator, SimulatorPool
+
 CHAT = ROOT / 'apps/mobile/modules/lody-kit/verification/chat'
-CASES = ['send', 'send-handoff', 'layout', 'tracking', 'smooth-scroll', 'model-options', 'image-preview', 'composer', 'composer-success', 'composer-failure', 'markdown', 'changes', 'inbox', 'background', 'permission', 'home']
+CASES = ['send-queue', 'send-rounds', 'file-preview', 'chat-performance', 'settings', 'send', 'send-handoff', 'layout', 'tracking', 'smooth-scroll', 'model-options', 'image-preview', 'composer', 'composer-success', 'composer-failure', 'markdown', 'changes', 'inbox', 'background', 'permission', 'home', 'model-memory', 'onboarding']
 PREVIEW = {
+    'permission': 'permission-preview',
+    'send-queue': 'send-queue',
+    'send-rounds': 'send-preview',
+    'file-preview': 'file-preview',
+    'chat-performance': 'chat-performance',
+    'settings': 'settings-preview',
+    'model-memory': 'model-memory',
     'smooth-scroll': 'scroll-preview',
     'send': 'send-preview',
     'send-handoff': 'send-handoff',
@@ -23,8 +33,14 @@ PREVIEW = {
     'composer-success': 'composer-success',
     'composer-failure': 'composer-failure',
     'inbox': 'inbox-preview',
+    'onboarding': 'onboarding-preview',
 }
 READY = {
+    'send-queue': 'send-status',
+    'send-rounds': 'send-status',
+    'file-preview': 'file-links:answer',
+    'settings': 'settings-machine',
+    'model-memory': 'create-session-input',
     'send': 'send-status',
     'send-handoff': 'create-session-input',
     'background': 'background-status',
@@ -32,15 +48,26 @@ READY = {
     'composer-success': 'session-input',
     'composer-failure': 'session-input',
     'inbox': 'inbox-wait',
+    'onboarding': 'onboarding-connect',
 }
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--udid', required=True, help='Disposable simulator, never a personal device')
+parser.add_argument(
+    '--udid',
+    default=os.environ.get('LODY_VERIFY_UDID') or None,
+    help='Existing Simulator; omit to lease a clean Lody Verify Simulator',
+)
 parser.add_argument('--app', required=True, type=Path)
 parser.add_argument('--output', type=Path, default=ROOT / '.artifacts/ui')
 parser.add_argument('--port', type=int, default=8097)
 parser.add_argument('--case', choices=CASES)
 parser.add_argument('--language', choices=['en', 'zh-Hans'], default='en', help='App Language for this run; scenes assert the matching catalog')
 args = parser.parse_args()
+if args.udid is None:
+    verify_name = 'UI'
+    if args.case is not None:
+        verify_name = args.case.replace('-', ' ').title()
+    command = [sys.executable, __file__, *sys.argv[1:]]
+    raise SystemExit(run_with_simulator(SimulatorPool(), verify_name, command))
 args.output = args.output.resolve()
 args.output.mkdir(parents=True, exist_ok=True)
 if (args.output / 'results.json').exists():
@@ -113,21 +140,23 @@ try:
             result = {'case': case, 'appearance': appearance, 'language': args.language, 'status': 'failed'}
             try:
                 sim('terminate', args.udid, 'app.innei.lody', check=False)
-                sim('launch', args.udid, 'app.innei.lody', '--ui-verify', *(['--ui-verify-scroll'] if case == 'smooth-scroll' else []), '--initialUrl', f'http://localhost:{args.port}?disableOnboarding=1', '-expo.devlauncher.hasGrantedNetworkPermission', 'YES', '-AppleLanguages', f'({args.language})', '-AppleLocale', 'en_US' if args.language == 'en' else 'zh_CN',
+                sim('launch', args.udid, 'app.innei.lody', '--ui-verify', *(['--ui-verify-scroll'] if case == 'smooth-scroll' else []), *(['--ui-verify-throw'] if case in ['send', 'send-handoff', 'send-rounds', 'send-queue'] else []), '--initialUrl', f'http://localhost:{args.port}?disableOnboarding=1', '-expo.devlauncher.hasGrantedNetworkPermission', 'YES', '-EXDevMenuShowsAtLaunch', 'NO', '-EXDevMenuIsOnboardingFinished', 'YES', '-EXDevMenuShowFloatingActionButton', 'NO', '-AppleLanguages', f'({args.language})', '-AppleLocale', 'en_US' if args.language == 'en' else 'zh_CN',
                     '-AppleKeyboards', '(en_US@sw=QWERTY)')
                 ui.element('ui-verify-ready', timeout=90)
                 preview = PREVIEW.get(case, 'chat-preview')
                 ready = 'new-session-tab' if case == 'home' else READY.get(case, 'session-input')
                 if case != 'home':
-                    ui.axe('tap', '--id', preview, '--pre-delay', '0.8', '--post-delay', '0.8', *(['--tap-style', 'physical'] if case == 'background' else []))
+                    ui.axe('tap', '--id', preview, '--pre-delay', '0.8', '--post-delay', '0.8', *(['--tap-style', 'physical'] if case in ['background', 'permission'] else []))
                 try:
                     ui.element(ready)
                 except AssertionError:
-                    if case in ['inbox', 'send', 'send-handoff', 'smooth-scroll'] and any(item.get('AXUniqueId') == preview for item in ui.state()):
+                    if case in ['inbox', 'send', 'send-handoff', 'send-rounds', 'send-queue', 'smooth-scroll'] and any(item.get('AXUniqueId') == preview for item in ui.state()):
                         ui.axe('tap', '--id', preview, '--pre-delay', '0.5', '--post-delay', '1.2')
                         ui.element(ready)
                     else:
                         raise
+                if case == 'permission':
+                    ui.wait(lambda items: any(i.get('AXLabel') == 'Permission Fixture' for i in items), 'Missing permission fixture toolbar')
                 if case == 'image-preview':
                     ui.axe('tap', '--label', 'Image Fixture')
                     ui.element('preview-image:user')
@@ -143,7 +172,7 @@ try:
                 else:
                     raise TimeoutError('Video recorder did not start')
                 ui.capture('before')
-                script = Path(__file__).with_name(f'{case}.py') if case in ['send', 'send-handoff', 'smooth-scroll', 'composer', 'markdown', 'changes', 'background', 'inbox', 'permission', 'home'] else CHAT / ('composer.py' if case.startswith('composer-') else f'{case}.py')
+                script = Path(__file__).with_name(f'{case}.py') if case in ['file-preview', 'chat-performance', 'settings', 'send', 'send-handoff', 'send-rounds', 'send-queue', 'smooth-scroll', 'composer', 'markdown', 'changes', 'background', 'inbox', 'permission', 'home', 'model-memory', 'onboarding'] else CHAT / ('composer.py' if case.startswith('composer-') else f'{case}.py')
                 command = [sys.executable, str(script), args.udid]
                 if case.startswith('composer-'):
                     command += ['--expect', case.removeprefix('composer-'), '--output', str(output)]
@@ -174,7 +203,8 @@ try:
                         recording.wait()
                     recording.stderr.close()
                 if recording is not None and (not (output / 'run.mp4').exists() or (output / 'run.mp4').stat().st_size == 0):
-                    result.update(status='failed', error='Required video was not captured')
+                    result['status'] = 'failed'
+                    result.setdefault('error', 'Required video was not captured')
                 result['seconds'] = round(time.monotonic() - started, 2)
                 results.append(result)
                 (args.output / 'results.json').write_text(json.dumps(results, indent=2))

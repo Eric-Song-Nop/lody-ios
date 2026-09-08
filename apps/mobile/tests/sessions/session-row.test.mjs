@@ -8,7 +8,7 @@ import {
   stateSymbol,
   stateTint,
 } from '../../src/features/sessions/status.ts';
-import { setLocale } from '../../src/i18n/index.ts';
+import { setLocale } from '../../src/lib/i18n/index.ts';
 
 setLocale('zh-Hans');
 

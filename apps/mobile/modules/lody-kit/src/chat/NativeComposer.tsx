@@ -3,8 +3,7 @@ import { useState, type ComponentProps, type ComponentType } from 'react';
 import type { NativeSyntheticEvent, ViewProps } from 'react-native';
 import type { NativeChat } from './NativeChat';
 
-type Props = ViewProps &
-  Pick<
+type Props = ViewProps & { scrollEdge?: boolean } & Pick<
     ComponentProps<typeof NativeChat>,
     | 'composerJSON'
     | 'composerOptionsJSON'

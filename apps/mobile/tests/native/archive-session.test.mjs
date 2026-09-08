@@ -110,3 +110,44 @@ test('archive writes the machine command after the session meta; restore clears 
     /session_not_found/,
   );
 });
+
+test('archive lands on the session even when the machine flock is unavailable', async () => {
+  const meta = new Flock('meta'),
+    remoteMeta = new Flock('remote-meta');
+  meta.set(['m', 'session-s2'], {
+    id: 's2',
+    machineId: 'gone',
+    isArchived: false,
+  });
+  globalThis.__archiveClient = class {
+    async append() {
+      throw new Error('offline');
+    }
+  };
+  const replica = {
+    flock: meta,
+    client: {
+      async append({ part }) {
+        remoteMeta.importJson(unframe(part.body));
+        return { ok: true, result: {} };
+      },
+    },
+  };
+  const grant = async () => ({ token: 't', gatewayBaseUrl: 'https://x' });
+  await archiveSession(
+    { workspaceId: 'w1', sessionId: 's2', archived: true },
+    replica,
+    new Map(),
+    grant,
+  );
+  assert.equal(remoteMeta.get(['m', 'session-s2', 'isArchived']), true);
+  const machine = new Flock('machine');
+  await archiveSession(
+    { workspaceId: 'w1', sessionId: 's2', archived: false },
+    replica,
+    new Map([['gone', machine]]),
+    grant,
+  );
+  assert.equal(remoteMeta.get(['m', 'session-s2', 'isArchived']), false);
+  assert.equal(machine.get(['cmd', 'archiveSession', 's2']), undefined);
+});

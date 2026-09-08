@@ -1,11 +1,18 @@
+import { FilePreviewScreen } from './FilePreviewScreen';
+import { CreateSessionScreen } from '../CreateSessionScreen';
+import { writeLocal } from '@/cloud/kv';
+import { createPrefsKey } from '@/features/sessions/createPrefs';
 import { openSendPreview } from './SendPreviewScreen';
 import { BackgroundPreviewScreen } from './BackgroundPreviewScreen';
 import { uiVerify } from './uiVerify';
 import { ComposerPreviewScreen } from './ComposerPreviewScreen';
 import { ChatPreviewScreen } from './ChatPreviewScreen';
+import { ChatPerformanceScreen } from './ChatPerformanceScreen';
 import { ScrollPreviewScreen } from './ScrollPreviewScreen';
 import { ShinePreviewScreen } from './ShinePreviewScreen';
 import { InboxPreviewScreen } from './InboxPreviewScreen';
+import { SettingsPreviewScreen } from './SettingsPreviewScreen';
+import { OnboardingPreviewScreen } from './OnboardingPreviewScreen';
 import { Link, useTheme } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Text, View as RNView } from 'react-native';
@@ -20,12 +27,12 @@ import {
 import { EnvironmentScreen } from '@/screens/EnvironmentScreen';
 import {
   definePage,
-  usePageRuntime,
   present,
   type PagePresentationOptions,
-} from '@/presentation';
+} from '@/lib/presentation';
 import { Screen } from '@/ui/Screen';
 import { Button } from '@/ui/Button';
+import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 
 function View() {
   const [runtime, setRuntime] = useState('正在读取');
@@ -80,8 +87,49 @@ function View() {
       {uiVerify && (
         <Text testID="ui-verify-ready">Offline UI verification</Text>
       )}
+      <Button
+        testID="permission-preview"
+        onPress={() => void present(ChatPreviewScreen, {})}
+      >
+        权限验收
+      </Button>
+      <Button
+        testID="file-preview"
+        onPress={() => void present(FilePreviewScreen, {})}
+      >
+        文件预览验收
+      </Button>
+      <Button
+        testID="onboarding-preview"
+        onPress={() => void present(OnboardingPreviewScreen, {})}
+      >
+        登录引导验收
+      </Button>
+      <Button
+        testID="settings-preview"
+        onPress={() => void present(SettingsPreviewScreen, {})}
+      >
+        远程设置验收
+      </Button>
+      <Button
+        testID="chat-performance"
+        onPress={() => void present(ChatPerformanceScreen, {})}
+      >
+        10,000 条消息性能测试
+      </Button>
+      {uiVerify && (
+        <Button testID="model-memory" onPress={() => void openModelMemory()}>
+          Model memory verification
+        </Button>
+      )}
       <Button testID="send-preview" onPress={() => void openSendPreview(false)}>
         离线发送验收
+      </Button>
+      <Button
+        testID="send-queue"
+        onPress={() => void openSendPreview(false, true)}
+      >
+        Queue 验收
       </Button>
       <Button testID="send-handoff" onPress={() => void openSendPreview(true)}>
         新建发送交接
@@ -281,3 +329,49 @@ export const DebugScreen = definePage({
   Component: View,
   presentation: { style: 'push', headerVariant: 'transparent' },
 });
+
+async function openModelMemory() {
+  const workspaceId = 'ui-model-memory';
+  await writeLocal(createPrefsKey('', workspaceId), null);
+  const project = {
+    id: 'ui:local:models',
+    name: 'Model Memory',
+    machineId: 'ui',
+    rootPath: '/fixture',
+  };
+  await present(CreateSessionScreen, {
+    workspaceId,
+    projects: [project],
+    projectId: project.id,
+    loadOptions: async () => ({
+      sessionId: 'ui-model-memory',
+      project,
+      agents: [
+        {
+          id: 'agent',
+          name: 'Fixture Agent',
+          machineId: 'ui',
+          machineName: 'Fixture Mac',
+          cliType: 'builtin',
+          agentType: 'codex',
+        },
+      ],
+      capabilities: [
+        {
+          machineId: 'ui',
+          cliType: 'builtin',
+          agentType: 'codex',
+          models: [
+            { id: 'a', name: 'Model A' },
+            { id: 'b', name: 'Model B' },
+          ],
+          modes: [
+            { id: 'read-only', name: 'Read Only' },
+            { id: 'agent-full-access', name: 'Full Access' },
+          ],
+          reasoningEfforts: { a: ['low', 'high'], b: ['low', 'high'] },
+        },
+      ],
+    }),
+  });
+}

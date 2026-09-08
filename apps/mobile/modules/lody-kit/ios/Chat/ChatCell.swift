@@ -1,7 +1,7 @@
 import UIKit
 
 final class ChatCell: UICollectionViewCell, UIContextMenuInteractionDelegate {
-  var messageContent = ChatMessageContent(frame: .zero)
+  let messageContent = ChatMessageContent(frame: .zero)
   var label: ChatTextView { messageContent.label }
   var bubble: UIView { messageContent.bubble }
   let icon = UIImageView()
@@ -35,17 +35,6 @@ final class ChatCell: UICollectionViewCell, UIContextMenuInteractionDelegate {
     accessibilityTraits = row.actionable ? .button : .staticText
     accessibilityHint = hint(for: row)
     label.setShine(row.kind == "summary" && row.running && !row.attention)
-    setNeedsLayout()
-  }
-  func adopt(_ content: ChatMessageContent) {
-    let frame = messageContent.frame
-    messageContent.removeFromSuperview()
-    messageContent = content
-    contentView.insertSubview(content, at: 0)
-    content.frame = frame
-    content.isHidden = false
-    content.isUserInteractionEnabled = true
-    content.accessibilityElementsHidden = false
     setNeedsLayout()
   }
   override func prepareForReuse() {

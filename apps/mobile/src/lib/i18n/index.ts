@@ -1,5 +1,5 @@
-import en from '../../locales/en.json' with { type: 'json' };
-import zhHans from '../../locales/zh-Hans.json' with { type: 'json' };
+import en from '../../../locales/en.json' with { type: 'json' };
+import zhHans from '../../../locales/zh-Hans.json' with { type: 'json' };
 import type { Locale, TemplateVars } from './format.ts';
 import { formatTemplate, pluralSuffix } from './format.ts';
 

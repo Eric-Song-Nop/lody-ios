@@ -18,8 +18,14 @@ private let languages: [String: String] = [
 
 final class LodyCodeView: ExpoView, UITextViewDelegate {
   let onFail = EventDispatcher()
+  let onFilePress = EventDispatcher()
   private let textView = UITextView()
   private let gutter = GutterView()
+  private let documentScroll = UIScrollView()
+  private let document = FileMarkdownView()
+  private var renderMarkdown = false
+  private var startLine = 0
+  private var pendingLine = false
   private weak var scrollOwner: UIViewController?
   private var handle = ""
   private var path = ""
@@ -37,12 +43,34 @@ final class LodyCodeView: ExpoView, UITextViewDelegate {
     textView.contentInsetAdjustmentBehavior = .automatic
     textView.textContainer.lineFragmentPadding = 0
     textView.delegate = self
+    documentScroll.alwaysBounceVertical = true
+    documentScroll.contentInsetAdjustmentBehavior = .automatic
+    documentScroll.accessibilityIdentifier = "file-document"
+    document.accessibilityIdentifier = "file-document-content"
+    document.accessibilityTraits = .staticText
+    documentScroll.addSubview(document)
+    document.trackedScrollView = documentScroll
+    document.linkHandler = { [weak self] payload, _, _ in
+      let href: String = switch payload {
+      case .url(let url): url.absoluteString
+      case .string(let value): value
+      }
+      if let target = ChatFileLink(href) {
+        self?.onFilePress(["path": target.path, "line": target.line ?? 0])
+      } else if let url = URL(string: href), ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
+        UIApplication.shared.open(url)
+      }
+    }
+    addSubview(documentScroll)
+    textView.accessibilityIdentifier = "file-source"
     addSubview(textView)
     gutter.textView = textView
     gutter.isUserInteractionEnabled = false
     addSubview(gutter)
   }
 
+  func setMarkdown(_ value: Bool) { renderMarkdown = value; scheduleRender() }
+  func setLine(_ value: Int) { startLine = value; scheduleRender() }
   func setHandle(_ value: String) { handle = value; scheduleRender() }
   func setPath(_ value: String) { path = value; scheduleRender() }
 
@@ -68,6 +96,20 @@ final class LodyCodeView: ExpoView, UITextViewDelegate {
       return
     }
     var theme = ChatMarkdownTheme.make(traits: traitCollection, secondary: false)
+    textView.isHidden = renderMarkdown
+    gutter.isHidden = renderMarkdown
+    documentScroll.isHidden = !renderMarkdown
+    if renderMarkdown {
+      let content = FileMarkdownView.content(MarkdownContent(markdown: text, theme: theme))
+      document.setContentImmediately(content, theme: theme)
+      document.accessibilityLabel = text
+      document.isAccessibilityElement = true
+      document.accessibilityCustomActions = document.fileActions(content)
+      documentScroll.contentOffset = CGPoint(x: 0, y: -documentScroll.adjustedContentInset.top)
+      attachScrollOwner()
+      setNeedsLayout()
+      return
+    }
     theme.colors.code = .label
     // ponytail: highlightr runs on the main thread; above 256 KB the file shows plain text.
     let attributed: NSAttributedString
@@ -91,6 +133,8 @@ final class LodyCodeView: ExpoView, UITextViewDelegate {
     textView.contentOffset = CGPoint(x: 0, y: -textView.adjustedContentInset.top)
     setNeedsLayout()
     gutter.setNeedsDisplay()
+    pendingLine = startLine > 0 && startLine <= lineStarts.count
+    attachScrollOwner()
   }
 
   private static func gutterWidth(lines: Int, font: UIFont) -> CGFloat {
@@ -105,7 +149,17 @@ final class LodyCodeView: ExpoView, UITextViewDelegate {
 
   override func layoutSubviews() {
     super.layoutSubviews()
+    documentScroll.frame = bounds
+    let width = max(1, bounds.width - 32)
+    let height = document.boundingSize(for: width).height
+    document.frame = CGRect(x: 16, y: 12, width: width, height: height)
+    documentScroll.contentSize = CGSize(width: bounds.width, height: height + 36)
     textView.frame = bounds
+    if pendingLine, !renderMarkdown, bounds.height > 0 {
+      pendingLine = false
+      textView.layoutIfNeeded()
+      textView.scrollRangeToVisible(NSRange(location: lineStarts[startLine - 1], length: 0))
+    }
     gutter.frame = CGRect(x: 0, y: 0, width: gutter.width, height: bounds.height)
     attachScrollOwner()
     gutter.setNeedsDisplay()
@@ -117,12 +171,12 @@ final class LodyCodeView: ExpoView, UITextViewDelegate {
   }
 
   private func attachScrollOwner() {
-    guard window != nil, scrollOwner == nil else { return }
+    guard window != nil else { return }
     var responder = next
     while let current = responder {
       if let owner = current as? UIViewController {
-        owner.setContentScrollView(textView, for: .top)
-        owner.setContentScrollView(textView, for: .bottom)
+        owner.setContentScrollView(renderMarkdown ? documentScroll : textView, for: .top)
+        owner.setContentScrollView(renderMarkdown ? documentScroll : textView, for: .bottom)
         scrollOwner = owner
         return
       }
@@ -133,7 +187,7 @@ final class LodyCodeView: ExpoView, UITextViewDelegate {
   override func willMove(toWindow newWindow: UIWindow?) {
     super.willMove(toWindow: newWindow)
     guard newWindow == nil, let owner = scrollOwner else { return }
-    if owner.contentScrollView(for: .top) === textView {
+    if owner.contentScrollView(for: .top) === textView || owner.contentScrollView(for: .top) === documentScroll {
       owner.setContentScrollView(nil, for: .top)
       owner.setContentScrollView(nil, for: .bottom)
     }
@@ -172,7 +226,11 @@ private final class GutterView: UIView {
       .foregroundColor: UIColor.tertiaryLabel,
     ]
     UIColor.separator.setFill()
-    UIRectFill(CGRect(x: bounds.width - 0.5, y: 0, width: 0.5, height: bounds.height))
+    let top = max(textView.adjustedContentInset.top, layout.usedRect(for: container).minY - offset)
+    let bottom = min(bounds.height - textView.adjustedContentInset.bottom, layout.usedRect(for: container).maxY - offset)
+    if bottom > top {
+      UIRectFillUsingBlendMode(CGRect(x: bounds.width - 0.5, y: top, width: 0.5, height: bottom - top), .normal)
+    }
     layout.enumerateLineFragments(forGlyphRange: glyphs) { [self] fragment, _, _, glyphRange, _ in
       let characters = layout.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
       let line = lineIndex(startingAt: characters.location)

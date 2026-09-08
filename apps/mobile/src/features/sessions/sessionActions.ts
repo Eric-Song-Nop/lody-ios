@@ -1,7 +1,7 @@
 import { archiveSession, pinSession } from '@lody-ios/kit';
 import { showToast } from '../../ui/toast.ts';
 import type { Catalog, Session } from '../../models/catalog.ts';
-import { t } from '../../i18n/index.ts';
+import { t } from '../../lib/i18n/index.ts';
 
 export async function setArchived(
   workspaceId: string,

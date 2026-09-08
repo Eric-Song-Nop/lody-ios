@@ -3,7 +3,7 @@ import type { Catalog, Session } from '../../models/catalog.ts';
 import type { SessionState } from './status.ts';
 import { agentName, sessionState, stateTint } from './status.ts';
 import { activityBucket, relativeTime } from '../../ui/time.ts';
-import { t, type TranslationKey } from '../../i18n/index.ts';
+import { t, type TranslationKey } from '../../lib/i18n/index.ts';
 
 const groups = [
   { id: 'attention', header: 'inbox.section.attention' },

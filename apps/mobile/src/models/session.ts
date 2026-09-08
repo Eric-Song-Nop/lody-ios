@@ -12,7 +12,11 @@ export type ItemSummary =
       added?: number;
       removed?: number;
       hasDetail: boolean;
-      permission?: { requestId: string; pending: boolean };
+      permission?: {
+        requestId: string;
+        pending: boolean;
+        options?: PermissionOption[];
+      };
     }
   | {
       itemId: string;
@@ -75,13 +79,14 @@ export type DetailResponse = {
   blocks: DetailBlock[];
   rawInput?: unknown;
   rawOutput?: unknown;
-  options?: { optionId: string; name: string; kind: string }[];
+  options?: PermissionOption[];
   outcome?: unknown;
   truncated: boolean;
   nextCursor?: string;
 };
 
 export type PermissionTarget = {
+  options?: PermissionOption[];
   entryId: string;
   itemId: string;
   requestId: string;
@@ -98,7 +103,7 @@ export type PermissionTargetState = {
 export type PermissionOption = {
   optionId: string;
   name: string;
-  kind: string;
+  kind?: string;
 };
 
 export type PermissionDetail = {

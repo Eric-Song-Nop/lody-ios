@@ -3,7 +3,6 @@ import {
   type ComponentType,
   createContext,
   type ReactNode,
-  use,
   useCallback,
   useMemo,
 } from 'react';
@@ -84,9 +83,10 @@ const defaultPresentation: PagePresentationOptions = {
   style: 'pageSheet',
 };
 
-const PageRuntimeContext = createContext<PageRuntime<unknown, unknown> | null>(
-  null,
-);
+export const PageRuntimeContext = createContext<PageRuntime<
+  unknown,
+  unknown
+> | null>(null);
 
 export function definePage<TParams = undefined, TResult = void>(
   options: DefinePageOptions<TParams>,
@@ -156,17 +156,4 @@ export function PageRuntimeProvider<TParams, TResult>({
       {children}
     </PageRuntimeContext>
   );
-}
-
-export function usePageRuntime<
-  TParams = undefined,
-  TResult = void,
->(): PageRuntime<TParams, TResult> {
-  const runtime = use(PageRuntimeContext);
-  if (!runtime) {
-    throw new Error(
-      'usePageRuntime must be used inside a Page route or presentation session.',
-    );
-  }
-  return runtime as PageRuntime<TParams, TResult>;
 }

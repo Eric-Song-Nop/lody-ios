@@ -30,6 +30,7 @@ public final class LodyKitModule: Module {
     AsyncFunction("unwatchSession") { (id: String) in self.dataRuntime.closeSession(id) }.runOnQueue(.main)
     AsyncFunction("sessionCreationOptions") { (payload: String, promise: Promise) in self.dataRuntime.command("creationOptions", payload: payload, promise: promise) }.runOnQueue(.main)
     AsyncFunction("localProjects") { (payload: String, promise: Promise) in self.dataRuntime.command("localProjects", payload: payload, promise: promise) }.runOnQueue(.main)
+    AsyncFunction("remoteSettings") { (payload: String, promise: Promise) in self.dataRuntime.command("remoteSettings", payload: payload, promise: promise) }.runOnQueue(.main)
     AsyncFunction("createSession") { (payload: String, promise: Promise) in self.dataRuntime.command("createSession", payload: payload, promise: promise) }.runOnQueue(.main)
     AsyncFunction("archiveSession") { (payload: String, promise: Promise) in self.dataRuntime.command("archiveSession", payload: payload, promise: promise) }.runOnQueue(.main)
     AsyncFunction("pinSession") { (payload: String, promise: Promise) in self.dataRuntime.command("pinSession", payload: payload, promise: promise) }.runOnQueue(.main)
@@ -74,8 +75,18 @@ public final class LodyKitModule: Module {
       self.dataRuntime.command("turnDiff", payload: payload, promise: promise)
     }.runOnQueue(.main)
     AsyncFunction("fileDiff") { (payload: String, promise: Promise) in self.dataRuntime.command("fileDiff", payload: payload, promise: promise) }.runOnQueue(.main)
-    AsyncFunction("readFile") { (payload: String, promise: Promise) in self.dataRuntime.command("readFile", payload: payload, promise: promise) }.runOnQueue(.main)
-    AsyncFunction("listDir") { (payload: String, promise: Promise) in self.dataRuntime.command("listDir", payload: payload, promise: promise) }.runOnQueue(.main)
+    AsyncFunction("readFile") { (payload: String, promise: Promise) in
+      #if DEBUG
+      if let response = FilePreviewFixture.response(payload) { promise.resolve(response); return }
+      #endif
+      self.dataRuntime.command("readFile", payload: payload, promise: promise)
+    }.runOnQueue(.main)
+    AsyncFunction("listDir") { (payload: String, promise: Promise) in
+      #if DEBUG
+      if let response = FilePreviewFixture.response(payload, listing: true) { promise.resolve(response); return }
+      #endif
+      self.dataRuntime.command("listDir", payload: payload, promise: promise)
+    }.runOnQueue(.main)
     AsyncFunction("readContentText") { (handle: String) -> String? in
       ContentStore.shared.get(handle).flatMap { String(data: $0.data, encoding: .utf8) }
     }.runOnQueue(.main)
@@ -197,6 +208,7 @@ public final class LodyKitModule: Module {
     }
 
     View(LodyComposerView.self) {
+      Prop("scrollEdge") { (view: LodyComposerView, value: Bool) in view.scrollEdge = value }
       Events("onSend", "onHeightChange", "onComposerOptionChange")
       Prop("composerJSON") { (view: LodyComposerView, value: String) in view.composer.setComposerState(value) }
       Prop("composerOptionsJSON") { (view: LodyComposerView, value: String) in view.composer.setComposerOptions(value) }
@@ -204,7 +216,14 @@ public final class LodyKitModule: Module {
     }
 
     View(LodyChatView.self) {
-      Events("onSend", "onActivityPress", "onTurnChangesPress", "onReconnect", "onTitlePress", "onComposerOptionChange")
+      #if DEBUG
+      Prop("debugBenchmarkRun") { (view: LodyChatView, value: Int) in
+        guard value > 0 else { return }
+        view.performanceProbe?.stop()
+        view.performanceProbe = ChatPerformanceProbe(view)
+      }
+      #endif
+      Events("onSend", "onActivityPress", "onFilePress", "onTurnChangesPress", "onReconnect", "onTitlePress", "onComposerOptionChange")
       Prop("navigationTitle") { (view: LodyChatView, value: String) in view.setNavigationTitle(value) }
       Prop("navigationSubtitle") { (view: LodyChatView, value: String) in view.setNavigationSubtitle(value) }
       Prop("attachmentContextJSON") { (view: LodyChatView, value: String) in view.setAttachmentContext(value) }
@@ -233,7 +252,9 @@ public final class LodyKitModule: Module {
     }
 
     View(LodyCodeView.self) {
-      Events("onFail")
+      Events("onFail", "onFilePress")
+      Prop("renderMarkdown") { (view: LodyCodeView, value: Bool) in view.setMarkdown(value) }
+      Prop("line") { (view: LodyCodeView, value: Int) in view.setLine(value) }
       Prop("handle") { (view: LodyCodeView, value: String) in view.setHandle(value) }
       Prop("path") { (view: LodyCodeView, value: String) in view.setPath(value) }
     }
@@ -249,6 +270,7 @@ public final class LodyKitModule: Module {
     }
 
     View(LodyGroupedList.self) {
+      Prop("bottomInset") { (view: LodyGroupedList, value: Double) in view.setBottomInset(CGFloat(value)) }
       Prop("contentStyle") { (view: LodyGroupedList, value: Bool) in
         view.setContentStyle(value)
       }
@@ -309,6 +331,18 @@ public final class LodyKitModule: Module {
         view.setDisabled(disabled)
       }
       Prop("tint") { (view: LodySymbolButton, tint: String) in
+        view.setTint(tint)
+      }
+    }
+
+    View(LodySymbolView.self) {
+      Prop("symbol") { (view: LodySymbolView, symbol: String) in
+        view.setSymbol(symbol)
+      }
+      Prop("pointSize") { (view: LodySymbolView, size: Double) in
+        view.setPointSize(size)
+      }
+      Prop("tint") { (view: LodySymbolView, tint: String) in
         view.setTint(tint)
       }
     }

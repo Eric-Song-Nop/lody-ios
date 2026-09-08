@@ -23,6 +23,8 @@ export type NativeListRow = {
   badge?: string;
   diff?: { add: number; del: number };
   image?: string;
+  /** File rows use bundled Material Icon Theme artwork. */
+  filePath?: string;
   /** Semantic name (warning/danger/secondary/tertiary) or a `#RRGGBB` value. */
   imageTint?: string;
   action?: boolean;
@@ -56,6 +58,8 @@ export const NativeGroupedList: ComponentType<
     accent?: string;
     /** Drop the list's own background so a sheet's material shows through. */
     transparent?: boolean;
+    /** Total height reserved for a floating bottom accessory, including safe area. */
+    bottomInset?: number;
     /** Project sections with tappable headings and compact session details. */
     contentStyle?: boolean;
     placeholder?: string;

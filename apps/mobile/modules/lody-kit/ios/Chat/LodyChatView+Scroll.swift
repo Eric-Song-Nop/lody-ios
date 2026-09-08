@@ -70,6 +70,7 @@ extension LodyChatView {
   func pauseTracking() {
     followsBottom = false
     trackingPausedByGesture = true
+    sendScroll = nil
     awaitingUserAnchor = false
   }
 
@@ -149,8 +150,17 @@ extension LodyChatView {
     }
     let tracking = followsBottom && !collection.isDragging && !collection.isDecelerating
     if tracking {
-      let y = reduce ? bottomOffset : CGFloat(ChatScroll.advance(
-        Double(collection.contentOffset.y), toward: Double(bottomOffset), elapsed: elapsed, response: 0.10))
+      let y: CGFloat
+      if let sendScroll, !reduce {
+        // Finish the list movement before the flying bubble lands.
+        let progress = min(1, max(0, (link.targetTimestamp - sendScroll.started) / 0.25))
+        let eased = CGFloat(1 - pow(1 - progress, 3))
+        y = sendScroll.offset + (bottomOffset - sendScroll.offset) * eased
+        if progress == 1 { self.sendScroll = nil }
+      } else {
+        y = reduce ? bottomOffset : CGFloat(ChatScroll.advance(
+          Double(collection.contentOffset.y), toward: Double(bottomOffset), elapsed: elapsed, response: 0.10))
+      }
       collection.setContentOffset(CGPoint(x: 0, y: y), animated: false)
     }
     deliverPendingContent()
@@ -228,7 +238,7 @@ extension LodyChatView {
   }
 
   func rowHeight(_ row: ChatRow, width: CGFloat) -> CGFloat {
-    if row.kind == "changesHeader" { return 32 }
+    if row.kind == "changesHeader" { return 28 }
     if row.kind == "changes" { return ChatFileCell.rowHeight() }
     let measured = measure(row, width: width)
     return max(row.actionable || row.kind == "summary" ? 44 : 0, measured + (row.kind == "user" ? 44 : 12))
@@ -259,10 +269,12 @@ extension LodyChatView {
       if let image = cell as? ChatImageCell { image.layoutIfNeeded(); image.deliverPendingImage() }
       guard let cell = cell as? ChatCell, cell.row?.entryID == id, cell.row?.kind == "user" else { continue }
       cell.layoutIfNeeded()
-      ChatSendHandoff.deliver(id: id, to: cell.messageContent) { [weak cell] content in
-        guard let cell, cell.row?.entryID == id else { content.removeFromSuperview(); return }
-        cell.adopt(content)
+      let distance = followsBottom ? bottomOffset - collection.contentOffset.y : 0
+      if ChatSendHandoff.isWaiting(id: id), followsBottom, abs(distance) > 0.5 {
+        sendScroll = (CACurrentMediaTime(), collection.contentOffset.y)
+        startMotion()
       }
+      ChatSendHandoff.deliver(id: id, to: cell.messageContent, scrollDistance: distance)
     }
   }
 }
@@ -318,6 +330,118 @@ final class ChatScrollProbe: NSObject {
       try? data.write(to: FileManager.default.temporaryDirectory.appendingPathComponent("lody-scroll-\(id).json"), options: .atomic)
     }
     samples.removeAll()
+  }
+}
+#endif
+
+#if DEBUG
+// Measures main-run-loop delivery, not GPU presentation. No text is recorded.
+final class ChatPerformanceProbe: NSObject {
+  private weak var view: LodyChatView?
+  private var link: CADisplayLink?
+  private let requested = CACurrentMediaTime()
+  private var started: Double = 0
+  private var previous: Double = 0
+  private var origin: CGFloat = 0
+  private var samples: [[String: Double]] = []
+  private var memory: [[String: Double]] = []
+  private var nextMemory: Double = 0
+  private let baseline = ChatPerformanceProbe.footprint()
+
+  init(_ view: LodyChatView) {
+    self.view = view
+    super.init()
+    view.setNavigationSubtitle("Preparing · 20s · 8,000 pt/s")
+    let link = CADisplayLink(target: self, selector: #selector(tick(_:)))
+    self.link = link
+    link.add(to: .main, forMode: .common)
+  }
+
+  @objc private func tick(_ link: CADisplayLink) {
+    guard let view, view.window != nil,
+          UIApplication.shared.applicationState == .active else { stop(); return }
+    let now = CACurrentMediaTime()
+    let list = view.collection
+    if started == 0 {
+      guard now - requested < 90 else {
+        view.setNavigationSubtitle("Benchmark failed: loading timeout")
+        stop(); return
+      }
+      guard view.transcript.entries.count == 10_000,
+            view.transcript.entries.first?.id == "perf-0",
+            !view.applying, !view.rendering, !view.decoding,
+            view.hasPositionedContent, view.motionLink == nil,
+            now - requested >= 2 else { return }
+      view.pauseTracking()
+      origin = list.contentOffset.y
+      started = now
+      previous = now
+      memory.append(["t": 0, "mib": Self.footprint()])
+      view.setNavigationSubtitle("Running · 20s · 8,000 pt/s")
+      return
+    }
+    let elapsed = now - started
+    let visible = list.indexPathsForVisibleItems.map(\.section)
+    samples.append(["t": elapsed, "dt": now - previous,
+      "budget": link.targetTimestamp - link.timestamp,
+      "offset": list.contentOffset.y,
+      "firstSection": Double(visible.min() ?? -1), "lastSection": Double(visible.max() ?? -1)])
+    previous = now
+    if elapsed >= nextMemory {
+      memory.append(["t": elapsed, "mib": Self.footprint()])
+      nextMemory = elapsed + 0.25
+    }
+    if elapsed >= 20 {
+      finish(elapsed: elapsed)
+      return
+    }
+    // A repeatable continuous scroll over the real production collection. The
+    // dataset has 10k entries; this timed run does not claim to visit every row.
+    let travel = min(elapsed, 20 - elapsed) * 8_000
+    let target = max(-list.adjustedContentInset.top, origin - CGFloat(travel))
+    list.setContentOffset(CGPoint(x: 0, y: target), animated: false)
+  }
+
+  private func finish(elapsed: Double) {
+    guard let view else { stop(); return }
+    let fps = Double(samples.count) / elapsed
+    let peak = memory.map { $0["mib"]! }.max() ?? -1
+    let report: [String: Any] = [
+      "metric": "CADisplayLink main-run-loop FPS; not GPU presented FPS",
+      "configuration": "Debug", "device": UIDevice.current.model,
+      "systemVersion": UIDevice.current.systemVersion,
+      "maximumFramesPerSecond": view.window?.screen.maximumFramesPerSecond ?? 0,
+      "entries": view.transcript.entries.count, "rows": view.rows.count,
+      "seconds": elapsed, "pointsPerSecond": 8000, "fps": fps,
+      "baselineMiB": baseline, "peakMiB": peak, "endMiB": Self.footprint(),
+      "memoryMetric": "App process TASK_VM_INFO phys_footprint; sampled every 250ms",
+      "samples": samples, "memory": memory,
+    ]
+    do {
+      let data = try JSONSerialization.data(withJSONObject: report, options: .sortedKeys)
+      try data.write(to: FileManager.default.temporaryDirectory
+        .appendingPathComponent("lody-chat-performance-\(UUID().uuidString).json"), options: .atomic)
+      view.setNavigationSubtitle(String(format: "%.1f FPS · peak %.1f MiB", fps, peak))
+    } catch {
+      view.setNavigationSubtitle("Benchmark failed: report write error")
+    }
+    stop()
+  }
+
+  func stop() {
+    link?.invalidate(); link = nil
+    samples.removeAll(); memory.removeAll()
+  }
+
+  private static func footprint() -> Double {
+    var info = task_vm_info_data_t()
+    var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size)
+    let result = withUnsafeMutablePointer(to: &info) {
+      $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+        task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+      }
+    }
+    return result == KERN_SUCCESS ? Double(info.phys_footprint) / 1_048_576 : -1
   }
 }
 #endif

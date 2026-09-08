@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, View as RNView } from 'react-native';
 import { Screen } from '@/ui/Screen';
 import { respondSessionPermission } from '@lody-ios/kit';
-import { definePage, usePageRuntime } from '@/presentation';
-import { usePalette } from '@/theme/palette';
+import { definePage } from '@/lib/presentation';
+import { usePalette } from '@/lib/theme/palette';
 import { AppText } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
 import { CommandBlock } from '@/ui/DetailBlocks';
@@ -15,7 +15,8 @@ import type {
   PermissionTarget,
 } from '../models/session.ts';
 import type { PermissionTargetSource } from '@/features/sessions/permissionTarget';
-import { t, type TranslationKey } from '../i18n/index.ts';
+import { t, type TranslationKey } from '../lib/i18n/index.ts';
+import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 
 export type { PermissionDetail, PermissionOption } from '../models/session.ts';
 
@@ -84,8 +85,11 @@ function useTarget(params: PermissionParams, giveUp: () => void) {
     // clears the pending request, so the sheet moves on or closes by itself.
     return params.source((state) => {
       if (!state.ready) return;
-      if (state.target) setTarget(state.target);
-      else giveUp();
+      if (state.target) {
+        setTarget(state.target);
+      } else {
+        giveUp();
+      }
     });
   }, [params.source]);
   return target;
@@ -106,6 +110,7 @@ function View() {
   useEffect(() => {
     if (!target) return;
     let active = true;
+    setDetail(undefined);
     setError('');
     void service
       .detail(params.sessionId, target)
@@ -118,7 +123,13 @@ function View() {
     return () => {
       active = false;
     };
-  }, [target?.requestId]);
+  }, [
+    params.sessionId,
+    target?.entryId,
+    target?.itemId,
+    target?.requestId,
+    service,
+  ]);
 
   const answer = async (optionId: string) => {
     if (!target) return;
@@ -144,7 +155,8 @@ function View() {
     }
   };
 
-  const options = detail?.options ?? [];
+  // Actions belong to the synced request; optional command details must not gate them.
+  const options = target?.options ?? detail?.options ?? [];
   return (
     <Screen>
       <AppText variant="title">
@@ -170,10 +182,10 @@ function View() {
       ) : null}
       <RNView style={{ gap: 8 }}>
         {options.map((option, index) => {
-          const allow = option.kind.startsWith('allow');
+          const allow = option.kind?.startsWith('allow');
           const filled =
             allow &&
-            options.findIndex((o) => o.kind.startsWith('allow')) === index;
+            options.findIndex((o) => o.kind?.startsWith('allow')) === index;
           return submitting === option.optionId ? (
             <RNView
               key={option.optionId}
@@ -187,7 +199,7 @@ function View() {
               label={option.name}
               variant={filled ? 'glass' : 'plain'}
               disabled={!!submitting}
-              destructive={option.kind.startsWith('reject')}
+              destructive={option.kind?.startsWith('reject')}
               onPress={() => void answer(option.optionId)}
             />
           );

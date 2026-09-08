@@ -8,9 +8,10 @@ import {
 import { useTheme } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
-import { definePage, usePageRuntime } from '@/presentation';
+import { definePage } from '@/lib/presentation';
 import { Button } from '@/ui/Button';
 import { Screen } from '@/ui/Screen';
+import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 
 type EnvironmentParams = { message: string };
 

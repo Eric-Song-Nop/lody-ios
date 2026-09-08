@@ -2,13 +2,13 @@ import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { NativeGroupedList } from '@lody-ios/kit';
 import { useCatalog } from '@/cloud/catalog/CatalogProvider';
-import { usePalette } from '@/theme/palette';
+import { usePalette } from '@/lib/theme/palette';
 import { useAuth } from '@/cloud/auth/AuthProvider';
 import { searchPlaceholder } from '@/ui/listState';
 import { searchSections } from '@/features/sessions/inbox';
 import { openCatalogRow } from '@/hooks/screens/openCatalogRow';
-import { definePage } from '@/presentation';
-import { t } from '../i18n/index.ts';
+import { definePage } from '@/lib/presentation';
+import { t } from '../lib/i18n/index.ts';
 
 function View() {
   const { catalog, loading, connected } = useCatalog();

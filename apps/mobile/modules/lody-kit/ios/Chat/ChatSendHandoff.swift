@@ -1,6 +1,6 @@
 import UIKit
 
-/// The content moves; collection cells keep their own reuse lifecycle.
+/// The flying copy and collection content keep independent layer lifecycles.
 final class ChatMessageContent: UIView {
   let label = ChatTextView()
   let bubble = UIView()
@@ -33,8 +33,18 @@ final class ChatSendHandoff {
   let content = ChatMessageContent(frame: .zero)
   private var expiry: DispatchWorkItem?
   private var photo: UIImageView?
+  private var sourceSnapshot: UIView?
+  private var sourceBackground = UIColor.secondarySystemBackground
+  #if DEBUG
+  private var probe: ChatThrowProbe?
+  #endif
   private var delivering = false
   private weak var target: UIView?
+
+  static func isWaiting(id: String) -> Bool {
+    guard let handoff = active[id] else { return false }
+    return !handoff.delivering
+  }
 
   static func hold(id: String, target: UIView) {
     guard let handoff = active[id] else { target.isHidden = false; return }
@@ -42,9 +52,12 @@ final class ChatSendHandoff {
     target.isHidden = true
   }
 
-  static func begin(id: String, text: String, source: UIView) {
+  static func begin(id: String, text: String, source: UIView, background: UIView? = nil) {
     guard let window = source.window else { return }
     let handoff = ChatSendHandoff()
+    handoff.sourceBackground = sampledBackground(background ?? source, in: window)
+    handoff.content.backgroundColor = handoff.sourceBackground
+    handoff.content.layer.cornerRadius = 19
     let paragraph = NSMutableParagraphStyle()
     paragraph.minimumLineHeight = 25 * UIFont.dynamicScale(compatibleWith: source.traitCollection)
     paragraph.maximumLineHeight = paragraph.minimumLineHeight
@@ -58,11 +71,44 @@ final class ChatSendHandoff {
     handoff.content.frame = source.convert(source.bounds, to: window)
     handoff.content.isUserInteractionEnabled = false
     handoff.content.accessibilityElementsHidden = true
+    handoff.content.layoutIfNeeded()
+    handoff.content.bubble.isHidden = true
+    if let snapshot = source.snapshotView(afterScreenUpdates: false) {
+      snapshot.frame = handoff.content.frame
+      snapshot.isUserInteractionEnabled = false
+      snapshot.accessibilityElementsHidden = true
+      handoff.sourceSnapshot = snapshot
+      handoff.content.isHidden = true
+      window.addSubview(snapshot)
+    }
     window.addSubview(handoff.content)
     active[id] = handoff
     let expiry = DispatchWorkItem { cancel(id: id) }
     handoff.expiry = expiry
     DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: expiry)
+  }
+
+  private static func sampledBackground(_ surface: UIView, in window: UIWindow) -> UIColor {
+    let point = surface.convert(CGPoint(x: 8, y: surface.bounds.midY), to: window)
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = 1
+    format.opaque = true
+    format.preferredRange = .standard
+    let image = UIGraphicsImageRenderer(bounds: CGRect(origin: point, size: CGSize(width: 1, height: 1)), format: format).image { _ in
+      window.drawHierarchy(in: window.bounds, afterScreenUpdates: false)
+    }
+    guard let cgImage = image.cgImage else { return .secondarySystemBackground }
+    var pixel = [UInt8](repeating: 0, count: 4)
+    return pixel.withUnsafeMutableBytes { bytes in
+      guard let context = CGContext(data: bytes.baseAddress, width: 1, height: 1,
+        bitsPerComponent: 8, bytesPerRow: 4, space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+        return .secondarySystemBackground
+      }
+      context.draw(cgImage, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+      return UIColor(red: CGFloat(bytes[0]) / 255, green: CGFloat(bytes[1]) / 255,
+        blue: CGFloat(bytes[2]) / 255, alpha: 1)
+    }
   }
 
   static func beginImages(id: String, attachments: [ChatAttachment], source: ChatAttachmentBar) {
@@ -113,31 +159,208 @@ final class ChatSendHandoff {
     for key in active.keys.filter({ $0.hasPrefix(id + ":image:") }) { cancel(id: key) }
     guard let handoff = active.removeValue(forKey: id) else { return }
     handoff.expiry?.cancel()
+    #if DEBUG
+    handoff.probe?.stop(cancelled: true)
+    #endif
     handoff.target?.isHidden = false
     handoff.photo?.layer.removeAllAnimations()
     handoff.content.layer.removeAllAnimations()
     handoff.content.removeFromSuperview()
+    handoff.sourceSnapshot?.removeFromSuperview()
     handoff.photo?.removeFromSuperview()
   }
 
-  static func deliver(id: String, to target: ChatMessageContent, adopt: @escaping (ChatMessageContent) -> Void) {
+  static func deliver(id: String, to target: ChatMessageContent, scrollDistance: CGFloat = 0) {
     guard let window = target.window, let handoff = active[id], !handoff.delivering else { return }
     handoff.delivering = true
     handoff.target = target
     handoff.expiry?.cancel()
-    let destination = target.convert(target.bounds, to: window)
+    let destination = target.convert(target.bounds, to: window).offsetBy(dx: 0, dy: -scrollDistance)
+    let sourceFrame = handoff.content.frame
+    let destinationBackground = UIColor.lodyUserBubble.resolvedColor(with: target.traitCollection)
     handoff.content.label.setText(target.label.attributedTextValue)
     target.isHidden = true
     let finish = {
-      target.isHidden = false
+      handoff.sourceSnapshot?.removeFromSuperview()
       guard active[id] === handoff else { handoff.content.removeFromSuperview(); return }
       active.removeValue(forKey: id)
-      adopt(handoff.content)
+      // Match the demo: reveal the cell's existing content. Reparenting a layer
+      // from UIWindow to a cell leaves one presentation frame in window coordinates.
+      UIView.performWithoutAnimation {
+        handoff.target?.isHidden = false
+        handoff.content.removeFromSuperview()
+      }
+      #if DEBUG
+      handoff.probe?.didLand(on: handoff.target ?? target)
+      #endif
     }
     if UIAccessibility.isReduceMotionEnabled { finish(); return }
-    UIView.animate(withDuration: 0.35, delay: 0, options: [.curveEaseInOut, .beginFromCurrentState]) {
-      handoff.content.frame = destination
-      handoff.content.layoutIfNeeded()
-    } completion: { _ in finish() }
+    // iMessageThrowDemo: independent position, compression, bounds and text tracks.
+    let duration: CFTimeInterval = destination.width > sourceFrame.width * 0.66 ? 0.35 : 0.4
+    let content = handoff.content
+    // Sheet dismissal can carry an enclosing UIView animation into this callback.
+    // Only the explicit throw tracks may animate the window-space content.
+    UIView.performWithoutAnimation {
+      content.isHidden = false
+      content.frame = destination
+      // The flying view hides its bubble layer, but still needs user-text insets.
+      content.bubble.isHidden = false
+      content.setNeedsLayout()
+      content.layoutIfNeeded()
+      content.backgroundColor = destinationBackground
+      content.layer.cornerRadius = 19
+      content.layer.cornerCurve = .continuous
+      content.bubble.isHidden = true
+    }
+    if let snapshot = handoff.sourceSnapshot { window.bringSubviewToFront(snapshot) }
+
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    CATransaction.setCompletionBlock(finish)
+    let background = CABasicAnimation(keyPath: "backgroundColor")
+    background.fromValue = handoff.sourceBackground.cgColor
+    background.toValue = destinationBackground.cgColor
+    background.duration = duration
+    background.timingFunction = CAMediaTimingFunction(controlPoints: 0.49, 0.08841463, 0.40548781, 0.90548784)
+    content.layer.add(background, forKey: "throw.background")
+    for view in [content, handoff.sourceSnapshot].compactMap({ $0 }) {
+      view.layer.position = CGPoint(x: destination.midX, y: destination.midY)
+      let position = CABasicAnimation(keyPath: "position")
+      position.fromValue = NSValue(cgPoint: CGPoint(x: sourceFrame.midX, y: sourceFrame.midY))
+      position.toValue = NSValue(cgPoint: view.layer.position)
+      position.duration = duration
+      position.timingFunction = CAMediaTimingFunction(controlPoints: 0.49, 0.08841463, 0.40548781, 0.90548784)
+      view.layer.add(position, forKey: "throw.position")
+
+      let scale = CAKeyframeAnimation(keyPath: "transform.scale")
+      scale.values = [1, 0.88, 1]
+      scale.keyTimes = [0, 0.35, 1]
+      scale.timingFunctions = [
+        CAMediaTimingFunction(controlPoints: 0.66, 0, 1, 1),
+        CAMediaTimingFunction(controlPoints: 0, 0, 0.62268293, 0.92987806),
+      ]
+      scale.duration = duration
+      view.layer.add(scale, forKey: "throw.scale")
+    }
+    let size = CABasicAnimation(keyPath: "bounds.size")
+    size.fromValue = NSValue(cgSize: sourceFrame.size)
+    size.toValue = NSValue(cgSize: destination.size)
+    size.duration = duration
+    size.speed = 2
+    size.timingFunction = CAMediaTimingFunction(controlPoints: 0.54195118, 0, 0.58, 1)
+    content.layer.add(size, forKey: "throw.bounds")
+    if let snapshot = handoff.sourceSnapshot {
+      for (layer, from, to) in [(snapshot.layer, Float(1), Float(0)), (content.label.layer, Float(0), Float(1))] {
+        layer.opacity = to
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = from
+        fade.toValue = to
+        fade.duration = duration * 0.3
+        fade.timingFunction = CAMediaTimingFunction(controlPoints: 0.5, 0, 0.5, 1)
+        layer.add(fade, forKey: "throw.opacity")
+      }
+    }
+    CATransaction.commit()
+    #if DEBUG
+    if ProcessInfo.processInfo.arguments.contains("--ui-verify-throw"),
+       ProcessInfo.processInfo.arguments.contains("--ui-verify") {
+      handoff.probe = ChatThrowProbe(content: content, target: target, source: sourceFrame, destination: destination, duration: duration, sourceBackground: handoff.sourceBackground, destinationBackground: destinationBackground)
+    }
+    #endif
   }
 }
+
+#if DEBUG
+// Offline-only presentation-layer samples. Records geometry, never message text.
+private final class ChatThrowProbe: NSObject {
+  private weak var content: UIView?
+  private weak var target: UIView?
+  private weak var window: UIWindow?
+  private var link: CADisplayLink?
+  private let started = CACurrentMediaTime()
+  private let duration: Double
+  private let source: CGRect
+  private let destination: CGRect
+  private let sourceBackground: UIColor
+  private let destinationBackground: UIColor
+  private var adoptedAt: Double?
+  private var samples: [[String: Any]] = []
+
+  init(content: UIView, target: UIView, source: CGRect, destination: CGRect, duration: Double, sourceBackground: UIColor, destinationBackground: UIColor) {
+    self.content = content; self.target = target; self.window = content.window
+    self.source = source; self.destination = destination; self.duration = duration
+    self.sourceBackground = sourceBackground; self.destinationBackground = destinationBackground
+    super.init()
+    let link = CADisplayLink(target: self, selector: #selector(tick(_:)))
+    let fps = Float(content.window?.screen.maximumFramesPerSecond ?? 60)
+    link.preferredFrameRateRange = CAFrameRateRange(minimum: fps, maximum: fps, preferred: fps)
+    self.link = link
+    link.add(to: .main, forMode: .common)
+  }
+
+  private func rgba(_ color: UIColor) -> [Double] {
+    var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+    color.getRed(&r, green: &g, blue: &b, alpha: &a)
+    return [Double(r), Double(g), Double(b), Double(a)]
+  }
+
+  private func rect(_ rect: CGRect) -> [Double] {
+    [Double(rect.minX), Double(rect.minY), Double(rect.width), Double(rect.height)]
+  }
+
+  private func frame(_ view: UIView, presentation: Bool) -> CGRect {
+    let layer = presentation ? (view.layer.presentation() ?? view.layer) : view.layer
+    let root = presentation ? (window?.layer.presentation() ?? window?.layer) : window?.layer
+    return layer.convert(layer.bounds, to: root)
+  }
+
+  func didLand(on target: UIView) {
+    content = target
+    adoptedAt = CACurrentMediaTime() - started
+    sample(event: "adopt", timestamp: CACurrentMediaTime(), budget: 0)
+  }
+
+  @objc private func tick(_ link: CADisplayLink) {
+    sample(event: "frame", timestamp: link.timestamp, budget: link.targetTimestamp - link.timestamp)
+    let elapsed = CACurrentMediaTime() - started
+    if elapsed > duration + 0.35 { stop(cancelled: false) }
+  }
+
+  private func sample(event: String, timestamp: Double, budget: Double) {
+    guard let content, let window, content.window === window else { return }
+    let layer = content.layer.presentation() ?? content.layer
+    var sample: [String: Any] = [
+      "event": event, "t": timestamp - started, "sampleTime": CACurrentMediaTime() - started,
+      "budget": budget, "adopted": adoptedAt != nil,
+      "frame": rect(frame(content, presentation: true)),
+      "modelFrame": rect(frame(content, presentation: false)),
+      "scale": layer.value(forKeyPath: "transform.scale.x") as? Double ?? 1,
+      "bounds": [Double(layer.bounds.width), Double(layer.bounds.height)],
+      "background": rgba(layer.backgroundColor.map { UIColor(cgColor: $0) } ?? destinationBackground),
+    ]
+    if let label = (content as? ChatMessageContent)?.label {
+      let textLayer = label.layer.presentation() ?? label.layer
+      sample["textBounds"] = [Double(textLayer.bounds.width), Double(textLayer.bounds.height)]
+      sample["textOpacity"] = label.isHidden ? 0 : Double(textLayer.opacity)
+    }
+    if let target, target.window === window { sample["targetFrame"] = rect(frame(target, presentation: true)) }
+    samples.append(sample)
+  }
+
+  func stop(cancelled: Bool) {
+    guard link != nil else { return }
+    link?.invalidate(); link = nil
+    let report: [String: Any] = [
+      "metric": "CADisplayLink + Core Animation presentation geometry; not GPU-presented FPS",
+      "maximumFPS": window?.screen.maximumFramesPerSecond ?? 0,
+      "source": rect(source), "destination": rect(destination), "duration": duration,
+      "sourceBackground": rgba(sourceBackground), "destinationBackground": rgba(destinationBackground),
+      "cancelled": cancelled, "samples": samples,
+    ]
+    if let data = try? JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]) {
+      try? data.write(to: FileManager.default.temporaryDirectory
+        .appendingPathComponent("lody-throw-\(UUID().uuidString).json"), options: .atomic)
+    }
+  }
+}
+#endif

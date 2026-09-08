@@ -1,5 +1,11 @@
 import { build } from 'esbuild';
-import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import {
+  mkdir,
+  writeFile,
+  readFile,
+  readdir,
+  copyFile,
+} from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const result = await build({
@@ -44,9 +50,21 @@ await writeFile(
   output + '/Loro-LICENSE.txt',
   await readFile(root + '../../node_modules/loro-crdt/LICENSE'),
 );
-for (const name of ['MarkdownView', 'Litext', 'YiTong', 'pierre-diffs']) {
+for (const name of [
+  'MarkdownView',
+  'Litext',
+  'YiTong',
+  'pierre-diffs',
+  'MaterialIconTheme',
+]) {
   await writeFile(
     output + '/' + name + '-LICENSE.txt',
     await readFile(root + 'modules/lody-kit/licenses/' + name + '-LICENSE.txt'),
   );
+}
+
+const fileIcons = root + 'modules/lody-kit/file-icons';
+for (const name of await readdir(fileIcons)) {
+  if (name.endsWith('.png'))
+    await copyFile(fileIcons + '/' + name, output + '/' + name);
 }

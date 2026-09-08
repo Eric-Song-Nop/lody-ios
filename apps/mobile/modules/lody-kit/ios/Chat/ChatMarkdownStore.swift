@@ -67,7 +67,7 @@ final class ChatMarkdownStore {
 
   func content(id: String, text: String, secondary: Bool) -> MarkdownContent {
     if let entry = entries[id], entry.text == text, entry.secondary == secondary { return entry.content }
-    let content = MarkdownContent(parserResult: parser.parse(text), theme: theme(secondary: secondary))
+    let content = FileMarkdownView.content(MarkdownContent(parserResult: parser.parse(text), theme: theme(secondary: secondary)))
     entries[id] = Entry(text: text, secondary: secondary, content: content)
     return content
   }
@@ -83,7 +83,7 @@ final class ChatMarkdownStore {
     if let cached = sizing[id], cached.text == text, cached.secondary == secondary {
       view = cached.view
     } else {
-      view = sizing[id]?.view ?? MarkdownTextView()
+      view = sizing[id]?.view ?? FileMarkdownView()
       view.setContentImmediately(content(id: id, text: text, secondary: secondary), theme: theme(secondary: secondary))
       sizing[id] = Sizing(view: view, text: text, secondary: secondary)
     }

@@ -1,1 +1,1 @@
-export { PresentedPageRoute as default } from '@/presentation';
+export { PresentedPageRoute as default } from '@/lib/presentation';

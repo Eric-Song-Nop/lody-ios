@@ -14,7 +14,11 @@ export type ItemSummary =
       added?: number;
       removed?: number;
       hasDetail: boolean;
-      permission?: { requestId: string; pending: boolean };
+      permission?: {
+        requestId: string;
+        pending: boolean;
+        options?: { optionId: string; name: string; kind?: string }[];
+      };
     }
   | {
       itemId: string;
@@ -176,6 +180,7 @@ function summarizeItem(
       ? {
           requestId: String(raw.permissionRequest.requestId ?? ''),
           pending: raw.permissionRequest.outcome == null,
+          options: raw.permissionRequest.options,
         }
       : undefined;
     const summary = {
@@ -349,6 +354,34 @@ export function projectSession(
           },
         }
       : {}),
-    entries: ordered.map(({ userTurnId, ...entry }) => entry),
+    entries: [
+      ...ordered.map(({ userTurnId, ...entry }) => entry),
+      ...(doc.getMovableList('mq').toJSON() as any[])
+        .filter(
+          (item) =>
+            typeof item.userTurnId === 'string' &&
+            !userIds.has(item.userTurnId),
+        )
+        .map((item) => ({
+          id: item.userTurnId,
+          role: 'user',
+          status: 'queued',
+          finished: false,
+          rev: 0,
+          timestamp: item.timestamp,
+          items: (
+            item.acpSessionConfig?.inputBlocks ?? [
+              { type: 'text', text: item.task },
+            ]
+          ).map((block: any, index: number) =>
+            summarizeItem(
+              projectionFor(doc),
+              block,
+              item.userTurnId,
+              `queue:${index}`,
+            ),
+          ),
+        })),
+    ],
   };
 }

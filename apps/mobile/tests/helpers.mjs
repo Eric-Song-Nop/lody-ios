@@ -39,7 +39,10 @@ export function frame(bytes) {
   return result;
 }
 
-export async function openTestSession({ failAppend = () => false } = {}) {
+export async function openTestSession({
+  failAppend = () => false,
+  markDispatch = async () => {},
+} = {}) {
   const server = new LoroDoc();
   const ok = (result) => ({ ok: true, result });
   let sessionRead;
@@ -91,7 +94,7 @@ export async function openTestSession({ failAppend = () => false } = {}) {
       events.push(value);
       if (value.status === 'live') resolveEmit?.(value);
     },
-    async () => {},
+    markDispatch,
   );
   await ready;
   let version = server.version();

@@ -1,4 +1,4 @@
-import { t } from '../../i18n/index.ts';
+import { t } from '../../lib/i18n/index.ts';
 
 // Public production endpoints observed in the official Lody web client.
 export const AUTH_ORIGIN = 'https://backend.lody.ai';

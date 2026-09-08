@@ -1,6 +1,6 @@
 import { NativeGlassSurface, NativePressable } from '@lody-ios/kit';
 import type { ColorValue, StyleProp, ViewStyle } from 'react-native';
-import { usePalette } from '@/theme/palette';
+import { usePalette } from '@/lib/theme/palette';
 import { AppText } from './AppText';
 
 export type ButtonVariant = 'filled' | 'glass' | 'plain';

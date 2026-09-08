@@ -7,7 +7,7 @@
 - Keep normal Xcode signing enabled, including simulator validation. Do not use `CODE_SIGNING_ALLOWED=NO`.
 - Cloud integration targets official Lody Cloud. Do not import `@lody/shared` or `@lody/loro-streams-rpc` root entries: the prior POC found Node/CRDT/Zstd dependencies that Metro cannot bundle. Use verified RN-safe public subpaths when available. Do not use absolute imports from another checkout or private backend packages.
 - Credentials belong in Keychain through LodyKit. Never copy desktop credentials, tokens, transcripts, or private service configuration into this repository.
-- Routes live in `src/app`, screens in `src/screens`, domain in `src/features`, shapes in `src/models`, cloud protocol in `src/cloud` (auth / catalog / send + kv), shared UI in `src/ui`. Features must not import screens; opening a session goes through the `sessionNav` mailbox. `src/screens/` holds only `*Screen` files. Keep cloud protocol code separate from UI and native code; add state libraries only when needed.
+- Routes live in `src/app`, screens in `src/screens`, domain in `src/features`, shapes in `src/models`, cloud protocol in `src/cloud` (auth / catalog / send + kv), shared UI in `src/ui`. Infrastructure lives in `src/lib` (`presentation` / `i18n` / `theme`). Features must not import screens; opening a session goes through the `sessionNav` mailbox. `src/screens/` holds only `*Screen` files. Keep cloud protocol code separate from UI and native code; add state libraries only when needed.
 - Native stack headers use transparent headers and soft scroll edges; scrolling screens use `ScrollViewMarker` with the shared `softScrollEdgeEffects` and automatic content insets.
 - Preserve user edits. Before destructive revert/restore/rollback, inspect the working tree and obtain explicit confirmation.
 - Verify with `pnpm check`, `pnpm bundle`, and an iOS simulator build when changing native code. Prefer behavioral checks over implementation snapshots.
@@ -24,7 +24,7 @@
 
 ## Pages and native APIs
 
-- Reuse the `definePage` / `usePageRuntime` / `present` contract in `src/presentation`. Route files export `page.Route`; transient flows await `present(page, params, options)` and inspect completed/cancelled results. Do not implement a second React Modal manager.
+- Reuse the `definePage` / `usePageRuntime` / `present` contract in `src/lib/presentation`. Route files export `page.Route`; transient flows await `present(page, params, options)` and inspect completed/cancelled results. Do not implement a second React Modal manager.
 - `present` params live in memory; only `presentationId` enters the URL. Native back/swipe/unmount must settle cancellation and release the session. These sessions are not durable deep links.
 - The home path (projects → sessions → messages) uses `style: push` on the native Stack, with system back and interactive pop. Keep sheets for transient flows and Debug demos.
 - Tabs use Expo Router NativeTabs and each tab owns a native Stack. Pages with stable URLs use Router; result-returning sheets use `present`.
@@ -48,5 +48,5 @@
 
 - UI baselines must run without login, user credentials, cloud access, or a connected machine. Add independently resettable Debug scenes using production components and `present`; inject deterministic data/service outcomes at their boundary.
 - UI changes must add/update a behavior check in `apps/mobile/verification/ui` or reuse the existing native checks. Shared controls must be exercised in each affected host.
-- Run `pnpm verify:ui --udid <disposable-simulator> --app <Debug.app>` for affected scenes, and `pnpm verify:native --udid <id>` for native behavior. See `apps/mobile/verification/ui/README.md` for setup and coverage limits.
+- Local checks omit `--udid` to lease an erased `Lody * Verify` Simulator. Wrap build + multi-check flows with `pnpm verify:simulator --name '<current verify>' -- <command>` and use `$LODY_VERIFY_UDID`; never call `simctl create` directly. Explicit `--udid` is for caller-owned devices such as CI. See `apps/mobile/verification/ui/README.md`.
 - Capture screenshots for visual states and video for temporal behavior. Missing scenes/timeouts fail verification; screenshots alone do not establish visual correctness.

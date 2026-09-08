@@ -1,8 +1,9 @@
 import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { NativeChat } from '@lody-ios/kit';
-import { definePage, usePageRuntime } from '@/presentation';
+import { definePage } from '@/lib/presentation';
 import { useProcessSheet } from '@/hooks/screens/useProcessSheet';
+import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 
 const cached = Array.from({ length: 12 }, (_, index) => ({
   id: `scroll-cache-${index}`,

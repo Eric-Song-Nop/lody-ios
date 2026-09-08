@@ -6,11 +6,21 @@ Expo Router iOS app in apps/mobile; UIKit capabilities live in LodyKit.
 
 ## 2. Environment
 
-Use `pnpm start` for Metro, `pnpm ios` for the signed simulator app. Check listening Node processes before starting a server; do not stop servers owned by another task. Metro currently uses 8081. Generate assets with `pnpm --filter @lody-ios/mobile native:assets` before direct xcodebuild.
+Use `pnpm start` for Metro. For a verified signed build, use the managed lease
+wrapper below and pass `$LODY_VERIFY_UDID` as the xcodebuild destination; do not
+use `pnpm ios`, which lets Expo select another Simulator. Check listening Node
+processes before starting a server; do not stop servers owned by another task.
+Metro currently uses 8081. Generate assets with
+`pnpm --filter @lody-ios/mobile native:assets` before direct xcodebuild.
 
 ## 3. Auth
 
-UI regression baselines use `pnpm verify:ui --udid <disposable-simulator> --app <Debug.app>`.
+UI regression baselines use `pnpm verify:ui --app <Debug.app>` and automatically
+lease an erased `Lody * Verify` Simulator. For a build plus multiple checks, use
+`pnpm verify:simulator --name '<current verify>' -- <command>` and target
+`$LODY_VERIFY_UDID`; nested verify commands reuse that lease. Never call
+`simctl create` directly for local verification. Explicit `--udid` is reserved
+for a caller-owned device such as CI, which also owns its cleanup.
 The runner owns an isolated Metro with `EXPO_PUBLIC_UI_VERIFY=1`; account restoration
 and login are disabled, and Debug scenes use production components with local fixtures.
 No account, cloud credentials or connected machine is needed. See

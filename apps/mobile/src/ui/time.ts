@@ -1,4 +1,4 @@
-import { currentLocale, t, tp } from '../i18n/index.ts';
+import { currentLocale, t, tp } from '../lib/i18n/index.ts';
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;

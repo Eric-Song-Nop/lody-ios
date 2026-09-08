@@ -1,4 +1,4 @@
-import { t } from '../../i18n/index.ts';
+import { t } from '../../lib/i18n/index.ts';
 import type { Catalog, Project, Session } from '../../models/catalog.ts';
 
 export type { Catalog, Project, Session } from '../../models/catalog.ts';

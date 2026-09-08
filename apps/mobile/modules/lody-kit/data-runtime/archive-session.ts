@@ -41,22 +41,28 @@ export async function archiveSession(
   const current = meta.flock.get(['m', room]) as
     Record<string, unknown> | undefined;
   if (!current) throw new Error('session_not_found');
-  const machineId = String(current.machineId ?? '');
-  const machine = machines.get(machineId);
-  if (!machine) throw new Error('machine_unavailable');
-  const key = ['cmd', 'archiveSession', args.sessionId];
-  const machineVersion = machine.version();
-  if (args.archived) machine.set(key, { v: 1, requestedAt: Date.now() });
-  else machine.delete(key);
-  machine.commit();
   const version = meta.flock.version();
   meta.flock.set(['m', room, 'isArchived'], args.archived);
   if (args.archived) meta.flock.set(['m', room, 'status'], { type: 'idle' });
   meta.flock.commit();
   await appendJson(meta.client, meta.flock.exportJson(version));
-  const client = await clientFor(
-    `${args.workspaceId}:mf:${machineId}`,
-    getGrant,
-  );
-  await appendJson(client, machine.exportJson(machineVersion));
+  // Mirrors desktop: the session flag is the archive; the machine cleanup
+  // command is best effort so an offline or unsynced machine cannot block it.
+  const machineId = String(current.machineId ?? '');
+  const machine = machines.get(machineId);
+  if (!machine) return;
+  const key = ['cmd', 'archiveSession', args.sessionId];
+  const machineVersion = machine.version();
+  if (args.archived) machine.set(key, { v: 1, requestedAt: Date.now() });
+  else machine.delete(key);
+  machine.commit();
+  try {
+    const client = await clientFor(
+      `${args.workspaceId}:mf:${machineId}`,
+      getGrant,
+    );
+    await appendJson(client, machine.exportJson(machineVersion));
+  } catch {
+    /* archived state is already saved; machine cleanup waits for the next request */
+  }
 }

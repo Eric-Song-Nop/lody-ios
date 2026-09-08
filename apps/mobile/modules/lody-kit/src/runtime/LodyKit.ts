@@ -43,6 +43,7 @@ declare class LodyKitNativeModule extends NativeModule<Events> {
   unwatchSession(id: string): Promise<void>;
   sessionCreationOptions(payload: string): Promise<string>;
   localProjects(payload: string): Promise<string>;
+  remoteSettings(payload: string): Promise<string>;
   createSession(payload: string): Promise<string>;
   archiveSession(payload: string): Promise<string>;
   pinSession(payload: string): Promise<string>;
@@ -76,6 +77,8 @@ declare class LodyKitNativeModule extends NativeModule<Events> {
   ): Promise<string>;
 }
 const native = requireNativeModule<LodyKitNativeModule>('LodyKit');
+export const remoteSettingsRaw = (payload: string): Promise<string> =>
+  native.remoteSettings(payload);
 export const runtimeInfo = native.runtimeInfo;
 export function selectionFeedback(): Promise<void> {
   return native.selectionFeedback();

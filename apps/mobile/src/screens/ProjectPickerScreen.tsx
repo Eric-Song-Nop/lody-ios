@@ -1,11 +1,12 @@
 import { useMemo, useRef } from 'react';
 import { NativeGroupedList } from '@lody-ios/kit';
-import { definePage, usePageRuntime } from '@/presentation';
-import { useSheetHeader } from '@/presentation/SheetStack';
+import { definePage } from '@/lib/presentation';
 import type { Project } from '@/models/catalog';
-import { usePalette } from '@/theme/palette';
+import { usePalette } from '@/lib/theme/palette';
 import { DirectoryScreen } from './DirectoryScreen';
-import { t } from '../i18n/index.ts';
+import { t } from '../lib/i18n/index.ts';
+import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
+import { useSheetHeader } from '@/hooks/screens/useSheetHeader';
 
 type Params = { workspaceId: string; projects: Project[]; selectedId: string };
 function View() {

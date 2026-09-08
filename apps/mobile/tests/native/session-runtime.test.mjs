@@ -446,7 +446,7 @@ test('unchanged entries keep their summary objects; prose is coalesced, status i
   assert.ok(b.entries[1].rev > a.entries[1].rev);
 });
 
-test('itemDetail 按需取回 blocks，超限分页，缺失不抛错', async () => {
+test('itemDetail 按需取回 blocks，超限分页，缺失明确报错', async () => {
   const { runtime, server, pushUpdate, close } = await openTestSession();
   const entry = server.getList('history').pushContainer(new LoroMap());
   entry.set('id', 'e9');
@@ -501,13 +501,10 @@ test('itemDetail 按需取回 blocks，超限分页，缺失不抛错', async ()
   assert.equal(page2.blocks.length, 1);
   assert.equal(page2.truncated, false);
 
-  const missing = await runtime.itemDetail({
-    sessionId: 's1',
-    entryId: 'e9',
-    itemId: 'nope',
-  });
-  assert.deepEqual(missing.blocks, []);
-  assert.equal(missing.truncated, false);
+  await assert.rejects(
+    runtime.itemDetail({ sessionId: 's1', entryId: 'e9', itemId: 'nope' }),
+    /item_not_found/,
+  );
 
   await assert.rejects(
     runtime.itemDetail({ sessionId: 'other', entryId: 'e9', itemId: 'tc_9' }),
@@ -832,3 +829,100 @@ test(
     );
   },
 );
+
+test('busy turns use the OSS FIFO queue, durable before watermark; lost ACK is never replayed', async () => {
+  let fail = false;
+  const watermarks = [];
+  const fixture = await openTestSession({
+    failAppend: () => fail,
+    markDispatch: async (sessionId, turnId, queued) => {
+      assert.equal(queued, true);
+      assert.ok(
+        fixture.server.toJSON().mq.some((item) => item.userTurnId === turnId),
+      );
+      watermarks.push(turnId);
+    },
+  });
+  try {
+    const args = {
+      sessionId: 's1',
+      machineId: 'm1',
+      userId: 'u1',
+      text: 'next',
+      cliType: 'builtin',
+      agentType: 'codex',
+      modelId: 'picked',
+    };
+    // Catalog busy can arrive before the first assistant history entry.
+    assert.equal(
+      (await fixture.runtime.sendTurn({ ...args, queue: true })).state,
+      'queued',
+    );
+    assert.equal((fixture.server.toJSON().history ?? []).length, 0);
+    fixture.server.getMovableList('mq').delete(0, 1);
+    watermarks.length = 0;
+    fixture.server
+      .getList('history')
+      .push({ id: 'running', role: 'assistant', finished: false, items: [] });
+    fixture.server.commit();
+    await fixture.pushUpdate();
+    const first = await fixture.runtime.sendTurn(args);
+    const image = {
+      type: 'image',
+      imageId: 'queued-image',
+      mimeType: 'image/png',
+      sizeBytes: 12,
+    };
+    const second = await fixture.runtime.sendTurn({
+      ...args,
+      text: 'then',
+      attachmentBlocks: [image],
+    });
+    assert.equal(first.state, 'queued');
+    assert.equal(second.state, 'queued');
+    assert.deepEqual(
+      fixture.server.toJSON().mq.map((item) => item.userTurnId),
+      [first.id, second.id],
+    );
+    assert.deepEqual(watermarks, [first.id, second.id]);
+    assert.deepEqual(
+      fixture.server.toJSON().mq[1].acpSessionConfig.inputBlocks,
+      [{ type: 'text', text: 'then' }, image],
+    );
+    assert.equal(
+      fixture.server.toJSON().history.length,
+      1,
+      'queue must not create a dispatchable user history entry',
+    );
+    assert.equal(
+      fixture.server.toJSON().mq[0].acpSessionConfig.modelId,
+      'picked',
+    );
+    assert.ok(
+      fixture.appends.every((url) => !url.includes(':rpc:')),
+      'queue must not call dispatch-turn',
+    );
+    const projected = fixture.runtime.projectSession(fixture.server, 'live');
+    assert.deepEqual(
+      projected.entries.slice(1).map((entry) => entry.status),
+      ['queued', 'queued'],
+    );
+    assert.equal(projected.entries[1].items[0].text, 'next');
+    assert.equal(
+      (await fixture.runtime.sendTurn({ ...args, id: first.id })).state,
+      'unknown',
+    );
+    fail = true;
+    const lost = await fixture.runtime.sendTurn(args);
+    assert.equal(lost.state, 'unknown');
+    const count = fixture.appends.length;
+    assert.equal(
+      (await fixture.runtime.sendTurn({ ...args, id: lost.id })).state,
+      'unknown',
+    );
+    assert.equal(fixture.appends.length, count);
+    assert.equal(watermarks.length, 2);
+  } finally {
+    fixture.close();
+  }
+});

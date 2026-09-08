@@ -1,13 +1,15 @@
-import { usePalette } from '@/theme/palette';
+import { usePalette } from '@/lib/theme/palette';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useRef } from 'react';
 import { useCatalog } from '@/cloud/catalog/CatalogProvider';
 import { requestNewSession } from '@/features/sessions/sessionNav';
 import { useBindSessionNav } from '@/hooks/screens/useBindSessionNav';
+import { useOnboardingGate } from '@/hooks/screens/useOnboardingGate';
 import { showToast } from '@/ui/toast';
-import { t } from '../../i18n/index.ts';
+import { t } from '../../lib/i18n/index.ts';
 export default function TabsLayout() {
   useBindSessionNav();
+  useOnboardingGate();
   const colors = usePalette();
   const { selected, catalog } = useCatalog();
   const creating = useRef(false);

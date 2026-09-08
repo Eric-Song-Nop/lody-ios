@@ -1,5 +1,6 @@
 import type { Project } from '../../models/catalog.ts';
 import type {
+  Capability,
   CreatePrefs,
   CreationOptions,
   ModelChoice,
@@ -38,20 +39,57 @@ export function restoreSelection(
   const modelId = capability?.models.some((m) => m.id === saved.modelId)
     ? saved.modelId
     : undefined;
-  const effort =
-    modelId &&
-    saved.effort &&
-    capability?.reasoningEfforts[modelId]?.includes(saved.effort)
-      ? saved.effort
-      : undefined;
-  const modeId = capability?.modes.some((m) => m.id === saved.modeId)
-    ? saved.modeId
-    : undefined;
   return {
     machineId: agent?.machineId ?? '',
     agentKey: agent ? `${agent.machineId}:${agent.id}` : '',
-    choice: { modelId, effort, modeId } satisfies ModelChoice,
+    choice: rememberedModelChoice(
+      prefs,
+      agent ? `${agent.machineId}:${agent.id}` : '',
+      capability,
+      modelId,
+      saved,
+    ),
   };
+}
+
+const modelKey = (agentKey: string, modelId?: string) =>
+  JSON.stringify([agentKey, modelId ?? null]);
+
+export function rememberedModelChoice(
+  prefs: CreatePrefs | null | undefined,
+  agentKey: string,
+  capability: Capability | undefined,
+  modelId?: string,
+  legacy?: ProjectPrefs,
+): ModelChoice {
+  const remembered = prefs?.modelChoices?.[modelKey(agentKey, modelId)];
+  const saved =
+    remembered ??
+    (legacy?.agentKey === agentKey && legacy.modelId === modelId
+      ? legacy
+      : undefined);
+  const effort =
+    modelId &&
+    saved?.effort &&
+    capability?.reasoningEfforts[modelId]?.includes(saved.effort)
+      ? saved.effort
+      : undefined;
+  let modeId = saved?.modeId;
+  if (
+    (!remembered && !modeId) ||
+    (modeId && !capability?.modes.some((mode) => mode.id === modeId))
+  ) {
+    modeId = capability?.modes.find((mode) =>
+      [
+        'agent-full-access',
+        'danger-full-access',
+        'bypassPermissions',
+        'yolo',
+        'always-approve',
+      ].includes(mode.id),
+    )?.id;
+  }
+  return { modelId, effort, modeId };
 }
 
 export function withSelection(
@@ -60,7 +98,16 @@ export function withSelection(
   selection: ProjectPrefs,
 ): CreatePrefs {
   return {
+    ...prefs,
     projectId,
+    modelChoices: {
+      ...prefs?.modelChoices,
+      [modelKey(selection.agentKey ?? '', selection.modelId)]: {
+        modelId: selection.modelId,
+        effort: selection.effort,
+        modeId: selection.modeId,
+      },
+    },
     projects: { ...prefs?.projects, [projectId]: selection },
   };
 }

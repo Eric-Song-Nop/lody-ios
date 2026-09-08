@@ -3,7 +3,7 @@ import { fromByteArray } from 'base64-js';
 import { decodeFlock } from '@lody-ios/kit';
 import { getStreamsGrant, record } from '../auth/api.ts';
 import type { Catalog } from '../../models/catalog.ts';
-import { t } from '../../i18n/index.ts';
+import { t } from '../../lib/i18n/index.ts';
 
 async function readCatalog(
   grant: { token: string; gatewayBaseUrl: string },

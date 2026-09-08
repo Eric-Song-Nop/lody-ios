@@ -5,11 +5,11 @@ import { NativeGroupedList, type NativeListSection } from '@lody-ios/kit';
 import { useAuth } from '@/cloud/auth/AuthProvider';
 import { useCatalog } from '@/cloud/catalog/CatalogProvider';
 import { useConnection } from '@/cloud/catalog/connection';
-import { usePalette } from '@/theme/palette';
+import { usePalette } from '@/lib/theme/palette';
 import { relativeTime } from '@/ui/time';
 import { showToast } from '@/ui/toast';
-import { definePage } from '@/presentation';
-import { t, tp } from '../i18n/index.ts';
+import { definePage } from '@/lib/presentation';
+import { t, tp } from '../lib/i18n/index.ts';
 
 const connectionRow = {
   live: { symbol: 'circle.fill', label: 'settings.connection.live' },
@@ -42,9 +42,9 @@ function View() {
           subtitle:
             auth.account?.user.email ?? t('settings.account.signInHint'),
           image: 'person.crop.circle',
-          action: true,
-          disclosure: true,
-          navigates: true,
+          action: !!auth.account,
+          disclosure: !!auth.account,
+          navigates: !!auth.account,
         },
       ],
     },
@@ -105,6 +105,39 @@ function View() {
     },
   ];
 
+  if (auth.account)
+    sections.splice(1, 0, {
+      id: 'remote',
+      header: t('settings.remote.title'),
+      rows: (['machine', 'agent', 'mcp'] as const).map((kind) => ({
+        id: `remote-${kind}`,
+        title: t(`settings.remote.${kind}`),
+        image: {
+          machine: 'desktopcomputer',
+          agent: 'sparkles',
+          mcp: 'puzzlepiece.extension',
+        }[kind],
+        action: true,
+        disclosure: true,
+        navigates: true,
+      })),
+    });
+  if (auth.account)
+    sections.splice(1, 0, {
+      id: 'sessions',
+      header: t('settings.section.sessions'),
+      rows: [
+        {
+          id: 'archived',
+          title: t('settings.archived.title'),
+          image: 'archivebox',
+          action: true,
+          disclosure: true,
+          navigates: true,
+        },
+      ],
+    });
+
   if (__DEV__)
     sections.push({
       id: 'developer',
@@ -129,9 +162,15 @@ function View() {
       sections={sections}
       placeholder=""
       onRowPress={({ nativeEvent }) => {
+        if (nativeEvent.id.startsWith('remote-'))
+          router.push({
+            pathname: '/settings/remote',
+            params: { kind: nativeEvent.id.slice(7) },
+          });
+        if (nativeEvent.id === 'archived') router.push('/settings/archived');
         if (nativeEvent.id === 'debug-open') router.push('/debug');
-        if (nativeEvent.id === 'account')
-          router.push(auth.account ? '/settings/account' : '/');
+        if (nativeEvent.id === 'account' && auth.account)
+          router.push('/settings/account');
         if (nativeEvent.id === 'connection') refresh();
         if (nativeEvent.id === 'credit-flowdown')
           void Linking.openURL('https://github.com/Lakr233/FlowDown').catch(

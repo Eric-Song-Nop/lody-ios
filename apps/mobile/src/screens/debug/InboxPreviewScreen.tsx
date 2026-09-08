@@ -1,7 +1,7 @@
 import { NativeGroupedList } from '@lody-ios/kit';
 import { View as RNView } from 'react-native';
-import { definePage } from '@/presentation';
-import { usePalette } from '@/theme/palette';
+import { definePage } from '@/lib/presentation';
+import { usePalette } from '@/lib/theme/palette';
 import { inboxSections } from '@/features/sessions/inbox';
 import type { Catalog, Session } from '@/models/catalog';
 

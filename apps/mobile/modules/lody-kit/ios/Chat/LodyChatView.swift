@@ -34,6 +34,7 @@ private final class ChatNavigationController: UIViewController {
 final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestureRecognizerDelegate {
   let onSend = EventDispatcher()
   let onActivityPress = EventDispatcher()
+  let onFilePress = EventDispatcher()
   let onTurnChangesPress = EventDispatcher()
   let onReconnect = EventDispatcher()
   let onTitlePress = EventDispatcher()
@@ -81,12 +82,14 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
   var rowHeights: [String: (current: CGFloat, target: CGFloat, width: CGFloat)] = [:]
   #if DEBUG
   var scrollProbe: ChatScrollProbe?
+  var performanceProbe: ChatPerformanceProbe?
   #endif
   private var laidOutHeight: CGFloat = 0
   private var hasInitialDraft = false
   var pendingSend: ChatPendingSend?
   var publishedPendingID: String?
   var handoffID: String?
+  var sendScroll: (started: CFTimeInterval, offset: CGFloat)?
   var hasAppeared = false
   var composerHasAcknowledgedSend = false
   private var lastAcknowledgedDraftToken = 0
@@ -96,7 +99,7 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
     content.text = row.text
     content.textProperties.font = .preferredFont(forTextStyle: .footnote)
     content.textProperties.color = .secondaryLabel
-    content.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 10, leading: 4, bottom: 6, trailing: 4)
+    content.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 6, leading: 4, bottom: 6, trailing: 4)
     cell.contentConfiguration = content
     cell.backgroundConfiguration = .clear()
     if let file = row.fileDiff {
@@ -117,12 +120,9 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
   }
   private let fileRegistration = UICollectionView.CellRegistration<ChatFileCell, ChatRow> { cell, _, row in
     guard let file = row.fileDiff else { return }
-    let path = file.path.replacingOccurrences(of: "\\", with: "/") as NSString
-    var content = ChatFileCell.rowContent()
+    var content = ChatFileCell.rowContent(for: file.path)
     cell.directionalLayoutMargins.leading = content.directionalLayoutMargins.leading
     cell.directionalLayoutMargins.trailing = content.directionalLayoutMargins.leading
-    content.text = path.lastPathComponent
-    content.secondaryText = path.deletingLastPathComponent
     cell.contentConfiguration = content
     let counts = UILabel()
     counts.font = .monospacedDigitSystemFont(ofSize: UIFont.preferredFont(forTextStyle: .footnote).pointSize, weight: .regular)
@@ -198,9 +198,12 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
       if row.kind == "text" || row.kind == "thought" {
         let cell = collection.dequeueReusableCell(withReuseIdentifier: "markdown", for: index) as! ChatMarkdownCell
         let secondary = row.kind == "thought"
-        cell.onLink = { url in
-          guard ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return }
-          UIApplication.shared.open(url)
+        cell.onLink = { [weak self] href in
+          if let target = ChatFileLink(href) {
+            self?.onFilePress(["path": target.path, "line": target.line ?? 0])
+          } else if let url = URL(string: href), ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
+            UIApplication.shared.open(url)
+          }
         }
         cell.configure(row, content: self.store.content(id: id, text: row.text, secondary: secondary), theme: self.store.theme(secondary: secondary))
         return cell
@@ -288,8 +291,8 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
     }
     attachTitle()
     updateBottomButton()
-    deliverPendingContent()
     if updateBottomInset(), followsBottom { scrollToBottom() }
+    deliverPendingContent()
     if abs(laidOutHeight - collection.bounds.height) > 0.5 {
       laidOutHeight = collection.bounds.height
       if followsBottom { scrollToBottom() }
@@ -383,6 +386,7 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
       rowHeights.removeAll()
       #if DEBUG
       scrollProbe?.stop(); scrollProbe = nil
+      performanceProbe?.stop(); performanceProbe = nil
       #endif
       liveEntryID = nil
       update?.cancel(); update = nil

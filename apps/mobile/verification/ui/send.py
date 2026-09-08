@@ -2,7 +2,9 @@
 import sys
 from driver import UI
 import catalog
+from send_motion import ThrowTrace
 ui = UI(*sys.argv[1:])
+throw_trace = ThrowTrace(ui)
 ui.axe('tap', '--id', 'session-input')
 ui.axe('type', 'Offline send\nKeep my attachment')
 draft = ui.element('session-input')['AXValue']
@@ -37,20 +39,23 @@ ui.axe('tap', '--id', 'send-reply')
 ui.wait(lambda items: any(i.get('AXLabel') == 'Calls: 2 · idle' for i in items), 'Reply did not reconcile local pending')
 assert not any((i.get('AXUniqueId') or '').endswith(':pending') for i in ui.state())
 ui.axe('tap', '--id', 'session-input')
-ui.type_into('session-input', 'next draft')
-assert ui.element('session-input')['AXValue'] == 'next draft', 'Acknowledged draft re-locked input'
+# A digit prefix avoids keyboard Shift/autocapitalization changing AXe input.
+ui.type_into('session-input', '2 next draft')
+assert ui.element('session-input')['AXValue'] == '2 next draft', 'Acknowledged draft re-locked input'
 ui.capture('reconciled')
 ui.axe('tap', '--id', 'session-send')
 ui.wait(lambda items: any(i.get('AXLabel') == 'Calls: 3 · sending' for i in items), 'Third send missing')
-ui.type_into('session-input', 'followup')
-assert ui.element('session-input')['AXValue'] == 'followup', 'Pending send dismissed or locked input'
+ui.type_into('session-input', '3 followup')
+assert ui.element('session-input')['AXValue'] == '3 followup', 'Pending send dismissed or locked input'
 ui.axe('tap', '--id', 'send-fail')
 ui.wait(lambda items: any(i.get('AXLabel') == catalog.text('send.alert.title') for i in items), 'Failure alert missing')
 ui.axe('tap', '--label', catalog.system('ok'))
-assert ui.element('session-input')['AXValue'] == 'followup', 'Failure overwrote next draft'
+assert ui.element('session-input')['AXValue'] == '3 followup', 'Failure overwrote the new draft'
 assert not ui.element('session-send')['enabled'], 'Unmerged failed draft must be retained'
 ui.axe('tap', '--label', catalog.text('native.chat.composer.failedDraft'))
-assert ui.element('session-input')['AXValue'] == 'followup\n\nnext draft'
+assert ui.element('session-input')['AXValue'] == '3 followup\n\n2 next draft'
 assert ui.element('session-send')['enabled']
 ui.capture('merged-drafts')
 print('PASS: offline immediate message/shiny, explicit rejection restore with attachment, retry and same-ID reply reconciliation')
+
+throw_trace.verify(3)

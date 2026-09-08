@@ -1,5 +1,5 @@
 import { NativeChat } from '@lody-ios/kit';
-import { definePage } from '@/presentation';
+import { definePage } from '@/lib/presentation';
 
 const entriesJSON = JSON.stringify([
   {

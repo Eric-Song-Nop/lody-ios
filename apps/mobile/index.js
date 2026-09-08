@@ -1,3 +1,3 @@
 import 'expo-asset';
-import './src/i18n/boot.ts';
+import './src/lib/i18n/boot.ts';
 import 'expo-router/entry';

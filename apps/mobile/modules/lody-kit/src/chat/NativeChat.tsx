@@ -12,6 +12,7 @@ export type ChatDraftAttachment = {
 export const NativeChat: ComponentType<
   ViewProps & {
     entriesJSON: string;
+    debugBenchmarkRun?: number;
     pendingSendJSON?: string;
     attachmentContextJSON?: string;
     navigationTitle?: string;
@@ -40,6 +41,9 @@ export const NativeChat: ComponentType<
         itemId: string;
         processStartId?: string;
       }>,
+    ) => void;
+    onFilePress?: (
+      event: NativeSyntheticEvent<{ path: string; line?: number }>,
     ) => void;
     onTurnChangesPress?: (
       event: NativeSyntheticEvent<{ entryId: string; path: string }>,

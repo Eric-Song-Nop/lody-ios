@@ -40,6 +40,7 @@ export type PendingSend = {
     | 'creating'
     | 'sending'
     | 'accepted'
+    | 'queued'
     | 'uploaded'
     | 'unknown'
     | 'failed';
@@ -68,6 +69,7 @@ export type ProjectPrefs = ModelChoice & {
 export type CreatePrefs = {
   projectId?: string;
   projects?: Record<string, ProjectPrefs>;
+  modelChoices?: Record<string, ModelChoice>;
 };
 
 export type CreatedSession = {

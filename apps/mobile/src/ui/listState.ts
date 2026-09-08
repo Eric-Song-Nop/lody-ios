@@ -1,4 +1,4 @@
-import { t } from '../i18n/index.ts';
+import { t } from '../lib/i18n/index.ts';
 
 export type ListStateInput = {
   loading?: boolean;

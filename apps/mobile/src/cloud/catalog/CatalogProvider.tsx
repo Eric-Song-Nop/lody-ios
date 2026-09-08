@@ -13,7 +13,7 @@ import { publishConnection } from './connection';
 import { localGeneration, readLocal, writeLocal } from '../kv';
 import { catalogKey, selectionKey } from './persist';
 import type { Catalog, SavedCatalog } from '../../models/catalog.ts';
-import { t } from '../../i18n/index.ts';
+import { t } from '../../lib/i18n/index.ts';
 
 const empty: Catalog = { projects: [], sessions: [], machineIds: [] };
 function valid(saved: SavedCatalog | null): saved is SavedCatalog {

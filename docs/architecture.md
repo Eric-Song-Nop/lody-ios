@@ -1,6 +1,6 @@
 # Router、present() 与 LodyKit
 
-这套结构基于声明式的 `src/presentation`，统一管理路由与原生呈现方式。Lody 的主题采用 Expo Router Theme，原生关闭控件由 LodyKit 提供。
+这套结构基于声明式的 `src/lib/presentation`，统一管理路由与原生呈现方式。Lody 的主题采用 Expo Router Theme，原生关闭控件由 LodyKit 提供。
 
 ## 页面如何组织
 
@@ -16,7 +16,7 @@
 └────────────────────────────────┘
 ```
 
-`src/app` 只维护路由与导航布局。业务页面与 `definePage` 放在 `src/screens`。`src/features` 是领域逻辑，不得引用 screens。打开会话经 `sessionNav` mailbox，由 `hooks/screens` 调用 `present`。`src/screens/` 只有 `*Screen` 文件（`debug/` 可另放 `uiVerify.ts`）。`src/presentation` 是共享呈现机制。
+`src/app` 只维护路由与导航布局。业务页面与 `definePage` 放在 `src/screens`。`src/features` 是领域逻辑，不得引用 screens。打开会话经 `sessionNav` mailbox，由 `hooks/screens` 调用 `present`。`src/screens/` 只有 `*Screen` 文件（`debug/` 可另放 `uiVerify.ts`）。`src/lib/presentation`、`src/lib/i18n`、`src/lib/theme` 是与业务无关的基础设施。
 
 ### 定义一次，两种入口
 

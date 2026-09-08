@@ -29,6 +29,7 @@ export function firstPermissionTarget(entries: readonly EntrySummary[]) {
         entryId: entry.id,
         itemId: item.itemId,
         requestId: item.permission.requestId,
+        options: item.permission.options,
         kind: item.kind,
         title: item.title,
         path: item.path,

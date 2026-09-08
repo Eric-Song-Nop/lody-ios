@@ -8,9 +8,11 @@ import type {
 } from '@/cloud/send/pendingSends';
 import type { Session } from '@/models/catalog';
 import type { Snapshot } from './useSessionRuntime';
-import { t } from '../../i18n/index.ts';
+import { sessionState } from './status';
+import { t } from '../../lib/i18n/index.ts';
 
 export function pendingSendStatus(send: PendingSend, live: boolean) {
+  if (send.phase === 'queued') return t('native.chat.row.queued');
   if (send.phase === 'unknown') return t('send.status.unknown');
   if (send.phase === 'creating') return t('send.status.creating');
   if (send.phase === 'sending')
@@ -53,7 +55,8 @@ export function useSessionSend({
   const cleared = useRef('');
   const send = record?.send;
   const live = snapshot.status === 'live';
-  const hasPending = !!send && send.phase !== 'failed';
+  const hasPending =
+    !!send && !['failed', 'accepted', 'queued'].includes(send.phase);
 
   useEffect(() => {
     if (!record || !outbox.ready || working.current) return;
@@ -85,6 +88,13 @@ export function useSessionSend({
         })
         .catch(() => {});
       return;
+    }
+    if (
+      ['accepted', 'queued'].includes(send.phase) &&
+      cleared.current !== send.id
+    ) {
+      cleared.current = send.id;
+      setClearDraftToken((token) => token + 1);
     }
     if (send.phase !== 'waiting' || overflow || !userId) return;
     if (userIndex >= 0 && !send.creation) return;
@@ -133,6 +143,9 @@ export function useSessionSend({
               sessionId: session.id,
               machineId: session.machineId,
               userId,
+              queue: ['live', 'attention'].includes(
+                sessionState(session.status),
+              ),
               text: send.text,
               attachments: send.attachments,
               cliType: session.cliType,
@@ -148,7 +161,9 @@ export function useSessionSend({
         if (result.state === 'not_sent') {
           await fail(result.reason || t('send.error.notSent'));
         } else {
-          const phase = ['accepted', 'uploaded'].includes(result.state)
+          const phase = ['accepted', 'uploaded', 'queued'].includes(
+            result.state,
+          )
             ? result.state
             : 'unknown';
           await outbox.put({ ...record, send: { ...send, phase } });
@@ -190,6 +205,7 @@ export function useSessionSend({
   function submit(next: PendingSend) {
     if (
       !outbox.ready ||
+      working.current ||
       hasPending ||
       overflow ||
       session.archived ||
@@ -224,7 +240,12 @@ export function useSessionSend({
     restoreDraftToken,
     sending: hasPending,
     canSend:
-      outbox.ready && !hasPending && !overflow && !session.archived && !!userId,
+      outbox.ready &&
+      !dispatching &&
+      !hasPending &&
+      !overflow &&
+      !session.archived &&
+      !!userId,
     pendingSendJSON: send
       ? JSON.stringify({
           ...send,

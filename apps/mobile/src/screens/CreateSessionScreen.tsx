@@ -1,20 +1,20 @@
 import { ProjectPickerScreen } from './ProjectPickerScreen';
 import { useEffect, useRef, useState } from 'react';
-import { TextInput, View as RNView } from 'react-native';
+import { PlatformColor, TextInput, View as RNView } from 'react-native';
 import {
-  NativeGroupedList,
   NativeComposer,
   type ChatDraftAttachment,
   type NativeListSection,
   sessionCreationOptions,
 } from '@lody-ios/kit';
-import { definePage, usePageRuntime } from '@/presentation';
+import { definePage } from '@/lib/presentation';
 import { useAuth } from '@/cloud/auth/AuthProvider';
 import type { Project, Session } from '@/models/catalog';
 import type { CreationOptions } from '@/models/send';
 import { capabilityFor } from '@/cloud/send/capability';
-import { usePalette } from '@/theme/palette';
-import { type as typeScale } from '@/theme/tokens';
+import { usePalette } from '@/lib/theme/palette';
+import { type as typeScale } from '@/lib/theme/tokens';
+import { ComposerSheet } from '@/ui/ComposerSheet';
 import { AppText } from '@/ui/AppText';
 import { showToast } from '@/ui/toast';
 import { readLocal, writeLocal } from '@/cloud/kv';
@@ -24,6 +24,7 @@ import {
   type CreatePrefs,
   createPrefsKey,
   rememberedProject,
+  rememberedModelChoice,
   restoreSelection,
   withSelection,
 } from '@/features/sessions/createPrefs';
@@ -35,7 +36,8 @@ import {
   modelSummary,
 } from './ModelScreen';
 import type { CreatedSession } from '../models/send.ts';
-import { t } from '../i18n/index.ts';
+import { t } from '../lib/i18n/index.ts';
+import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 
 export type { CreatedSession } from '../models/send.ts';
 
@@ -43,6 +45,7 @@ type Params = {
   workspaceId: string;
   projects: Project[];
   projectId?: string;
+  loadOptions?: (projectId: string) => Promise<CreationOptions>;
 };
 
 function pickTitle(loading: boolean, idle: string) {
@@ -121,17 +124,23 @@ function View() {
     let active = true;
     setLoading(true);
     setOptions(undefined);
-    void sessionCreationOptions(
-      JSON.stringify({ workspaceId: params.workspaceId, projectId }),
-    )
-      .then((raw) => {
+    const request = params.loadOptions
+      ? params.loadOptions(projectId)
+      : sessionCreationOptions(
+          JSON.stringify({ workspaceId: params.workspaceId, projectId }),
+        ).then((raw): CreationOptions => JSON.parse(raw));
+    void request
+      .then((value) => {
         if (!active) return;
-        const value: CreationOptions = JSON.parse(raw);
         setOptions(value);
         const restored = restoreSelection(prefs.current, projectId, value);
         setMachineId(restored.machineId);
         setAgentKey(restored.agentKey);
-        setChoice(restored.choice);
+        const selected = value.agents.find(
+          (a) => `${a.machineId}:${a.id}` === restored.agentKey,
+        );
+        if (selected) updateChoice(restored.choice, selected);
+        else setChoice(restored.choice);
       })
       .catch((error: unknown) => {
         if (!active) return;
@@ -166,15 +175,20 @@ function View() {
   const agent = agents.find((a) => `${a.machineId}:${a.id}` === agentKey);
   const capability = capabilityFor(options, agent);
 
-  useEffect(() => {
-    if (!options || !agent) return;
+  function updateChoice(next: ModelChoice, selectedAgent = agent) {
+    setChoice(next);
+    if (!selectedAgent) return;
     prefs.current = withSelection(prefs.current, projectId, {
-      machineId: agent.machineId,
-      agentKey,
-      ...choice,
+      machineId: selectedAgent.machineId,
+      agentKey: `${selectedAgent.machineId}:${selectedAgent.id}`,
+      ...next,
     });
     void writeLocal(prefsKey, prefs.current);
-  }, [options, agent, agentKey, choice, projectId, prefsKey]);
+  }
+
+  function choiceForModel(modelId?: string) {
+    return rememberedModelChoice(prefs.current, agentKey, capability, modelId);
+  }
 
   function submit(
     id: string,
@@ -195,6 +209,7 @@ function View() {
       showToast(t('create.toast.branchRequired'));
       return;
     }
+    updateChoice(choice);
     busy.current = true;
     setSending(true);
     const session: Session = {
@@ -282,8 +297,6 @@ function View() {
       : []),
     {
       id: 'agent',
-      // Model and mode live in the session's inputConfig and are inherited from
-      // the previous user turn; a new session has none, so the machine decides.
       footer: agentFooter(loading, !!agent),
       rows: [
         {
@@ -346,14 +359,21 @@ function View() {
     setMachineId(result.value);
     const first = options.agents.find((a) => a.machineId === result.value);
     setAgentKey(first ? `${first.machineId}:${first.id}` : '');
-    setChoice({});
+    updateChoice(
+      rememberedModelChoice(
+        prefs.current,
+        first ? `${first.machineId}:${first.id}` : '',
+        capabilityFor(options, first),
+      ),
+      first,
+    );
   }
 
   async function pickModel() {
     if (!capability) return;
     await push(
       ModelScreen,
-      { capability, value: choice, onChange: setChoice },
+      { capability, value: choice, onChange: updateChoice, choiceForModel },
       // A single tab needs no segmented control, so the title names it instead.
       {
         title: hasModelTabs(capability)
@@ -385,25 +405,32 @@ function View() {
     );
     if (result.status !== 'completed') return;
     setAgentKey(result.value);
-    setChoice({});
+    const selected = options.agents.find(
+      (a) => `${a.machineId}:${a.id}` === result.value,
+    );
+    updateChoice(
+      rememberedModelChoice(
+        prefs.current,
+        result.value,
+        capabilityFor(options, selected),
+      ),
+      selected,
+    );
   }
 
   const form = (
-    <RNView style={{ flex: 1 }}>
-      <NativeGroupedList
-        style={{ flex: 1 }}
-        accent={colors.accent}
-        transparent
-        sections={sections}
-        placeholder=""
-        onRowPress={({ nativeEvent }) => {
-          if (sending) return;
-          if (nativeEvent.id === 'project') void pickProject();
-          if (nativeEvent.id === 'machine') void pickMachine();
-          if (nativeEvent.id === 'model') void pickModel();
-          if (nativeEvent.id === 'agent') void pickAgent();
-        }}
-      />
+    <ComposerSheet
+      accent={colors.accent}
+      sections={sections}
+      placeholder=""
+      onRowPress={({ nativeEvent }) => {
+        if (sending) return;
+        if (nativeEvent.id === 'project') void pickProject();
+        if (nativeEvent.id === 'machine') void pickMachine();
+        if (nativeEvent.id === 'model') void pickModel();
+        if (nativeEvent.id === 'agent') void pickAgent();
+      }}
+    >
       {github ? (
         <RNView style={{ paddingHorizontal: 16, paddingBottom: 12, gap: 4 }}>
           <AppText variant="meta">{t('create.branch.label')}</AppText>
@@ -419,7 +446,7 @@ function View() {
             editable={!sending}
             style={{
               color: colors.label,
-              backgroundColor: colors.card,
+              backgroundColor: PlatformColor('tertiarySystemGroupedBackground'),
               borderRadius: 10,
               borderCurve: 'continuous',
               paddingHorizontal: 14,
@@ -431,6 +458,7 @@ function View() {
         </RNView>
       ) : null}
       <NativeComposer
+        scrollEdge
         composerJSON={JSON.stringify({
           editable: true,
           canSend: !!agent && !!account && !loading,
@@ -455,15 +483,17 @@ function View() {
         onSend={({ nativeEvent }) =>
           submit(nativeEvent.id, nativeEvent.text, nativeEvent.attachments)
         }
-        onComposerOptionChange={({ nativeEvent }) =>
-          setChoice((current) => ({
-            ...current,
-            modelId: nativeEvent.modelId || undefined,
-            effort: nativeEvent.effort || undefined,
-          }))
-        }
+        onComposerOptionChange={({ nativeEvent }) => {
+          const modelId = nativeEvent.modelId || undefined;
+          if (modelId !== choice.modelId) updateChoice(choiceForModel(modelId));
+          else
+            updateChoice({
+              ...choice,
+              effort: nativeEvent.effort || undefined,
+            });
+        }}
       />
-    </RNView>
+    </ComposerSheet>
   );
 
   return form;

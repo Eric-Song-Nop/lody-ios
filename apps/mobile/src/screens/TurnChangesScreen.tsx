@@ -1,10 +1,11 @@
 import { NativeGroupedList, type NativeListSection } from '@lody-ios/kit';
-import { definePage, usePageRuntime } from '@/presentation';
-import { usePalette } from '@/theme/palette';
+import { definePage } from '@/lib/presentation';
+import { usePalette } from '@/lib/theme/palette';
 import type { ChangedFile } from '@/features/sessions/transcript/changes';
 import { FileDiffScreen } from '@/screens/FileDiffScreen';
 import { basename, dirname } from '@/features/sessions/path';
-import { t, tp } from '../i18n/index.ts';
+import { t, tp } from '../lib/i18n/index.ts';
+import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 
 export type TurnChangesParams = {
   sessionId: string;

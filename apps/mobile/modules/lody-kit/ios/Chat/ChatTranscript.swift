@@ -89,6 +89,10 @@ struct ChatTranscript {
         if !text.isEmpty {
           result.append(ChatRow(id: entry.id + (result.isEmpty ? ":user" : ":user-text"), entryID: entry.id, kind: "user", text: text))
         }
+        if entry.status == "queued" {
+          result.append(ChatRow(id: entry.id + ":queued", entryID: entry.id, kind: "status",
+            text: LodyStrings.text("native.chat.row.queued"), symbol: "clock"))
+        }
         return result
       }
       let finalText = entry.items.lastIndex { $0.type == "text" && !($0.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -231,7 +235,7 @@ struct ChatPendingSend: Decodable {
   var reconnect: Bool? = nil
 
   func rows(entries: [ChatEntry]) -> [ChatRow] {
-    guard failed != true else { return [] }
+    guard failed != true, !entries.contains(where: { $0.id == id && $0.status == "queued" }) else { return [] }
     var result: [ChatRow] = []
     if !entries.contains(where: { $0.id == id }) {
       for attachment in attachments where attachment.kind == "image" {

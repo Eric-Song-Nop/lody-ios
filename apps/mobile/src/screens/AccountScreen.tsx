@@ -1,11 +1,11 @@
 import { useEffect } from 'react';
 import { Alert } from 'react-native';
 import { NativeGroupedList } from '@lody-ios/kit';
-import { definePage } from '@/presentation';
+import { definePage } from '@/lib/presentation';
 import { useAuth } from '@/cloud/auth/AuthProvider';
-import { usePalette } from '@/theme/palette';
+import { usePalette } from '@/lib/theme/palette';
 import { Stack, useRouter } from 'expo-router';
-import { t } from '../i18n/index.ts';
+import { t } from '../lib/i18n/index.ts';
 function View() {
   const auth = useAuth();
   const colors = usePalette();

@@ -23,7 +23,11 @@ type SessionState = {
   lastSignal: string;
   unsent: Map<string, ReturnType<LoroDoc['version']>>;
   getGrant: () => Promise<Grant>;
-  markDispatch: (sessionId: string, turnId: string) => Promise<void>;
+  markDispatch: (
+    sessionId: string,
+    turnId: string,
+    queued?: boolean,
+  ) => Promise<void>;
   emit: (event: object) => void;
 };
 let active: SessionState | undefined;
@@ -157,7 +161,11 @@ export async function openSession(
   workspace: string,
   getGrant: () => Promise<Grant>,
   emit: (event: object) => void,
-  markDispatch: (sessionId: string, turnId: string) => Promise<void>,
+  markDispatch: (
+    sessionId: string,
+    turnId: string,
+    queued?: boolean,
+  ) => Promise<void>,
 ) {
   if ([...sessions.values()].some((state) => state.workspace !== workspace))
     stopSessions();
@@ -297,6 +305,7 @@ export function appendUserTurn(
 export async function sendTurn(args: {
   id?: string;
   backgroundTaskId?: string;
+  queue?: boolean;
   sessionId: string;
   machineId: string;
   userId: string;
@@ -321,9 +330,12 @@ export async function sendTurn(args: {
     return { state: 'not_sent', reason: 'invalid_message_id' };
   if (
     args.id &&
-    (state.doc.toJSON().history as any[] | undefined)?.some(
-      (entry) => entry.id === args.id,
-    )
+    [
+      ...((state.doc.toJSON().history as any[]) ?? []),
+      ...((state.doc.toJSON().mq as any[]) ?? []).map((item) => ({
+        id: item.userTurnId,
+      })),
+    ].some((entry) => entry.id === args.id)
   )
     // The local entry may come from a lost append ACK. Never replay its write.
     return { id: args.id, state: 'unknown', reason: 'turn_already_exists' };
@@ -413,9 +425,40 @@ export async function sendTurn(args: {
       taskToolsEnabled: previous.taskToolsEnabled ?? false,
       resume: args.resume,
     };
+    const raw = state.doc.toJSON();
+    const history = (raw.history ?? []) as any[];
+    const lastUser = history.findLastIndex((entry) => entry.role === 'user');
+    const queued =
+      args.queue === true ||
+      (raw.mq as any[] | undefined)?.length ||
+      history.some((entry) => entry.role === 'assistant' && !entry.finished) ||
+      (lastUser >= 0 &&
+        history[lastUser].status === 'pending' &&
+        !history
+          .slice(lastUser + 1)
+          .some((entry) => entry.role === 'assistant'));
     const before = state.doc.version();
     writeStarted = true;
-    appendUserTurn(state.doc, id, text, args.userId, inputConfig, timestamp);
+    if (queued) {
+      // OSS consumes the shared movable queue, then creates its history turn.
+      const item = state.doc.getMovableList('mq').pushContainer(new LoroMap());
+      for (const [key, value] of Object.entries({
+        task: text,
+        userId: args.userId,
+        userTurnId: id,
+        timestamp,
+      }))
+        item.set(key, value);
+      const config = item.setContainer('acpSessionConfig', new LoroMap());
+      for (const [key, value] of Object.entries({
+        ...inputConfig,
+        chainDepth: 0,
+      }))
+        if (value !== undefined) config.set(key, value);
+      state.doc.commit();
+    } else {
+      appendUserTurn(state.doc, id, text, args.userId, inputConfig, timestamp);
+    }
     const result = await state.client.append({
       part: {
         contentType: 'application/octet-stream',
@@ -424,6 +467,12 @@ export async function sendTurn(args: {
     });
     if (!result.ok) throw new Error(result.result.code);
     uploaded = true;
+    if (queued) {
+      // The queue is durable before its catalog wake-up watermark is published.
+      await state.markDispatch(state.id, id, true);
+      scheduleEmit(state, 'live');
+      return { id, state: 'queued' };
+    }
     if (state.backgroundWork) {
       state.emit({
         type: 'sessionCache',
@@ -556,10 +605,11 @@ export async function itemDetail(args: {
   itemId: string;
   cursor?: string;
 }) {
-  if (!active || active.id !== args.sessionId)
+  if (!active || active.id !== args.sessionId || !active.ready)
     throw new Error('session_not_ready');
   const item = locateItem(args.entryId, args.itemId);
-  const raw: any = item?.toJSON() ?? {};
+  if (!item) throw new Error('item_not_found');
+  const raw: any = item.toJSON();
   const content: unknown[] = Array.isArray(raw.content) ? raw.content : [];
   const start = Math.max(0, Number(args.cursor ?? 0) || 0);
   const blocks: unknown[] = [];

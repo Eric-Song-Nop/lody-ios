@@ -1,17 +1,28 @@
 """Compile and run existing production Swift behavior checks without credentials."""
 import argparse
+import os
 from pathlib import Path
 import platform
 import subprocess
+import sys
 import tempfile
+from simulator import run_with_simulator, SimulatorPool
 
 root = Path(__file__).resolve().parents[3]
 kit = root / 'apps/mobile/modules/lody-kit'
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--udid', required=True)
+parser.add_argument(
+    '--udid',
+    default=os.environ.get('LODY_VERIFY_UDID') or None,
+    help='Existing Simulator; omit to lease a clean Lody Verify Simulator',
+)
 args = parser.parse_args()
+if args.udid is None:
+    command = [sys.executable, __file__, *sys.argv[1:]]
+    raise SystemExit(run_with_simulator(SimulatorPool(), 'Native', command))
 sdk = subprocess.check_output(['xcrun', '--sdk', 'iphonesimulator', '--show-sdk-path'], text=True).strip()
 checks = {
+    'file-link': ['Chat/ChatFileLink.swift'],
     'strings': ['LodyStrings.swift'],
     'chat': ['LodyStrings.swift', 'Chat/ChatTranscript.swift', 'Chat/ChatStream.swift', 'Chat/ChatTextFade.swift'],
     'watchdog': ['Cloud/RuntimeHealth.swift'],

@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { NativeGroupedList, type NativeListSection } from '@lody-ios/kit';
-import { definePage, usePageRuntime } from '@/presentation';
-import { usePalette } from '@/theme/palette';
+import { definePage } from '@/lib/presentation';
+import { usePalette } from '@/lib/theme/palette';
 import type { Capability } from '@/models/send';
 import type { ModelChoice } from '../models/send.ts';
-import { t } from '../i18n/index.ts';
+import { t } from '../lib/i18n/index.ts';
+import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 
 export type { ModelChoice } from '../models/send.ts';
 
@@ -13,6 +14,7 @@ type Params = {
   value: ModelChoice;
   /** Params live in memory, so the screen reports every pick as it happens. */
   onChange: (next: ModelChoice) => void;
+  choiceForModel: (modelId?: string) => ModelChoice;
 };
 
 const DEFAULT = 'lody:default';
@@ -133,9 +135,7 @@ function View() {
       placeholder=""
       onRowPress={({ nativeEvent }) => {
         const picked = nativeEvent.id === DEFAULT ? undefined : nativeEvent.id;
-        if (active === 'model')
-          // Efforts are model-specific, so a stale one must not survive.
-          apply({ ...value, modelId: picked, effort: undefined });
+        if (active === 'model') apply(params.choiceForModel(picked));
         else if (active === 'effort') apply({ ...value, effort: picked });
         else apply({ ...value, modeId: picked });
       }}

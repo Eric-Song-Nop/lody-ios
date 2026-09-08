@@ -9,6 +9,8 @@ import {
   type CreateSessionArgs,
 } from './create-session';
 import { archiveSession, pinSession } from './archive-session';
+import { remoteSettings } from './settings';
+import type { SettingsRequest } from '../../../src/models/settings.ts';
 import {
   fileDiff,
   listDir,
@@ -75,15 +77,29 @@ let creating = false;
 let registering = false;
 const browsers = new Map<string, AbortController>();
 
-async function markDispatch(sessionId: string, turnId: string) {
+async function markDispatch(sessionId: string, turnId: string, queued = false) {
   if (!metaReplica) throw new Error('metadata_not_ready');
   const { flock, client } = metaReplica;
   const version = flock.version();
-  flock.set(['m', `session-${sessionId}`, 'latestUserMsgId'], turnId);
-  flock.set(
-    ['m', `session-${sessionId}`, 'lastMissingHistoryUserMsgId'],
-    undefined,
-  );
+  if (queued) {
+    const key = ['m', `session-${sessionId}`, 'messageQueueUpdatedAt'];
+    const previous = flock.get(key);
+    flock.set(
+      key,
+      Math.max(
+        Date.now(),
+        typeof previous === 'number' && Number.isFinite(previous)
+          ? previous + 1
+          : 0,
+      ),
+    );
+  } else {
+    flock.set(['m', `session-${sessionId}`, 'latestUserMsgId'], turnId);
+    flock.set(
+      ['m', `session-${sessionId}`, 'lastMissingHistoryUserMsgId'],
+      undefined,
+    );
+  }
   flock.commit();
   const result = await client.append({
     part: {
@@ -287,6 +303,16 @@ function machineFor(
 Object.assign(globalThis, {
   dataRuntime: {
     ping: () => true,
+    async remoteSettings(args: SettingsRequest & { userId: string }) {
+      if (args.workspaceId !== workspace || !metaReplica || unhealthy.size)
+        throw new Error('metadata_not_ready');
+      return remoteSettings(
+        args,
+        args.userId,
+        getGrant,
+        AbortSignal.timeout(35000),
+      );
+    },
     /**
      * Development probe: reports the shape of the machine replicas so the client
      * can find out whether model choices exist in the data at all. Names only —
@@ -519,7 +545,7 @@ Object.assign(globalThis, {
       sessionId: string;
       archived: boolean;
     }) {
-      if (args.workspaceId !== workspace || !metaReplica || unhealthy.size)
+      if (args.workspaceId !== workspace || !metaReplica)
         throw new Error('metadata_not_ready');
       const replica = metaReplica;
       await archiveSession(args, replica, machineReplicas, getGrant);
@@ -534,7 +560,7 @@ Object.assign(globalThis, {
       sessionId: string;
       pinned: boolean;
     }) {
-      if (args.workspaceId !== workspace || !metaReplica || unhealthy.size)
+      if (args.workspaceId !== workspace || !metaReplica)
         throw new Error('metadata_not_ready');
       const replica = metaReplica;
       await pinSession(args, replica);

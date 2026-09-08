@@ -4,8 +4,8 @@ import {
   clampFontScale,
   type TypeRole,
   type as typeScale,
-} from '@/theme/tokens';
-import { type ColorRole, usePalette } from '@/theme/palette';
+} from '@/lib/theme/tokens';
+import { type ColorRole, usePalette } from '@/lib/theme/palette';
 
 const roleColor: Record<TypeRole, ColorRole> = {
   title: 'label',

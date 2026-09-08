@@ -1,0 +1,93 @@
+"""Check every native presentation sample, including the window-to-cell handoff."""
+import json
+import math
+from pathlib import Path
+import shutil
+import subprocess
+
+
+def center(frame):
+    return (frame[0] + frame[2] / 2, frame[1] + frame[3] / 2)
+
+
+def distance(a, b):
+    return math.hypot(a[0] - b[0], a[1] - b[1])
+
+
+class ThrowTrace:
+    def __init__(self, ui):
+        self.ui = ui
+        container = subprocess.check_output(['xcrun', 'simctl', 'get_app_container', ui.udid, 'app.innei.lody', 'data'], text=True).strip()
+        self.folder = Path(container) / 'tmp'
+        self.existing = set(self.folder.glob('lody-throw-*.json'))
+
+    def verify(self, minimum):
+        paths = sorted(set(self.folder.glob('lody-throw-*.json')) - self.existing)
+        assert len(paths) >= minimum, 'Missing native throw traces; rebuild Debug with the opt-in probe'
+        reports, failures = [], []
+        for path in paths:
+            shutil.copy2(path, self.ui.output / path.name)
+            trace = json.loads(path.read_text())
+            samples = trace['samples']
+            frames = [s for s in samples if s['event'] == 'frame']
+            flight = [s for s in frames if not s['adopted']]
+            adopted = [s for s in samples if s['adopted']]
+            start, end = center(trace['source']), center(trace['destination'])
+            length = distance(start, end)
+            direction = [(b - a) / max(length, .001) for a, b in zip(start, end)]
+            along, cross = [], []
+            for sample in flight:
+                delta = [v - origin for v, origin in zip(center(sample['frame']), start)]
+                along.append(sum(v * d for v, d in zip(delta, direction)))
+                cross.append(abs(delta[0] * direction[1] - delta[1] * direction[0]))
+            gaps = [b['t'] - a['t'] for a, b in zip(frames, frames[1:])]
+            # Keep the first landed frame in the animation budget; later samples
+            # still check geometry while alerts and draft edits may run.
+            motion_gaps = [b['t'] - a['t'] for a, b in zip(frames, frames[1:]) if not a['adopted']]
+            steps = [b - a for a, b in zip(along, along[1:])]
+            # The center follows a straight path. Bounds and the 88% compression
+            # may change the edges, but cannot send its center backwards/sideways.
+            backward = max([0] + [-step for step in steps])
+            landing = max([0] + [distance(center(s['modelFrame']), end) for s in adopted])
+            presentation_error = max([0] + [distance(center(s['frame']), center(s['modelFrame'])) for s in adopted])
+            stalls = sum(abs(step) < .1 and .15 * length < along[i] < .85 * length
+                         for i, step in enumerate(steps))
+            fps = (len(frames) - 1) / max(frames[-1]['t'] - frames[0]['t'], .001) if len(frames) > 1 else 0
+            report = dict(file=path.name, duration=trace['duration'], samples=len(frames), flightSamples=len(flight),
+                          measuredFPS=fps, maximumFPS=trace['maximumFPS'], maxFrameGapMs=max(gaps, default=0) * 1000,
+                          maxMotionFrameGapMs=max(motion_gaps, default=0) * 1000,
+                          distancePt=length, maxSidewaysErrorPt=max(cross, default=0), maxBackwardStepPt=backward,
+                          maxLandingErrorPt=landing, maxAdoptedPresentationErrorPt=presentation_error,
+                          interiorStallFrames=stalls, minScale=min([s['scale'] for s in flight], default=1))
+            text_frames = [s for s in flight if s['t'] > trace['duration'] * .35]
+            invisible = [s for s in text_frames if s.get('textOpacity', 0) < .9 or min(s.get('textBounds', [0])) <= 0]
+            report['invisibleTextFrames'] = len(invisible)
+            if invisible or not text_frames:
+                failures.append((path.name, 'destination text disappeared after the source crossfade'))
+            colors = [s['background'] for s in flight]
+            source_color, target_color = trace['sourceBackground'], trace['destinationBackground']
+            color_delta = [b - a for a, b in zip(source_color, target_color)]
+            color_length = sum(v * v for v in color_delta)
+            if color_length > .0001:
+                color_progress = [sum((v - a) * d for v, a, d in zip(color, source_color, color_delta)) / color_length for color in colors]
+                report['firstColorProgress'] = color_progress[0]
+                report['lastColorProgress'] = color_progress[-1]
+                report['intermediateColorFrames'] = sum(.05 < p < .95 for p in color_progress)
+                if color_progress[0] > .35 or color_progress[-1] < .95 or report['intermediateColorFrames'] < 3 or any(b < a - .02 for a, b in zip(color_progress, color_progress[1:])):
+                    failures.append((path.name, 'background snapped or reversed instead of blending from input to bubble'))
+            else:
+                failures.append((path.name, 'fixture input and bubble colors do not exercise the transition'))
+            reports.append(report)
+            if trace['cancelled'] or len(flight) < 12 or not adopted:
+                failures.append((path.name, 'incomplete flight/adoption sampling'))
+            if max(motion_gaps, default=1) > .05:
+                failures.append((path.name, 'flight/landing callback gap exceeds 50ms'))
+            if max(cross, default=0) > 1.5 or backward > 1.5:
+                failures.append((path.name, 'flight center deviated or moved backwards'))
+            if landing > 1.5 or presentation_error > 1.5:
+                failures.append((path.name, 'window-to-cell handoff changed position'))
+            if stalls:
+                failures.append((path.name, 'stationary interior frame'))
+        (self.ui.output / 'throw-summary.json').write_text(json.dumps({'traces': reports, 'failures': failures}, indent=2))
+        print(json.dumps(reports, indent=2))
+        assert not failures, failures

@@ -9,6 +9,7 @@ final class LodyComposerView: ExpoView {
   let composer = ChatComposerView(frame: .zero)
   private var contentHeight: CGFloat = 64
   private var reportedHeight: CGFloat = 0
+  var scrollEdge = false { didSet { setNeedsLayout() } }
   private var keyboardFrame: CGRect = .null
 
   override func safeAreaInsetsDidChange() {
@@ -19,6 +20,29 @@ final class LodyComposerView: ExpoView {
   override func layoutSubviews() {
     super.layoutSubviews()
     reportHeight()
+    attachScrollEdge()
+  }
+
+  override func didMoveToWindow() {
+    super.didMoveToWindow()
+    if window == nil { composer.attachScrollEdge(to: nil) }
+    else { setNeedsLayout() }
+  }
+
+  private func attachScrollEdge() {
+    guard scrollEdge, window != nil else {
+      composer.attachScrollEdge(to: nil)
+      return
+    }
+    var responder: UIResponder? = next
+    while let current = responder {
+      if let controller = current as? UIViewController,
+         let scrollView = controller.contentScrollView(for: .bottom) {
+        composer.attachScrollEdge(to: scrollView)
+        return
+      }
+      responder = current.next
+    }
   }
 
   private func reportHeight() {

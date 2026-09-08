@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { NativeDiff } from '@lody-ios/kit';
-import { usePalette } from '@/theme/palette';
+import { usePalette } from '@/lib/theme/palette';
 import { AppText } from '@/ui/AppText';
-import { t } from '../i18n/index.ts';
+import { t } from '../lib/i18n/index.ts';
 import type { DetailBlock } from '../models/session.ts';
 
 function Mono({ children, color }: { children: string; color?: unknown }) {

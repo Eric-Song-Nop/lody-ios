@@ -1,4 +1,5 @@
 export {
+  remoteSettingsRaw,
   runtimeInfo,
   selectionFeedback,
   showToast,
@@ -52,6 +53,7 @@ export {
   type NativeListSection,
 } from './list/NativeGroupedList';
 
+export { NativeSymbol, type NativeSymbolProps } from './chrome/NativeSymbol';
 export {
   NativeSymbolButton,
   type NativeSymbolButtonProps,

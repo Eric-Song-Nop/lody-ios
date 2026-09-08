@@ -1,5 +1,5 @@
 import type { ItemSummary } from '../../../models/session.ts';
-import { t } from '../../../i18n/index.ts';
+import { t } from '../../../lib/i18n/index.ts';
 
 export type PlanEntry = { content: string; status: string; priority?: string };
 

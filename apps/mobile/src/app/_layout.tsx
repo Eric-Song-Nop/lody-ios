@@ -8,8 +8,8 @@ import { CatalogProvider } from '@/cloud/catalog/CatalogProvider';
 import { AuthProvider } from '@/cloud/auth/AuthProvider';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'react-native';
-import { nativePresentationOptions } from '@/presentation';
-import { navigationThemes } from '@/theme/palette';
+import { nativePresentationOptions } from '@/lib/presentation';
+import { navigationThemes } from '@/lib/theme/palette';
 import { softScrollEdgeEffects } from '@/ui/Screen';
 
 export const unstable_settings = { initialRouteName: '(tabs)' };

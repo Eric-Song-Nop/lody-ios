@@ -11,11 +11,12 @@ import {
   writeLocalValue,
   type DiffContent,
 } from '@lody-ios/kit';
-import { definePage, usePageRuntime } from '@/presentation';
-import { usePalette } from '@/theme/palette';
+import { definePage } from '@/lib/presentation';
+import { usePalette } from '@/lib/theme/palette';
 import { AppText } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
-import { t, type TranslationKey } from '../i18n/index.ts';
+import { t, type TranslationKey } from '../lib/i18n/index.ts';
+import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 
 export type FileDiffParams = {
   sessionId: string;

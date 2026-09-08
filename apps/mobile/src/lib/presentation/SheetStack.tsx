@@ -1,6 +1,5 @@
 import {
   createContext,
-  use,
   useCallback,
   useEffect,
   useMemo,
@@ -28,17 +27,12 @@ import type { PresentationResult } from './presentationStore';
 import { present, type PresentationSession } from './presentationStore';
 import { t } from '../i18n/index.ts';
 
-type HeaderItems = ScreenStackHeaderConfigProps['headerRightBarButtonItems'];
-const SheetHeader = createContext<((items: HeaderItems) => void) | null>(null);
-
-/** Set actual UINavigationItem buttons on the owning sheet level. */
-export function useSheetHeader(items: HeaderItems) {
-  const setItems = use(SheetHeader);
-  useEffect(() => {
-    setItems?.(items);
-    return () => setItems?.(undefined);
-  }, [setItems, items]);
-}
+export type HeaderItems =
+  ScreenStackHeaderConfigProps['headerRightBarButtonItems'];
+export type SheetHeaderItems = { right: HeaderItems; left?: HeaderItems };
+export const SheetHeaderContext = createContext<
+  ((items: SheetHeaderItems | undefined) => void) | null
+>(null);
 
 type Level = {
   key: number;
@@ -81,7 +75,7 @@ export function SheetStack({
   session: PresentationSession;
   runtime: PageRuntime<unknown, unknown>;
 }) {
-  const [headerItems, setHeaderItems] = useState<HeaderItems>();
+  const [headerItems, setHeaderItems] = useState<SheetHeaderItems>();
   const [levels, setLevels] = useState<readonly Level[]>([]);
   const nextKey = useRef(1);
   const pendingLevels = useRef(levels);
@@ -158,14 +152,15 @@ export function SheetStack({
               />
             ) : undefined,
           ),
-          headerRightBarButtonItems: headerItems,
+          headerRightBarButtonItems: headerItems?.right,
+          headerLeftBarButtonItems: headerItems?.left,
         }}
       >
-        <SheetHeader value={setHeaderItems}>
+        <SheetHeaderContext value={setHeaderItems}>
           <PageRuntimeProvider value={rootRuntime}>
             <session.page.Component />
           </PageRuntimeProvider>
-        </SheetHeader>
+        </SheetHeaderContext>
       </ScreenStackItem>
       {levels.map((level) => (
         <PushedLevel key={level.key} level={level} push={push} onDrop={drop} />
@@ -183,7 +178,7 @@ function PushedLevel({
   push: PushPage;
   onDrop: (key: number, result: PresentationResult<unknown>) => void;
 }) {
-  const [headerItems, setHeaderItems] = useState<HeaderItems>();
+  const [headerItems, setHeaderItems] = useState<SheetHeaderItems>();
   const cancel = useCallback(
     () => onDrop(level.key, { status: 'cancelled' }),
     [level.key, onDrop],
@@ -211,16 +206,17 @@ function PushedLevel({
       style={StyleSheet.absoluteFill}
       headerConfig={{
         ...headerConfig(level.page, level.presentation),
-        headerRightBarButtonItems: headerItems,
+        headerRightBarButtonItems: headerItems?.right,
+        headerLeftBarButtonItems: headerItems?.left,
       }}
       gestureEnabled={level.presentation.dismissible}
       onDismissed={cancel}
     >
-      <SheetHeader value={setHeaderItems}>
+      <SheetHeaderContext value={setHeaderItems}>
         <PageRuntimeProvider value={runtime}>
           <level.page.Component />
         </PageRuntimeProvider>
-      </SheetHeader>
+      </SheetHeaderContext>
     </ScreenStackItem>
   );
 }

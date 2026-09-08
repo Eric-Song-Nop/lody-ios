@@ -322,6 +322,7 @@ final class DataRuntime: NSObject, WKScriptMessageHandler, WKNavigationDelegate 
       }
       return
     }
+    if method == "remoteSettings" { args["userId"] = userId }
     let id = UUID(); commands[id] = promise
     if method == "sendTurn", args["backgroundTaskId"] == nil, #available(iOS 26.0, *), !backgrounded {
       args["backgroundTaskId"] = ContinuedSessionTasks.shared.begin(owner: owner)
@@ -355,7 +356,7 @@ final class DataRuntime: NSObject, WKScriptMessageHandler, WKNavigationDelegate 
         let data = value?.data(using: .utf8)
         let reply = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
         if reply?["state"] as? String != "accepted" {
-          ContinuedSessionTasks.shared.finish(backgroundTaskId, success: false)
+          ContinuedSessionTasks.shared.finish(backgroundTaskId, success: reply?["state"] as? String == "queued")
         }
       }
       switch result {

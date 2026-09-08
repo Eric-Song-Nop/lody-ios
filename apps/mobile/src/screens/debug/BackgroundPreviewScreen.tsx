@@ -6,7 +6,7 @@ import {
   debugBackgroundDataRuntime,
   type DataRuntimeEvent,
 } from '@lody-ios/kit';
-import { definePage } from '@/presentation';
+import { definePage } from '@/lib/presentation';
 import { Screen } from '@/ui/Screen';
 import { Button } from '@/ui/Button';
 

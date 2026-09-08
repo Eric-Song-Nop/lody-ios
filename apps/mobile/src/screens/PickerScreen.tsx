@@ -1,7 +1,8 @@
 import { NativeGroupedList, type NativeListSection } from '@lody-ios/kit';
-import { definePage, usePageRuntime } from '@/presentation';
-import { usePalette } from '@/theme/palette';
-import { t } from '../i18n/index.ts';
+import { definePage } from '@/lib/presentation';
+import { usePalette } from '@/lib/theme/palette';
+import { t } from '../lib/i18n/index.ts';
+import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 
 export type PickerOption = {
   id: string;

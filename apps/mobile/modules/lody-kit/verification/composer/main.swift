@@ -191,3 +191,24 @@ precondition(persistedTyping.last == "", "Sending must immediately clear the cur
 typingComposer.textViewDidEndEditing(typingInput)
 precondition(persistedTyping.last == "", "An empty current input must never persist the pending message as a new draft")
 print("Composer persistence: either hydration order and current-only draft writes passed")
+
+// A cancelled throw must reveal its destination and never adopt stale content.
+let throwWindow = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+let throwInput = UITextView(frame: CGRect(x: 16, y: 700, width: 350, height: 60))
+throwInput.text = "Preserve this message"
+throwWindow.addSubview(throwInput)
+let throwTarget = ChatMessageContent(frame: CGRect(x: 200, y: 100, width: 170, height: 45))
+throwTarget.label.setText(NSAttributedString(string: throwInput.text))
+throwWindow.addSubview(throwTarget)
+ChatSendHandoff.begin(id: "cancel-throw", text: throwInput.text, source: throwInput)
+ChatSendHandoff.hold(id: "cancel-throw", target: throwTarget)
+precondition(throwTarget.isHidden, "The destination must not duplicate the flying message")
+ChatSendHandoff.deliver(id: "cancel-throw", to: throwTarget)
+let flyingText = throwWindow.subviews.compactMap { $0 as? ChatMessageContent }.first { $0 !== throwTarget }
+precondition(flyingText != nil && flyingText!.label.bounds.width > 0 && flyingText!.label.bounds.height > 0,
+  "The hidden background layer must not skip the flying text layout")
+ChatSendHandoff.cancel(id: "cancel-throw")
+RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+precondition(!throwTarget.isHidden, "Cancellation must reveal the destination")
+precondition(throwWindow.subviews.count == 2, "Cancellation must remove every flight overlay")
+print("Send throw: cancellation reveals target, removes overlays without replacing destination content")

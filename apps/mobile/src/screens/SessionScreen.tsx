@@ -5,9 +5,9 @@ import { useSessionSend } from '@/features/sessions/useSessionSend';
 import { useCatalog } from '@/cloud/catalog/CatalogProvider';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View as RNView, Alert } from 'react-native';
-import { usePalette } from '@/theme/palette';
+import { usePalette } from '@/lib/theme/palette';
 import { NativeChat, sessionCreationOptions } from '@lody-ios/kit';
-import { definePage, present, usePageRuntime } from '@/presentation';
+import { definePage, present } from '@/lib/presentation';
 import { localProjectIdOf } from '@lody-ios/kit';
 import { requestNewSession } from '@/features/sessions/sessionNav';
 import { setArchived, setPinned } from '@/features/sessions/sessionActions';
@@ -29,9 +29,11 @@ import {
   type PermissionTargetSource,
   type PermissionTargetState,
 } from '@/features/sessions/permissionTarget';
+import { useOpenFile } from '@/hooks/screens/useOpenFile';
 import { useProcessSheet } from '@/hooks/screens/useProcessSheet';
 import type { ModelChoice } from './ModelScreen';
-import { t } from '../i18n/index.ts';
+import { t } from '../lib/i18n/index.ts';
+import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 
 function composerPlaceholder({
   archived,
@@ -283,7 +285,8 @@ function View() {
       ),
     [snapshot.entries],
   );
-  const openProcess = useProcessSheet(entriesJSON, onActivityPress);
+  const openFile = useOpenFile(session.id);
+  const openProcess = useProcessSheet(entriesJSON, onActivityPress, session.id);
   let notice = '';
   if (overflow) notice = t('chat.notice.syncStopped');
   else if (disconnected && !send.sending)
@@ -423,6 +426,9 @@ function View() {
           nativeEvent.itemId
             ? onActivityPress(nativeEvent.entryId, nativeEvent.itemId)
             : openProcess(nativeEvent.entryId, nativeEvent.processStartId)
+        }
+        onFilePress={({ nativeEvent }) =>
+          void openFile(nativeEvent.path, nativeEvent.line)
         }
         onTurnChangesPress={({ nativeEvent }) =>
           onTurnChangesPress(nativeEvent.entryId, nativeEvent.path)

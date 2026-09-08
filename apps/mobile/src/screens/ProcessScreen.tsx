@@ -1,9 +1,12 @@
+import { useOpenFile } from '@/hooks/screens/useOpenFile';
 import { useSyncExternalStore } from 'react';
 import { NativeChat } from '@lody-ios/kit';
-import { definePage, usePageRuntime } from '@/presentation';
-import { t } from '../i18n/index.ts';
+import { definePage } from '@/lib/presentation';
+import { t } from '../lib/i18n/index.ts';
+import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 
 type ProcessParams = {
+  sessionId?: string;
   entryId: string;
   startItemId?: string;
   source: ReturnType<typeof createProcessSource>;
@@ -33,6 +36,7 @@ export function createProcessSource(initial: string) {
 
 function View() {
   const { params } = usePageRuntime<ProcessParams>();
+  const openFile = useOpenFile(params.sessionId ?? '');
   const entriesJSON = useSyncExternalStore(
     params.source.subscribe,
     params.source.getSnapshot,
@@ -49,6 +53,9 @@ function View() {
       onSend={() => {}}
       onActivityPress={({ nativeEvent }) =>
         params.onActivityPress(nativeEvent.entryId, nativeEvent.itemId)
+      }
+      onFilePress={({ nativeEvent }) =>
+        void openFile(nativeEvent.path, nativeEvent.line)
       }
       onReconnect={() => {}}
     />

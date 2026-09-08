@@ -293,3 +293,27 @@ test('a send superseded while its state is being saved cannot dispatch', async (
   assert.equal(sends, 0);
   assert.equal(outbox.records[0].send.phase, 'failed');
 });
+
+test('receipts unlock successive sends while an assistant is running; writes still serialize', async () => {
+  const ack = deferred();
+  let calls = 0;
+  const { hooks, outbox } = await setup(draft, {
+    sendSessionTurn: async () => {
+      calls++;
+      return ack.promise;
+    },
+  });
+  await tick();
+  assert.equal(hooks.result.canSend, false);
+  ack.resolve(JSON.stringify({ state: 'queued' }));
+  await tick();
+  await tick();
+  assert.equal(outbox.records[0].send.phase, 'queued');
+  assert.equal(hooks.result.canSend, true);
+  assert.equal(hooks.result.sending, false);
+  hooks.result.submit({ ...draft, id: 'next' });
+  await tick();
+  await tick();
+  assert.equal(calls, 2);
+  assert.equal(outbox.records[0].send.id, 'next');
+});

@@ -5,7 +5,7 @@ import {
   formatTemplate,
   matchLocale,
   pluralSuffix,
-} from '../../src/i18n/format.ts';
+} from '../../src/lib/i18n/format.ts';
 
 const catalog = (name) =>
   JSON.parse(

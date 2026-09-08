@@ -373,12 +373,14 @@ final class ChatComposerView: UIView, UITextViewDelegate {
 
   func setInputIdentifier(_ id: String) { input.accessibilityIdentifier = id }
 
-  func attachScrollEdge(to scrollView: UIScrollView) {
+  func attachScrollEdge(to scrollView: UIScrollView?) {
     if #available(iOS 26.0, *) {
-      let edge = UIScrollEdgeElementContainerInteraction()
+      let existing = composer.interactions.compactMap { $0 as? UIScrollEdgeElementContainerInteraction }.first
+      guard scrollView != nil || existing != nil else { return }
+      let edge = existing ?? UIScrollEdgeElementContainerInteraction()
       edge.scrollView = scrollView
       edge.edge = .bottom
-      composer.addInteraction(edge)
+      if edge.view == nil { composer.addInteraction(edge) }
     }
   }
 
@@ -789,7 +791,7 @@ final class ChatComposerView: UIView, UITextViewDelegate {
     guard send.isEnabled else { return }
     let id = UUID().uuidString.lowercased()
     let body = ([input.text ?? ""] + attachments.filter { !$0.isImage }.map(\.name)).filter { !$0.isEmpty }.joined(separator: "\n")
-    if !body.isEmpty { ChatSendHandoff.begin(id: id, text: body, source: input) }
+    if !body.isEmpty { ChatSendHandoff.begin(id: id, text: body, source: input, background: inputSurface) }
     ChatSendHandoff.beginImages(id: id, attachments: attachments, source: attachmentBar)
     takeDraft()
     saveDraft()

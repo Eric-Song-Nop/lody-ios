@@ -1,13 +1,14 @@
 import { Stack } from 'expo-router';
 import { NativeGroupedList } from '@lody-ios/kit';
-import { definePage, usePageRuntime } from '@/presentation';
+import { definePage } from '@/lib/presentation';
 import { useCatalog } from '@/cloud/catalog/CatalogProvider';
-import { usePalette } from '@/theme/palette';
+import { usePalette } from '@/lib/theme/palette';
 import { byActivity, sessionRow } from '@/features/sessions/inbox';
 import { requestNewSession } from '@/features/sessions/sessionNav';
 import { sessionRowAction } from '@/features/sessions/sessionActions';
 import { openCatalogRow } from '@/hooks/screens/openCatalogRow';
-import { t } from '../i18n/index.ts';
+import { t } from '../lib/i18n/index.ts';
+import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 
 function View() {
   const {

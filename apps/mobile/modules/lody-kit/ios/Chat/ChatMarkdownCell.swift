@@ -2,23 +2,23 @@ import MarkdownView
 import UIKit
 
 final class ChatMarkdownCell: UICollectionViewCell {
-  let markdown: MarkdownTextView
+  let markdown: FileMarkdownView
   private let label = ChatFadeLabelView()
   private let icon = UIImageView()
   private let spinner = UIActivityIndicatorView(style: .medium)
   private(set) var row: ChatRow?
-  var onLink: ((URL) -> Void)?
+  var onLink: ((String) -> Void)?
 
   override init(frame: CGRect) {
-    markdown = MarkdownTextView(textLabelView: label)
+    markdown = FileMarkdownView(textLabelView: label)
     super.init(frame: frame)
     markdown.throttleInterval = 1.0 / 60
     markdown.linkHandler = { [weak self] payload, _, _ in
-      let url: URL? = switch payload {
-      case .url(let url): url
-      case .string(let string): URL(string: string)
+      let href: String = switch payload {
+      case .url(let url): url.absoluteString
+      case .string(let string): string
       }
-      if let url { self?.onLink?(url) }
+      self?.onLink?(href)
     }
     icon.contentMode = .center
     contentView.addSubview(markdown)
@@ -40,6 +40,7 @@ final class ChatMarkdownCell: UICollectionViewCell {
     row.running ? spinner.startAnimating() : spinner.stopAnimating()
     accessibilityIdentifier = row.id
     accessibilityLabel = row.text
+    accessibilityCustomActions = markdown.fileActions(content)
     accessibilityTraits = row.actionable ? .button : .staticText
     setNeedsLayout()
   }

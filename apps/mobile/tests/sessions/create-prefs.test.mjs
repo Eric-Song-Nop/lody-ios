@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   rememberedProject,
+  rememberedModelChoice,
   restoreSelection,
   withSelection,
 } from '../../src/features/sessions/createPrefs.ts';
@@ -68,7 +69,7 @@ test('restores the remembered agent and model per project, dropping choices the 
   assert.deepEqual(restoreSelection(stale, 'p1', options), {
     machineId: 'm2',
     agentKey: 'm2:c2',
-    choice: { modelId: undefined, effort: undefined, modeId: 'plan' },
+    choice: { modelId: undefined, effort: undefined, modeId: undefined },
   });
   assert.deepEqual(restoreSelection(null, 'p1', options), {
     machineId: 'm1',
@@ -76,4 +77,99 @@ test('restores the remembered agent and model per project, dropping choices the 
     choice: { modelId: undefined, effort: undefined, modeId: undefined },
   });
   assert.equal(restoreSelection(prefs, 'other', options).agentKey, 'm1:c1');
+});
+
+test('remembers each model across projects and serialization, without leaking agent choices', () => {
+  const capability = {
+    ...options.capabilities[0],
+    models: [{ id: 'opus' }, { id: 'sonnet' }],
+    modes: [{ id: 'plan' }, { id: 'bypassPermissions' }],
+    reasoningEfforts: { opus: ['low', 'high'], sonnet: ['low', 'high'] },
+  };
+  let prefs = withSelection(null, 'p1', {
+    agentKey: 'm2:c2',
+    modelId: 'opus',
+    effort: 'high',
+    modeId: 'plan',
+  });
+  assert.deepEqual(
+    rememberedModelChoice(prefs, 'm2:c2', capability, 'sonnet'),
+    {
+      modelId: 'sonnet',
+      effort: undefined,
+      modeId: 'bypassPermissions',
+    },
+  );
+  prefs = withSelection(prefs, 'p2', {
+    agentKey: 'm2:c2',
+    modelId: 'sonnet',
+    effort: 'low',
+    modeId: 'bypassPermissions',
+  });
+  prefs = JSON.parse(JSON.stringify(prefs));
+  assert.deepEqual(rememberedModelChoice(prefs, 'm2:c2', capability, 'opus'), {
+    modelId: 'opus',
+    effort: 'high',
+    modeId: 'plan',
+  });
+  assert.equal(
+    rememberedModelChoice(prefs, 'another-agent', capability, 'opus').modeId,
+    'bypassPermissions',
+  );
+  assert.equal(
+    rememberedModelChoice(prefs, 'another-agent', capability, 'opus').effort,
+    undefined,
+  );
+  const removed = {
+    ...capability,
+    reasoningEfforts: {},
+    modes: [{ id: 'bypassPermissions' }],
+  };
+  assert.deepEqual(rememberedModelChoice(prefs, 'm2:c2', removed, 'opus'), {
+    modelId: 'opus',
+    effort: undefined,
+    modeId: 'bypassPermissions',
+  });
+  prefs = withSelection(prefs, 'p1', { agentKey: 'm2:c2', modelId: 'opus' });
+  assert.equal(
+    rememberedModelChoice(
+      JSON.parse(JSON.stringify(prefs)),
+      'm2:c2',
+      capability,
+      'opus',
+    ).modeId,
+    undefined,
+    'explicit assistant default is remembered',
+  );
+});
+
+test('full access defaults only use modes the assistant actually offers', () => {
+  for (const id of [
+    'agent-full-access',
+    'danger-full-access',
+    'bypassPermissions',
+    'yolo',
+    'always-approve',
+  ]) {
+    const capability = {
+      ...options.capabilities[0],
+      modes: [{ id: 'plan' }, { id }],
+    };
+    assert.equal(rememberedModelChoice(null, 'agent', capability).modeId, id);
+  }
+  assert.equal(
+    rememberedModelChoice(null, 'agent', options.capabilities[0]).modeId,
+    undefined,
+  );
+  const legacy = {
+    projects: {
+      p1: {
+        agentKey: 'm2:c2',
+        modelId: 'opus',
+        effort: 'high',
+        modeId: 'plan',
+      },
+    },
+  };
+  assert.equal(restoreSelection(legacy, 'p1', options).choice.modeId, 'plan');
 });

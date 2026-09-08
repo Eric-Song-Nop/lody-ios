@@ -5,12 +5,13 @@ import {
   localProjects,
   type NativeListSection,
 } from '@lody-ios/kit';
-import { definePage, usePageRuntime } from '@/presentation';
-import { useSheetHeader } from '@/presentation/SheetStack';
+import { definePage } from '@/lib/presentation';
 import type { Project } from '@/models/catalog';
 import type { Directory } from '../../modules/lody-kit/data-runtime/local-projects';
-import { usePalette } from '@/theme/palette';
-import { t } from '../i18n/index.ts';
+import { usePalette } from '@/lib/theme/palette';
+import { t } from '../lib/i18n/index.ts';
+import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
+import { useSheetHeader } from '@/hooks/screens/useSheetHeader';
 
 type Machine = { id: string; name: string };
 type Params = {

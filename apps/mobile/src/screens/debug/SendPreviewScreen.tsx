@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { NativeChat, NativeComposer } from '@lody-ios/kit';
-import { definePage, present, usePageRuntime } from '@/presentation';
+import { definePage, present } from '@/lib/presentation';
 import { usePendingSends } from '@/cloud/send/pendingSends';
 import { useSessionSend } from '@/features/sessions/useSessionSend';
 import type { Session } from '@/models/catalog';
 import type { Snapshot } from '@/features/sessions/useSessionRuntime';
 import { Button } from '@/ui/Button';
-import { usePalette } from '@/theme/palette';
+import { usePalette } from '@/lib/theme/palette';
+import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 
 const session: Session = {
   id: 'offline-send-preview',
@@ -67,6 +68,8 @@ function SendSource() {
 }
 
 function SendPreview() {
+  const { params } = usePageRuntime<{ queue?: boolean } | undefined, void>();
+  const queue = params?.queue === true;
   const colors = usePalette();
   const outbox = usePendingSends('ui-send-preview', 'fixture');
   const record = outbox.records.find(
@@ -77,7 +80,25 @@ function SendPreview() {
   const [snapshot, setSnapshot] = useState<Snapshot>({
     status: 'offline',
     revision: 0,
-    entries: [],
+    entries: queue
+      ? [
+          {
+            id: 'running-reply',
+            role: 'assistant',
+            status: 'processing',
+            finished: false,
+            rev: 0,
+            items: [
+              {
+                itemId: 'text',
+                type: 'text',
+                text: 'The current reply is still running',
+                rev: 0,
+              },
+            ],
+          },
+        ]
+      : [],
   });
   const completion = useRef<((result: string) => void) | null>(null);
   const services = useRef({
@@ -114,6 +135,26 @@ function SendPreview() {
     if (!resolve) return;
     completion.current = null;
     let state = failure ? 'not_sent' : 'accepted';
+    if (queue && !failure && record) {
+      state = 'queued';
+      setSnapshot((old) => ({
+        ...old,
+        revision: old.revision + 1,
+        entries: [
+          ...old.entries,
+          {
+            id: record.send.id,
+            role: 'user',
+            status: 'queued',
+            finished: false,
+            rev: 0,
+            items: [
+              { itemId: 'text', type: 'text', text: record.send.text, rev: 0 },
+            ],
+          },
+        ],
+      }));
+    }
     if (record?.send.creation) state = failure ? 'rejected' : 'created';
     resolve(JSON.stringify({ state, session, reason: '验收：明确未发送' }));
   };
@@ -145,11 +186,51 @@ function SendPreview() {
         <Button
           testID="send-reply"
           onPress={() => {
+            if (queue) {
+              setSnapshot((old) => {
+                const next = old.entries.find(
+                  (entry) => entry.status === 'queued',
+                );
+                if (!next) return old;
+                const history = old.entries
+                  .filter((entry) => entry.status !== 'queued')
+                  .map((entry) => ({ ...entry, finished: true }));
+                return {
+                  ...old,
+                  revision: old.revision + 1,
+                  entries: [
+                    ...history,
+                    { ...next, status: '', finished: true },
+                    {
+                      id: next.id + ':reply',
+                      role: 'assistant',
+                      status: '',
+                      finished: true,
+                      rev: 0,
+                      items: [
+                        {
+                          itemId: 'text',
+                          type: 'text',
+                          text: 'Queued reply completed',
+                          rev: 0,
+                        },
+                      ],
+                    },
+                    ...old.entries.filter(
+                      (entry) =>
+                        entry.status === 'queued' && entry.id !== next.id,
+                    ),
+                  ],
+                };
+              });
+              return;
+            }
             if (!record) return;
-            setSnapshot({
+            setSnapshot((old) => ({
               status: 'live',
-              revision: 1,
+              revision: old.revision + 1,
               entries: [
+                ...old.entries,
                 {
                   id: record.send.id,
                   role: 'user',
@@ -166,22 +247,22 @@ function SendPreview() {
                   ],
                 },
                 {
-                  id: 'fixture-reply',
+                  id: `${record.send.id}:reply`,
                   role: 'assistant',
                   status: '',
-                  finished: false,
+                  finished: true,
                   rev: 0,
                   items: [
                     {
-                      itemId: 'thought',
-                      type: 'thought',
+                      itemId: 'text',
+                      type: 'text',
                       rev: 0,
-                      text: '正在核对内容',
+                      text: '验收回复已完成',
                     },
                   ],
                 },
               ],
-            });
+            }));
           }}
         >
           回复
@@ -191,6 +272,12 @@ function SendPreview() {
         testID="send-status"
         style={{ color: colors.label, padding: 12 }}
       >{`Calls: ${calls} · ${record?.send.phase ?? 'idle'}`}</Text>
+      {queue && (
+        <Text
+          testID="queue-count"
+          style={{ color: colors.label }}
+        >{`Queue: ${snapshot.entries.filter((entry) => entry.status === 'queued').length}`}</Text>
+      )}
       <NativeChat
         style={{ flex: 1 }}
         entriesJSON={JSON.stringify(snapshot.entries)}
@@ -232,19 +319,20 @@ const sourcePage = definePage<undefined, void>({
     sheetAllowedDetents: [0.62, 1],
   },
 });
-const targetPage = definePage({
+const targetPage = definePage<{ queue?: boolean } | undefined, void>({
   id: 'send-preview',
+  parseRouteParams: () => undefined,
   title: '发送交接验收',
   Component: SendPreview,
   presentation: { style: 'push', headerVariant: 'transparent' },
 });
 
-export async function openSendPreview(source: boolean) {
+export async function openSendPreview(source: boolean, queue = false) {
   const { getPendingSendStore } = await import('@/cloud/send/pendingSends');
   await getPendingSendStore('ui-send-preview', 'fixture').remove(session.id);
   if (source) {
     const result = await present(sourcePage);
     if (result.status !== 'completed') return;
   }
-  await present(targetPage);
+  await present(targetPage, { queue });
 }

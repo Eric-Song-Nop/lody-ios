@@ -1,9 +1,10 @@
 import { NativeGroupedList } from '@lody-ios/kit';
 import { useConnection } from '@/cloud/catalog/connection';
 import { useCatalog } from '@/cloud/catalog/CatalogProvider';
-import { usePalette } from '@/theme/palette';
-import { definePage, usePageRuntime } from '@/presentation';
-import { currentLocale, t } from '../i18n/index.ts';
+import { usePalette } from '@/lib/theme/palette';
+import { definePage } from '@/lib/presentation';
+import { currentLocale, t } from '../lib/i18n/index.ts';
+import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 
 function View() {
   const { params, finish } = usePageRuntime<{ mode: number }, number>();

@@ -2,7 +2,9 @@
 import sys
 from driver import UI
 import catalog
+from send_motion import ThrowTrace
 ui = UI(*sys.argv[1:])
+throw_trace = ThrowTrace(ui)
 ui.axe('tap', '--id', 'create-session-input')
 ui.axe('type', 'Carry this message\nInto the new conversation')
 draft = ui.element('create-session-input')['AXValue']
@@ -23,3 +25,5 @@ ui.wait(lambda items: any(i.get('AXUniqueId') == 'session-input' and i.get('AXVa
 assert not any(i.get('AXUniqueId') in [turn + ':user', turn + ':pending'] for i in ui.state())
 ui.capture('target-restored')
 print('PASS: new-session handoff before network, waiting shiny row, creation rejection restores in target composer')
+
+throw_trace.verify(1)

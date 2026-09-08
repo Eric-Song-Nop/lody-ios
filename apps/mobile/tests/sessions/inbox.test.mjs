@@ -3,7 +3,7 @@ import test from 'node:test';
 import { inboxSections } from '../../src/features/sessions/inbox.ts';
 import { listPlaceholder, searchPlaceholder } from '../../src/ui/listState.ts';
 import { draftTitle } from '../../src/features/sessions/draftTitle.ts';
-import { setLocale } from '../../src/i18n/index.ts';
+import { setLocale } from '../../src/lib/i18n/index.ts';
 
 setLocale('zh-Hans');
 
