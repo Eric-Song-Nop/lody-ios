@@ -46,7 +46,7 @@ saw_segments = False
 deadline = time.monotonic() + 45
 while time.monotonic() < deadline:
     items = {item['AXUniqueId']: item for item in rows(json.loads(axe('describe-ui')))}
-    saw_running |= any(catalog.text('native.chat.transcript.status.running') in item.get('AXLabel', '') for item in items.values())
+    saw_running |= any(catalog.text('native.chat.transcript.activity.thinking') in item.get('AXLabel', '') for item in items.values())
     saw_segments |= 'preview:middle' in items and 'preview:process:thought-two' in items
     answer = items.get('preview:answer')
     summary = items.get('preview:process')
@@ -63,7 +63,7 @@ assert answer and '分割线之后的收尾段落' in answer['AXLabel'], 'Conclu
 for _ in range(8):
     items = {item['AXUniqueId']: item for item in rows(json.loads(axe('describe-ui')))}
     summary = items.get('preview:process')
-    if summary and catalog.text('native.chat.transcript.status.done') in summary.get('AXLabel', ''):
+    if summary and catalog.text('native.chat.transcript.activity.thought') in summary.get('AXLabel', ''):
         break
     axe('swipe', '--start-x', '200', '--start-y', '300', '--end-x', '200', '--end-y', '650', '--duration', '0.5', '--post-delay', '0.4')
 else:

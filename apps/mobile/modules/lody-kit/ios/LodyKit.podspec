@@ -7,7 +7,7 @@ Pod::Spec.new do |s|
   s.version = package['version']
   s.summary = 'First-party iOS capabilities and native UI for Lody.'
   s.homepage = 'https://github.com/Innei/lody-ios'
-  s.license = { type: 'Proprietary' }
+  s.license = { type: 'PolyForm-Noncommercial-1.0.0' }
   s.authors = 'Innei'
   s.platform = :ios, '16.4'
   s.swift_version = '5.9'

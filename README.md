@@ -16,9 +16,21 @@
 
 ---
 
+> [!IMPORTANT]
+> **This is a third-party project.** Lody iOS is an independent, community-maintained client. It is not affiliated with, endorsed by, or supported by the official Lody team. Report issues in this repository, not upstream.
+>
+> **The project is still under development.** It iterates quickly, so APIs, sync behavior, and UI may change without notice, and builds can be unstable or break existing sessions. Evaluate the risk yourself before relying on it.
+
+> [!IMPORTANT]
+> **本项目为第三方项目。** Lody iOS 由社区独立维护，与 Lody 官方团队无关，也不代表官方立场；本项目的问题请在本仓库反馈，不要提交给上游。
+>
+> **项目仍在开发中。** 迭代速度较快，接口、同步行为与界面可能随时调整，版本可能不稳定甚至破坏已有会话数据，请在评估风险后使用。
+
+---
+
 ## Overview
 
-**Lody iOS** is an independent open-source client crafted for iPhone, providing a lightweight and secure bridge between remote Lody services and local workspaces.
+**Lody iOS** is an independent, non-commercial open-source client crafted for iPhone, providing a lightweight and secure bridge between remote Lody services and local workspaces.
 
 The project uses a hybrid architecture of **React Native + a deeply customized Swift native module (LodyKit)**. While preserving the rapid iteration advantages of declarative cross-platform UI, critical interactions (infinite chat collection, streaming text rendering, code diff highlighting, file tree, etc.) are built with native Swift and CoreText to deliver an authentic iOS system feel.
 
@@ -171,6 +183,14 @@ pnpm check      # Run TypeScript type checks and Prettier formatting checks
 pnpm test       # Run end-to-end session logic tests (Node.js 22 built-in test runner)
 pnpm bundle     # Verify iOS Hermes JavaScript production bundle integrity
 ```
+
+---
+
+## License
+
+Lody iOS is released under the [PolyForm Noncommercial License 1.0.0](LICENSE). You may use, modify, and distribute it **for non-commercial purposes only**; commercial use requires a separate license from the author.
+
+Bundled third-party libraries and assets keep their own licenses. The full list and license texts are available in the app under **Settings → Open Source Licenses**.
 
 ---
 

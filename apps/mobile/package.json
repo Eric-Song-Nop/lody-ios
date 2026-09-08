@@ -2,6 +2,7 @@
   "name": "@lody-ios/mobile",
   "version": "0.1.0",
   "private": true,
+  "license": "PolyForm-Noncommercial-1.0.0",
   "main": "index.js",
   "scripts": {
     "start": "expo start --dev-client",
@@ -10,7 +11,9 @@
     "pods": "cd ios && PATH=\"$(brew --prefix ruby)/bin:$PATH\" bundle exec pod install",
     "bundle": "pnpm native:assets && EXPO_NO_BUNDLE_SPLITTING=1 expo export --platform ios --output-dir .expo/export-check",
     "typecheck": "tsc --noEmit",
-    "native:assets": "node scripts/build-decoder.mjs"
+    "native:assets": "node scripts/build-decoder.mjs",
+    "licenses:build": "node scripts/build-licenses.mjs",
+    "licenses:check": "node scripts/build-licenses.mjs --check"
   },
   "dependencies": {
     "@loro-dev/flock-wasm": "0.4.3",

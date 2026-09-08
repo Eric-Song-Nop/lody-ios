@@ -16,7 +16,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from simulator import run_with_simulator, SimulatorPool
 
 CHAT = ROOT / 'apps/mobile/modules/lody-kit/verification/chat'
-CASES = ['send-queue', 'send-interrupt', 'send-rounds', 'file-preview', 'chat-performance', 'chat-stream-performance', 'settings', 'send', 'send-handoff', 'layout', 'tracking', 'smooth-scroll', 'model-options', 'image-preview', 'composer', 'composer-success', 'composer-failure', 'markdown', 'duration', 'changes', 'inline-diff', 'inbox', 'background', 'permission', 'home', 'model-memory', 'onboarding']
+CASES = ['send-queue', 'send-interrupt', 'send-rounds', 'file-preview', 'chat-performance', 'chat-stream-performance', 'settings', 'send', 'send-handoff', 'layout', 'tracking', 'smooth-scroll', 'model-options', 'image-preview', 'composer', 'composer-success', 'composer-failure', 'markdown', 'duration', 'changes', 'inline-diff', 'inbox', 'background', 'permission', 'home', 'licenses', 'model-memory', 'onboarding']
+# These run their own HomePreviewProviders bundle and start from the inbox, not Debug.
+STANDALONE = {'home', 'licenses'}
 PREVIEW = {
     'permission': 'permission-preview',
     'send-queue': 'send-queue',
@@ -95,7 +97,7 @@ except OSError:
     pass
 metro_log = (args.output / 'metro.log').open('w')
 metro = subprocess.Popen(['pnpm', '--filter', '@lody-ios/mobile', 'exec', 'expo', 'start', '--dev-client', '--host', 'lan', '--port', str(args.port)],
-                         cwd=ROOT, env={**os.environ, 'CI': '1', 'EXPO_NO_DOTENV': '1', 'EXPO_PUBLIC_UI_VERIFY': '1', 'EXPO_PUBLIC_UI_VERIFY_HOME': '1' if args.case == 'home' else '0', 'REACT_NATIVE_PACKAGER_HOSTNAME': '127.0.0.1'},
+                         cwd=ROOT, env={**os.environ, 'CI': '1', 'EXPO_NO_DOTENV': '1', 'EXPO_PUBLIC_UI_VERIFY': '1', 'EXPO_PUBLIC_UI_VERIFY_HOME': '1' if args.case in STANDALONE else '0', 'REACT_NATIVE_PACKAGER_HOSTNAME': '127.0.0.1'},
                          stdout=metro_log, stderr=subprocess.STDOUT, start_new_session=True)
 results = home_results
 try:
@@ -133,7 +135,7 @@ try:
     subprocess.run([str(keyboard), subprocess.check_output(['xcode-select', '-p'], text=True).strip(), args.udid], check=True, timeout=30)
     sim('install', args.udid, str(args.app.resolve()))
     sim('ui', args.udid, 'content_size', 'large')
-    cases = [args.case] if args.case else [case for case in CASES if case != 'home']
+    cases = [args.case] if args.case else [case for case in CASES if case not in STANDALONE]
     for appearance in ['light', 'dark']:
         sim('ui', args.udid, 'appearance', appearance)
         for case in cases:
@@ -148,8 +150,8 @@ try:
                     '-AppleKeyboards', '(en_US@sw=QWERTY)')
                 ui.element('ui-verify-ready', timeout=90)
                 preview = PREVIEW.get(case, 'chat-preview')
-                ready = 'ui-verify-ready' if case == 'home' else READY.get(case, 'session-input')
-                if case != 'home':
+                ready = 'ui-verify-ready' if case in STANDALONE else READY.get(case, 'session-input')
+                if case not in STANDALONE:
                     # The Debug list is a native UICollectionView; offscreen rows are not in the tree.
                     for _ in range(8):
                         if any(item.get('AXUniqueId') == preview for item in ui.state()):
@@ -181,7 +183,7 @@ try:
                 else:
                     raise TimeoutError('Video recorder did not start')
                 ui.capture('before')
-                script = Path(__file__).with_name(f'{case}.py') if case in ['file-preview', 'chat-performance', 'chat-stream-performance', 'settings', 'send', 'send-handoff', 'send-rounds', 'send-queue', 'send-interrupt', 'smooth-scroll', 'composer', 'markdown', 'duration', 'changes', 'inline-diff', 'background', 'inbox', 'permission', 'home', 'model-memory', 'onboarding'] else CHAT / ('composer.py' if case.startswith('composer-') else f'{case}.py')
+                script = Path(__file__).with_name(f'{case}.py') if case in ['file-preview', 'chat-performance', 'chat-stream-performance', 'settings', 'send', 'send-handoff', 'send-rounds', 'send-queue', 'send-interrupt', 'smooth-scroll', 'composer', 'markdown', 'duration', 'changes', 'inline-diff', 'background', 'inbox', 'permission', 'home', 'licenses', 'model-memory', 'onboarding'] else CHAT / ('composer.py' if case.startswith('composer-') else f'{case}.py')
                 command = [sys.executable, str(script), args.udid]
                 if case.startswith('composer-'):
                     command += ['--expect', case.removeprefix('composer-'), '--output', str(output)]

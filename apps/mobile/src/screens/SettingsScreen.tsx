@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 import { AccountScreen } from './AccountScreen';
 import { ArchivedSessionsScreen } from './ArchivedSessionsScreen';
+import { LicensesScreen } from './LicensesScreen';
 import { RemoteSettingsScreen, settingsTitle } from './RemoteSettingsScreen';
 import { Linking } from 'react-native';
 import Constants from 'expo-constants';
@@ -93,6 +94,14 @@ function View() {
           })`,
           image: 'info.circle',
         },
+        {
+          id: 'licenses',
+          title: t('settings.licenses.title'),
+          image: 'doc.text',
+          action: true,
+          disclosure: true,
+          navigates: true,
+        },
       ],
     },
   ];
@@ -163,6 +172,7 @@ function View() {
           );
         }
         if (nativeEvent.id === 'archived') void push(ArchivedSessionsScreen);
+        if (nativeEvent.id === 'licenses') void push(LicensesScreen);
         if (nativeEvent.id === 'debug-open') {
           cancel();
           router.push('/debug');
