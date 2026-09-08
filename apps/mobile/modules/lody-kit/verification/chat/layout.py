@@ -25,9 +25,20 @@ def rows(node):
         for value in node:
             yield from rows(value)
 
+def chat_title(items):
+    return next((i for i in items if i.get('role_description') == 'Nav bar' and i.get('AXUniqueId') == '原生聊天预览'), None)
+
+def two_line_title(items):
+    bar = chat_title(items)
+    return bar if bar and bar['frame']['height'] >= 50 else None
+
+ui.wait(two_line_title, 'Project subtitle must be visible when the chat first appears')
+ui.element('chat-navigation-title')
 axe('tap', '--id', 'chat-navigation-title', '--post-delay', '0.3')
 assert '原生 titleView 点击正常' in axe('describe-ui'), 'Native title must keep its tap action'
 axe('tap', '--label', catalog.system('ok'), '--post-delay', '0.3')
+axe('drag', '--start-x', '2', '--start-y', '400', '--end-x', '70', '--end-y', '400', '--duration', '1', '--post-delay', '.8')
+ui.wait(two_line_title, 'Project subtitle must survive a cancelled return')
 axe('tap', '--label', 'Retry')
 observations = []
 saw_running = False

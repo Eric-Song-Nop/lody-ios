@@ -413,6 +413,5 @@
   "native.chat.composer.steer": "Steer",
   "native.chat.composer.steering": "Confirming delivery…",
   "native.chat.composer.queue": "Queued messages",
-  "native.chat.composer.controlError": "Could not complete the action. Check the connection and try again.",
-  "native.chat.composer.steerNotApplied": "Steer was not confirmed. The message stays in the waiting area until its delivery is confirmed."
+  "native.chat.composer.controlError": "Could not complete the action. Check the connection and try again."
 }

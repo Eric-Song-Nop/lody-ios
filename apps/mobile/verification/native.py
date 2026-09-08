@@ -41,15 +41,17 @@ checks = {
         'LodyStrings.swift',
         'Toast/LodySessionBannerView.swift',
     ],
+    'chat-title': ['Chat/ChatNavigationTitle.swift'],
 }
 with tempfile.TemporaryDirectory(prefix='lody-native-verify-') as output:
     for name, files in checks.items():
         binary = str(Path(output) / name)
-        simulator = name in ['chat-render', 'composer', 'attachments', 'inline-diff', 'list', 'banner']
+        simulator = name in ['chat-render', 'composer', 'attachments', 'inline-diff', 'list', 'banner', 'chat-title']
         command = ['xcrun', '--sdk', 'iphonesimulator', 'swiftc'] if simulator else ['xcrun', 'swiftc']
         if simulator:
             arch = 'arm64' if platform.machine() == 'arm64' else 'x86_64'
-            command += ['-sdk', sdk, '-target', f'{arch}-apple-ios18.0-simulator']
+            ios = '26.0' if name == 'chat-title' else '18.0'
+            command += ['-sdk', sdk, '-target', f'{arch}-apple-ios{ios}-simulator']
         if name == 'attachments':
             command += ['-parse-as-library']
         if name == 'inline-diff':

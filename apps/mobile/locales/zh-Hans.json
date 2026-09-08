@@ -413,6 +413,5 @@
   "native.chat.composer.steer": "Steer",
   "native.chat.composer.steering": "正在确认投递…",
   "native.chat.composer.queue": "排队消息",
-  "native.chat.composer.controlError": "操作未完成，请检查连接后重试。",
-  "native.chat.composer.steerNotApplied": "尚未确认 Steer 成功，消息会保留在待发送区域，直到确认投递状态。"
+  "native.chat.composer.controlError": "操作未完成，请检查连接后重试。"
 }

@@ -16,10 +16,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from simulator import run_with_simulator, SimulatorPool
 
 CHAT = ROOT / 'apps/mobile/modules/lody-kit/verification/chat'
-CASES = ['send-queue', 'send-rounds', 'file-preview', 'chat-performance', 'chat-stream-performance', 'settings', 'send', 'send-handoff', 'layout', 'tracking', 'smooth-scroll', 'model-options', 'image-preview', 'composer', 'composer-success', 'composer-failure', 'markdown', 'duration', 'changes', 'inline-diff', 'inbox', 'background', 'permission', 'home', 'model-memory', 'onboarding']
+CASES = ['send-queue', 'send-interrupt', 'send-rounds', 'file-preview', 'chat-performance', 'chat-stream-performance', 'settings', 'send', 'send-handoff', 'layout', 'tracking', 'smooth-scroll', 'model-options', 'image-preview', 'composer', 'composer-success', 'composer-failure', 'markdown', 'duration', 'changes', 'inline-diff', 'inbox', 'background', 'permission', 'home', 'model-memory', 'onboarding']
 PREVIEW = {
     'permission': 'permission-preview',
     'send-queue': 'send-queue',
+    'send-interrupt': 'send-interrupt',
     'send-rounds': 'send-preview',
     'file-preview': 'file-preview',
     'chat-performance': 'chat-performance',
@@ -39,6 +40,7 @@ PREVIEW = {
 }
 READY = {
     'send-queue': 'send-status',
+    'send-interrupt': 'send-status',
     'send-rounds': 'send-status',
     'file-preview': 'file-links:answer',
     'settings': 'settings-machine',
@@ -157,7 +159,7 @@ try:
                 try:
                     ui.element(ready)
                 except AssertionError:
-                    if case in ['inbox', 'send', 'send-handoff', 'send-rounds', 'send-queue', 'smooth-scroll'] and any(item.get('AXUniqueId') == preview for item in ui.state()):
+                    if case in ['inbox', 'send', 'send-handoff', 'send-rounds', 'send-queue', 'send-interrupt', 'smooth-scroll'] and any(item.get('AXUniqueId') == preview for item in ui.state()):
                         ui.axe('tap', '--id', preview, '--tap-style', 'physical', '--pre-delay', '0.5', '--post-delay', '1.2')
                         ui.element(ready)
                     else:
@@ -179,7 +181,7 @@ try:
                 else:
                     raise TimeoutError('Video recorder did not start')
                 ui.capture('before')
-                script = Path(__file__).with_name(f'{case}.py') if case in ['file-preview', 'chat-performance', 'chat-stream-performance', 'settings', 'send', 'send-handoff', 'send-rounds', 'send-queue', 'smooth-scroll', 'composer', 'markdown', 'duration', 'changes', 'inline-diff', 'background', 'inbox', 'permission', 'home', 'model-memory', 'onboarding'] else CHAT / ('composer.py' if case.startswith('composer-') else f'{case}.py')
+                script = Path(__file__).with_name(f'{case}.py') if case in ['file-preview', 'chat-performance', 'chat-stream-performance', 'settings', 'send', 'send-handoff', 'send-rounds', 'send-queue', 'send-interrupt', 'smooth-scroll', 'composer', 'markdown', 'duration', 'changes', 'inline-diff', 'background', 'inbox', 'permission', 'home', 'model-memory', 'onboarding'] else CHAT / ('composer.py' if case.startswith('composer-') else f'{case}.py')
                 command = [sys.executable, str(script), args.udid]
                 if case.startswith('composer-'):
                     command += ['--expect', case.removeprefix('composer-'), '--output', str(output)]

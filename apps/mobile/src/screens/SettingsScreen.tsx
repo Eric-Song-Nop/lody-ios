@@ -88,24 +88,9 @@ function View() {
         {
           id: 'about',
           title: 'Lody for iOS',
-          subtitle: `${Constants.expoConfig?.version ?? '0.0.0'} (${
-            Constants.expoConfig?.ios?.buildNumber ?? '1'
-          })`,
+          subtitle: `${Constants.expoConfig?.version ?? '0.0.0'} (${Constants.expoConfig?.ios?.buildNumber ?? '1'
+            })`,
           image: 'info.circle',
-        },
-      ],
-    },
-    {
-      id: 'credits',
-      header: t('settings.section.thanks'),
-      footer: t('settings.thanks.footer'),
-      rows: [
-        {
-          id: 'credit-flowdown',
-          title: 'FlowDown',
-          subtitle: t('settings.thanks.flowdown'),
-          image: 'arrow.up.right.square',
-          action: true,
         },
       ],
     },

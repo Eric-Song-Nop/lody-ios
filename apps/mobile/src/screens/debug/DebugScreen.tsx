@@ -135,6 +135,7 @@ function View() {
       rows: [
         openRow('send-preview', '离线发送验收', 'paperplane'),
         openRow('send-queue', 'Queue 验收', 'list.bullet'),
+        openRow('send-interrupt', 'Queue 中断验收', 'stop.circle'),
         openRow('send-handoff', '新建发送交接', 'arrow.triangle.swap'),
       ],
     },
@@ -224,6 +225,7 @@ function View() {
     'banner-preview': () => void present(BannerPreviewScreen, {}),
     'send-preview': () => void openSendPreview(false),
     'send-queue': () => void openSendPreview(false, true),
+    'send-interrupt': () => void openSendPreview(false, true, false),
     'send-handoff': () => void openSendPreview(true),
     'runtime-probe': () =>
       void debugProbeSchema()
@@ -355,6 +357,7 @@ async function openModelMemory() {
             { id: 'agent-full-access', name: 'Full Access' },
           ],
           reasoningEfforts: { a: ['low', 'high'], b: ['low', 'high'] },
+          steer: true,
         },
       ],
     }),

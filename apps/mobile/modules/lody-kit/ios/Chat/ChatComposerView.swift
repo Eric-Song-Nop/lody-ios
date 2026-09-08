@@ -11,6 +11,7 @@ private struct ChatComposerState: Decodable {
   var stopping: Bool?
   var controlling: Bool?
   var steerID: String?
+  var steerInterrupts: Bool?
   var notice = ""
   var reconnect = false
   var placeholder = LodyStrings.text("native.chat.composer.placeholder")
@@ -73,7 +74,7 @@ private final class ChatQueueView: UIVisualEffectView {
   }
   required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-  func render(_ drafts: [ChatQueuedDraft], enabled: Bool, steeringID: String) {
+  func render(_ drafts: [ChatQueuedDraft], enabled: Bool, steeringID: String, firstOnly: Bool) {
     if rendered != drafts {
       // A row that leaves the queue is on its way into the transcript: hand its
       // frame to the send animation before the row disappears.
@@ -132,9 +133,10 @@ private final class ChatQueueView: UIVisualEffectView {
         rows[draft.id] = row
       }
     }
+    let first = drafts.first(where: \.canSteer)?.id
     for draft in drafts {
       let waiting = steeringID == draft.id || !draft.canSteer
-      buttons[draft.id]?.isEnabled = enabled && draft.canSteer
+      buttons[draft.id]?.isEnabled = enabled && draft.canSteer && (!firstOnly || draft.id == first)
       buttons[draft.id]?.accessibilityHint = waiting ? LodyStrings.text("native.chat.composer.steering") : nil
     }
     isHidden = drafts.isEmpty
@@ -1047,7 +1049,7 @@ final class ChatComposerView: UIView, UITextViewDelegate {
     sendVisual.isHidden = false
     sendVisual.alpha = send.isEnabled || loading ? 1 : 0.35
     queueHeight.constant = ChatQueuedDraft.panelHeight(queuedDrafts)
-    queueView.render(queuedDrafts, enabled: state.canStop == true && !sending && state.controlling != true, steeringID: state.steerID ?? "")
+    queueView.render(queuedDrafts, enabled: state.canStop == true && !sending && state.controlling != true, steeringID: state.steerID ?? "", firstOnly: state.steerInterrupts == true)
     let noticeText = failedDraft == nil ? (displayError ?? state.notice) : LodyStrings.text("native.chat.composer.failedDraft")
     let canReconnect = failedDraft != nil || displayError != nil || state.reconnect
     notice.setTitle(noticeText, for: .normal)
