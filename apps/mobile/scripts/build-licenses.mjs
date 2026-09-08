@@ -122,6 +122,14 @@ const nativeComponents = [
 /** Npm packages linked natively but not reachable from the declared graph. */
 const nativeOnlyPackages = ['react-native-gesture-handler'];
 
+/** The app's own license, so the notices screen also carries the AGPL text. */
+const firstPartyLicense = {
+  name: 'Lody for iOS',
+  license: 'AGPL-3.0-only',
+  url: 'https://github.com/Innei/lody-ios',
+  file: '../../LICENSE',
+};
+
 /** License ids that npm publishes in inconsistent casing. */
 const licenseCasing = new Map(
   Object.entries({
@@ -287,12 +295,13 @@ function buildEntries() {
       text,
     });
   }
-  for (const component of nativeComponents) {
+  for (const component of [firstPartyLicense, ...nativeComponents]) {
     entries.push({
       name: component.name,
       version: '',
       license: component.license,
       url: component.url,
+      firstParty: component === firstPartyLicense,
       text: readFileSync(path.join(root, component.file), 'utf8').trim(),
     });
   }
@@ -331,6 +340,7 @@ function buildEntries() {
       ...(entry.version ? { version: entry.version } : {}),
       license: entry.license,
       ...(entry.url ? { url: entry.url } : {}),
+      ...(entry.firstParty ? { firstParty: true } : {}),
       text: textIndex.get(entry.text),
     };
   });
@@ -350,6 +360,8 @@ export type BundledLicense = {
   version?: string;
   license: string;
   url?: string;
+  /** True for the app's own license entry. */
+  firstParty?: boolean;
   /** Index into \`texts\`. */
   text: number;
 };

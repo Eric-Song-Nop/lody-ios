@@ -9,6 +9,7 @@
     <img src="https://img.shields.io/badge/React%20Native-0.86-61dafb?style=flat-square&logo=react" alt="React Native 0.86" />
     <img src="https://img.shields.io/badge/Swift-6.0-f05138?style=flat-square&logo=swift" alt="Swift 6" />
     <img src="https://img.shields.io/badge/CRDT-Loro%20%26%20Flock-orange?style=flat-square" alt="CRDT" />
+    <img src="https://img.shields.io/badge/License-AGPL--3.0--only-blue?style=flat-square" alt="License: AGPL-3.0-only" />
   </p>
 </div>
 
@@ -30,7 +31,7 @@
 
 ## Overview
 
-**Lody iOS** is an independent, non-commercial open-source client crafted for iPhone, providing a lightweight and secure bridge between remote Lody services and local workspaces.
+**Lody iOS** is an independent open-source client crafted for iPhone, providing a lightweight and secure bridge between remote Lody services and local workspaces.
 
 The project uses a hybrid architecture of **React Native + a deeply customized Swift native module (LodyKit)**. While preserving the rapid iteration advantages of declarative cross-platform UI, critical interactions (infinite chat collection, streaming text rendering, code diff highlighting, file tree, etc.) are built with native Swift and CoreText to deliver an authentic iOS system feel.
 
@@ -188,7 +189,7 @@ pnpm bundle     # Verify iOS Hermes JavaScript production bundle integrity
 
 ## License
 
-Lody iOS is released under the [PolyForm Noncommercial License 1.0.0](LICENSE). You may use, modify, and distribute it **for non-commercial purposes only**; commercial use requires a separate license from the author.
+Lody iOS is released under the [GNU Affero General Public License v3.0](LICENSE) (**AGPL-3.0-only**). You may use, modify, and distribute it, including commercially, provided that derivative works and network-served modifications stay under the same license and their source stays available to users.
 
 Bundled third-party libraries and assets keep their own licenses. The full list and license texts are available in the app under **Settings → Open Source Licenses**.
 

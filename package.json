@@ -1,7 +1,7 @@
 {
   "name": "lody-ios",
   "private": true,
-  "license": "PolyForm-Noncommercial-1.0.0",
+  "license": "AGPL-3.0-only",
   "version": "0.1.0",
   "packageManager": "pnpm@11.10.0",
   "engines": {

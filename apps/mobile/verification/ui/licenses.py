@@ -1,4 +1,4 @@
-"""Settings -> Open Source Licenses lists every bundled library and shows its full license text."""
+"""Settings -> Open Source Licenses carries the app's own AGPL notice plus every bundled library and its full license text."""
 import sys
 from driver import UI
 import catalog
@@ -36,7 +36,19 @@ assert row['frame']['height'] >= 44, row
 ui.capture('settings-row')
 ui.axe('tap', '--id', 'licenses', '--post-delay', '1')
 
-# Libraries are grouped alphabetically; section A leads with abort-controller.
+# The app's own AGPL notice leads the list, before the alphabetical libraries.
+own = ui.element('Lody for iOS')
+assert 'AGPL-3.0-only' in (own.get('AXLabel') or ''), own
+ui.capture('app-license-row')
+ui.axe('tap', '--id', 'Lody for iOS', '--post-delay', '1')
+ui.wait(
+    lambda items: any('GNU AFFERO GENERAL PUBLIC LICENSE' in (i.get('AXLabel') or '') for i in items),
+    "The app's own AGPL text must be displayed",
+)
+ui.capture('app-license')
+ui.axe('tap', '--id', 'BackButton', '--post-delay', '1')
+ui.element('Lody for iOS')
+
 first = ui.element('abort-controller')
 assert 'MIT' in (first.get('AXLabel') or ''), first
 ui.capture('list')
@@ -62,4 +74,4 @@ ui.axe('tap', '--label', catalog.text('accessibility.closeSheet', title=settings
 home_ready()
 assert not any(i.get('AXUniqueId') == 'licenses' for i in ui.state())
 ui.capture('closed')
-print("Settings lists the bundled open-source notices and opens each library's full license text.")
+print("Settings carries the app's own AGPL notice and every bundled library's full license text.")
