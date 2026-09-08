@@ -88,8 +88,9 @@ function View() {
         {
           id: 'about',
           title: 'Lody for iOS',
-          subtitle: `${Constants.expoConfig?.version ?? '0.0.0'} (${Constants.expoConfig?.ios?.buildNumber ?? '1'
-            })`,
+          subtitle: `${Constants.expoConfig?.version ?? '0.0.0'} (${
+            Constants.expoConfig?.ios?.buildNumber ?? '1'
+          })`,
           image: 'info.circle',
         },
       ],
