@@ -53,6 +53,11 @@ ui.axe('tap', '--id', 'BackButton', '--post-delay', '1')
 ui.element('abort-controller')
 ui.capture('back')
 
+# The list itself is pushed over the settings sheet; one more back reaches the sheet root.
+ui.axe('tap', '--id', 'BackButton', '--post-delay', '1')
+ui.element('licenses')
+ui.capture('sheet-root')
+
 ui.axe('tap', '--label', catalog.text('accessibility.closeSheet', title=settings_label), '--post-delay', '1')
 home_ready()
 assert not any(i.get('AXUniqueId') == 'licenses' for i in ui.state())

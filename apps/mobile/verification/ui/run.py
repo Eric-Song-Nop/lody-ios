@@ -79,11 +79,13 @@ args.output.mkdir(parents=True, exist_ok=True)
 if (args.output / 'results.json').exists():
     raise SystemExit('Use a new --output directory to preserve earlier evidence')
 ui = UI(args.udid, args.output)
-home_results = []
+standalone_results = []
 if args.case is None:
-    home_output = args.output / 'home'
-    subprocess.run([sys.executable, __file__, '--udid', args.udid, '--app', str(args.app), '--output', str(home_output), '--port', str(args.port), '--case', 'home', '--language', args.language], check=True)
-    home_results = json.loads((home_output / 'results.json').read_text())
+    # Each standalone case needs its own HomePreviewProviders Metro instance.
+    for standalone in sorted(STANDALONE):
+        standalone_output = args.output / standalone
+        subprocess.run([sys.executable, __file__, '--udid', args.udid, '--app', str(args.app), '--output', str(standalone_output), '--port', str(args.port), '--case', standalone, '--language', args.language], check=True)
+        standalone_results += json.loads((standalone_output / 'results.json').read_text())
 
 def sim(*command, check=True):
     return subprocess.run(['xcrun', 'simctl', *command], check=check, timeout=60, capture_output=True, text=True)
@@ -99,7 +101,7 @@ metro_log = (args.output / 'metro.log').open('w')
 metro = subprocess.Popen(['pnpm', '--filter', '@lody-ios/mobile', 'exec', 'expo', 'start', '--dev-client', '--host', 'lan', '--port', str(args.port)],
                          cwd=ROOT, env={**os.environ, 'CI': '1', 'EXPO_NO_DOTENV': '1', 'EXPO_PUBLIC_UI_VERIFY': '1', 'EXPO_PUBLIC_UI_VERIFY_HOME': '1' if args.case in STANDALONE else '0', 'REACT_NATIVE_PACKAGER_HOSTNAME': '127.0.0.1'},
                          stdout=metro_log, stderr=subprocess.STDOUT, start_new_session=True)
-results = home_results
+results = standalone_results
 try:
     deadline = time.monotonic() + 90
     while True:

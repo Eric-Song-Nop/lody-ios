@@ -297,12 +297,18 @@ function buildEntries() {
     });
   }
   // The same package can be installed more than once (workspace links, nested
-  // copies); one notice per name and version is enough.
+  // copies); one notice per name and version is enough. Sorted first so the
+  // winner does not depend on node_modules traversal order.
   const unique = new Map();
-  for (const entry of entries) {
+  for (const entry of [...entries].sort((left, right) => {
+    const byName = left.name.localeCompare(right.name, 'en');
+    return byName !== 0
+      ? byName
+      : left.version.localeCompare(right.version, 'en');
+  })) {
     const key = `${entry.name}@${entry.version}`;
     const seen = unique.get(key);
-    if (!seen || (!seen.text && entry.text)) unique.set(key, entry);
+    if (!seen || entry.text.length > seen.text.length) unique.set(key, entry);
   }
   const merged = [...unique.values()];
   merged.sort((left, right) => left.name.localeCompare(right.name, 'en'));
