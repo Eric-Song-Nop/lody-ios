@@ -6,9 +6,154 @@ private struct ChatComposerState: Decodable {
   var editable = true
   var canSend = false
   var sending = false
+  var running: Bool?
+  var canStop: Bool?
+  var stopping: Bool?
+  var controlling: Bool?
+  var steerID: String?
   var notice = ""
   var reconnect = false
   var placeholder = LodyStrings.text("native.chat.composer.placeholder")
+}
+
+struct ChatQueuedDraft: Equatable {
+  let id: String
+  let text: String
+  var canSteer = true
+  var attachments: [String] = []
+
+  static func rowHeight(_ draft: ChatQueuedDraft) -> CGFloat {
+    let caption = draft.attachments.isEmpty ? 0 : ceil(UIFont.dynamic(of: 12).lineHeight) + 2
+    return max(44, ceil(UIFont.dynamic(of: 15).lineHeight) + caption + 10)
+  }
+
+  static func panelHeight(_ drafts: [ChatQueuedDraft]) -> CGFloat {
+    drafts.prefix(3).reduce(0) { $0 + rowHeight($1) }
+  }
+}
+
+private final class ChatQueueView: UIVisualEffectView {
+  private let scroll = UIScrollView()
+  private let stack = UIStackView()
+  private var rendered: [ChatQueuedDraft] = []
+  private var buttons: [String: UIButton] = [:]
+  private var rows: [String: UIView] = [:]
+  var onSteer: ((String) -> Void)?
+
+  init() {
+    super.init(effect: nil)
+    accessibilityIdentifier = "session-queue"
+    if #available(iOS 26.0, *) {
+      let glass = UIGlassEffect(style: .regular)
+      glass.isInteractive = true
+      effect = glass
+      cornerConfiguration = .corners(radius: .fixed(20))
+    } else {
+      backgroundColor = .secondarySystemBackground
+      layer.cornerRadius = 20
+      layer.cornerCurve = .continuous
+      clipsToBounds = true
+    }
+    stack.axis = .vertical
+    scroll.addSubview(stack)
+    contentView.addSubview(scroll)
+    scroll.translatesAutoresizingMaskIntoConstraints = false
+    stack.translatesAutoresizingMaskIntoConstraints = false
+    NSLayoutConstraint.activate([
+      scroll.topAnchor.constraint(equalTo: contentView.topAnchor),
+      scroll.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+      scroll.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+      scroll.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+      stack.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
+      stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
+      stack.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor),
+      stack.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor),
+      stack.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor),
+    ])
+  }
+  required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+  func render(_ drafts: [ChatQueuedDraft], enabled: Bool, steeringID: String) {
+    if rendered != drafts {
+      // A row that leaves the queue is on its way into the transcript: hand its
+      // frame to the send animation before the row disappears.
+      for draft in rendered where !drafts.contains(where: { $0.id == draft.id }) {
+        guard let row = rows[draft.id], !draft.text.isEmpty else { continue }
+        ChatSendHandoff.begin(id: draft.id, text: draft.text, source: row, straight: true)
+      }
+      rendered = drafts
+      stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+      buttons.removeAll()
+      rows.removeAll()
+      for draft in drafts {
+        let text = UILabel()
+        text.text = draft.text.isEmpty ? LodyStrings.text("native.chat.row.queuedAttachmentsOnly") : draft.text
+        text.font = .dynamic(of: 15)
+        text.textColor = draft.text.isEmpty ? .tertiaryLabel : .secondaryLabel
+        text.accessibilityIdentifier = draft.id + ":queued"
+        text.accessibilityLabel = ([LodyStrings.text("native.chat.row.queued") + ": " + draft.text] + draft.attachments)
+          .filter { !$0.isEmpty }.joined(separator: ", ")
+        let body = UIStackView(arrangedSubviews: [text])
+        body.axis = .vertical
+        body.spacing = 2
+        if !draft.attachments.isEmpty { body.addArrangedSubview(Self.caption(draft.attachments)) }
+        let button = UIButton(type: .system)
+        button.configuration = .plain()
+        button.setImage(
+          UIImage(systemName: "arrow.up.circle", withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .medium)),
+          for: .normal
+        )
+        button.accessibilityIdentifier = draft.id + ":steer"
+        button.accessibilityLabel = LodyStrings.text("native.chat.composer.steer") + ": " + draft.text
+        button.addAction(UIAction { [weak self] _ in self?.onSteer?(draft.id) }, for: .touchUpInside)
+        button.setContentCompressionResistancePriority(.required, for: .horizontal)
+        let row = UIStackView(arrangedSubviews: [body, button])
+        row.alignment = .center
+        row.spacing = 8
+        row.isLayoutMarginsRelativeArrangement = true
+        row.directionalLayoutMargins = .init(top: 4, leading: 16, bottom: 4, trailing: 2)
+        if !stack.arrangedSubviews.isEmpty {
+          let separator = UIView()
+          separator.backgroundColor = .separator
+          separator.translatesAutoresizingMaskIntoConstraints = false
+          row.addSubview(separator)
+          NSLayoutConstraint.activate([
+            separator.topAnchor.constraint(equalTo: row.topAnchor),
+            separator.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 16),
+            separator.trailingAnchor.constraint(equalTo: row.trailingAnchor),
+            separator.heightAnchor.constraint(equalToConstant: 1 / UIScreen.main.scale),
+          ])
+        }
+        stack.addArrangedSubview(row)
+        row.heightAnchor.constraint(equalToConstant: ChatQueuedDraft.rowHeight(draft)).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 44).isActive = true
+        button.widthAnchor.constraint(equalToConstant: 44).isActive = true
+        buttons[draft.id] = button
+        rows[draft.id] = row
+      }
+    }
+    for draft in drafts {
+      let waiting = steeringID == draft.id || !draft.canSteer
+      buttons[draft.id]?.isEnabled = enabled && draft.canSteer
+      buttons[draft.id]?.accessibilityHint = waiting ? LodyStrings.text("native.chat.composer.steering") : nil
+    }
+    isHidden = drafts.isEmpty
+  }
+
+  private static func caption(_ attachments: [String]) -> UIView {
+    let clip = UIImageView(image: UIImage(systemName: "paperclip", withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .regular)))
+    clip.tintColor = .tertiaryLabel
+    clip.setContentHuggingPriority(.required, for: .horizontal)
+    let names = UILabel()
+    names.text = attachments.joined(separator: " · ")
+    names.font = .dynamic(of: 12)
+    names.textColor = .tertiaryLabel
+    names.lineBreakMode = .byTruncatingMiddle
+    let line = UIStackView(arrangedSubviews: [clip, names])
+    line.alignment = .center
+    line.spacing = 4
+    return line
+  }
 }
 
 private struct ChatComposerOption: Decodable {
@@ -332,6 +477,169 @@ private final class ChatComposerInput: UITextView {
   }
 }
 
+private final class ChatComposerProgressView: UIView {
+  private let arc = CAShapeLayer()
+
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    accessibilityIdentifier = "session-action-progress"
+    isUserInteractionEnabled = false
+    arc.fillColor = UIColor.clear.cgColor
+    arc.strokeColor = UIColor.white.cgColor
+    arc.lineCap = .round
+    arc.lineWidth = 2.25
+    layer.addSublayer(arc)
+  }
+
+  required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    arc.frame = bounds
+    let inset = arc.lineWidth / 2
+    arc.path = UIBezierPath(
+      arcCenter: CGPoint(x: bounds.midX, y: bounds.midY),
+      radius: max(0, min(bounds.width, bounds.height) / 2 - inset),
+      startAngle: -.pi / 2,
+      endAngle: .pi,
+      clockwise: true
+    ).cgPath
+  }
+
+  func startAnimating() {
+    isHidden = false
+    guard layer.animation(forKey: "composer.loading.rotation") == nil else { return }
+    let rotation = CABasicAnimation(keyPath: "transform.rotation.z")
+    rotation.fromValue = 0
+    rotation.toValue = CGFloat.pi * 2
+    rotation.duration = 0.8
+    rotation.repeatCount = .infinity
+    rotation.timingFunction = CAMediaTimingFunction(name: .linear)
+    layer.add(rotation, forKey: "composer.loading.rotation")
+  }
+
+  func stopAnimating() {
+    isHidden = true
+    layer.removeAnimation(forKey: "composer.loading.rotation")
+  }
+}
+
+private enum ChatComposerActionMode {
+  case send
+  case loading
+  case stop
+
+  var color: UIColor {
+    switch self {
+    case .send: .systemBlue
+    case .loading: .systemGray
+    case .stop: .systemRed
+    }
+  }
+
+  var symbolName: String {
+    switch self {
+    case .send, .loading: "arrow.up"
+    case .stop: "stop.fill"
+    }
+  }
+}
+
+private final class ChatComposerActionVisual: UIView {
+  private let content = UIView()
+  private let symbol = UIImageView()
+  private let progress = ChatComposerProgressView()
+  private var mode: ChatComposerActionMode?
+
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    accessibilityIdentifier = "session-action-visual"
+    isUserInteractionEnabled = false
+    layer.cornerCurve = .continuous
+    content.accessibilityIdentifier = "session-action-content"
+    content.isUserInteractionEnabled = false
+    symbol.contentMode = .center
+    symbol.tintColor = .white
+    addSubview(content)
+    content.addSubview(symbol)
+    content.addSubview(progress)
+    content.translatesAutoresizingMaskIntoConstraints = false
+    symbol.translatesAutoresizingMaskIntoConstraints = false
+    progress.translatesAutoresizingMaskIntoConstraints = false
+    NSLayoutConstraint.activate([
+      content.topAnchor.constraint(equalTo: topAnchor),
+      content.bottomAnchor.constraint(equalTo: bottomAnchor),
+      content.leadingAnchor.constraint(equalTo: leadingAnchor),
+      content.trailingAnchor.constraint(equalTo: trailingAnchor),
+      symbol.topAnchor.constraint(equalTo: content.topAnchor),
+      symbol.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+      symbol.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+      symbol.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+      progress.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+      progress.centerYAnchor.constraint(equalTo: content.centerYAnchor),
+      progress.widthAnchor.constraint(equalToConstant: 15),
+      progress.heightAnchor.constraint(equalToConstant: 15),
+    ])
+    render(.send)
+  }
+
+  required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    layer.cornerRadius = bounds.width / 2
+  }
+
+  func render(_ nextMode: ChatComposerActionMode) {
+    guard mode != nextMode else { return }
+    let shouldAnimate = mode != nil && window != nil
+    mode = nextMode
+    guard shouldAnimate else {
+      backgroundColor = nextMode.color
+      applyContent(nextMode)
+      return
+    }
+
+    let duration = UIAccessibility.isReduceMotionEnabled ? 0.18 : 0.2
+    UIView.transition(
+      with: content,
+      duration: duration,
+      options: [.transitionCrossDissolve, .beginFromCurrentState, .allowAnimatedContent]
+    ) {
+      self.applyContent(nextMode)
+    }
+    UIView.animate(
+      withDuration: duration,
+      delay: 0,
+      options: [.beginFromCurrentState, .curveEaseInOut]
+    ) {
+      self.backgroundColor = nextMode.color
+    }
+    guard !UIAccessibility.isReduceMotionEnabled else { return }
+    UIView.animateKeyframes(
+      withDuration: duration,
+      delay: 0,
+      options: [.beginFromCurrentState, .calculationModeCubic]
+    ) {
+      UIView.addKeyframe(withRelativeStartTime: 0, relativeDuration: 0.45) {
+        self.content.transform = CGAffineTransform(scaleX: 0.72, y: 0.72)
+      }
+      UIView.addKeyframe(withRelativeStartTime: 0.45, relativeDuration: 0.55) {
+        self.content.transform = .identity
+      }
+    }
+  }
+
+  private func applyContent(_ mode: ChatComposerActionMode) {
+    symbol.image = UIImage(
+      systemName: mode.symbolName,
+      withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .bold)
+    )
+    symbol.isHidden = mode == .loading
+    if mode == .loading { progress.startAnimating() } else { progress.stopAnimating() }
+  }
+}
+
 final class ChatComposerView: UIView, UITextViewDelegate {
   private let composer = UIVisualEffectView(effect: nil)
   private let inputSurface = UIVisualEffectView(effect: nil)
@@ -339,7 +647,8 @@ final class ChatComposerView: UIView, UITextViewDelegate {
   private let hint = UILabel()
   private let notice = UIButton(type: .system)
   private let send = UIButton(type: .system)
-  private let sendSpinner = UIActivityIndicatorView(style: .medium)
+  private let sendVisual = ChatComposerActionVisual()
+  private let sendFeedback = UIImpactFeedbackGenerator(style: .medium)
   private let attach = UIButton(type: .system)
   private let attachSurface = UIVisualEffectView(effect: nil)
   private let accessoryBar = UIView()
@@ -355,6 +664,9 @@ final class ChatComposerView: UIView, UITextViewDelegate {
   private var hintTop: NSLayoutConstraint!
   private var noticeHeight: NSLayoutConstraint!
   private var attachmentHeight: NSLayoutConstraint!
+  private let queueView = ChatQueueView()
+  private var queueHeight: NSLayoutConstraint!
+  private var queuedDrafts: [ChatQueuedDraft] = []
   private var state = ChatComposerState()
   private var composerOptions = ChatComposerOptions()
   private var composerExpanded = false
@@ -364,6 +676,9 @@ final class ChatComposerView: UIView, UITextViewDelegate {
   private var hasInitialAttachments = false
   private var lastClearToken = 0
   var onSend: (([String: Any]) -> Void)?
+  var onStop: (() -> Void)?
+  var onSteer: ((String) -> Void)?
+  var queuesSubmission: Bool { state.running == true || !queuedDrafts.isEmpty }
   var onReconnect: (() -> Void)?
   var onComposerOptionChange: (([String: String]) -> Void)?
   var onDraftChange: ((String) -> Void)?
@@ -446,15 +761,14 @@ final class ChatComposerView: UIView, UITextViewDelegate {
     hint.textColor = .placeholderText
     hint.isUserInteractionEnabled = false
     hint.isAccessibilityElement = false
-    send.setImage(UIImage(systemName: "arrow.up.circle.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 26, weight: .medium)), for: .normal)
     send.tintColor = .systemBlue
-    sendSpinner.color = .systemBlue
-    sendSpinner.isUserInteractionEnabled = false
-    sendSpinner.translatesAutoresizingMaskIntoConstraints = false
-    send.addSubview(sendSpinner)
+    sendVisual.translatesAutoresizingMaskIntoConstraints = false
+    send.addSubview(sendVisual)
     NSLayoutConstraint.activate([
-      sendSpinner.centerXAnchor.constraint(equalTo: send.centerXAnchor),
-      sendSpinner.centerYAnchor.constraint(equalTo: send.centerYAnchor),
+      sendVisual.centerXAnchor.constraint(equalTo: send.centerXAnchor),
+      sendVisual.centerYAnchor.constraint(equalTo: send.centerYAnchor),
+      sendVisual.widthAnchor.constraint(equalToConstant: 30),
+      sendVisual.heightAnchor.constraint(equalToConstant: 30),
     ])
     send.accessibilityLabel = LodyStrings.text("native.chat.composer.send")
     send.accessibilityIdentifier = "session-send"
@@ -497,6 +811,8 @@ final class ChatComposerView: UIView, UITextViewDelegate {
     notice.titleLabel?.numberOfLines = 0
     notice.addTarget(self, action: #selector(reconnect), for: .touchUpInside)
     addSubview(composer)
+    composer.contentView.addSubview(queueView)
+    queueView.onSteer = { [weak self] in self?.onSteer?($0) }
     composer.contentView.addSubview(notice)
     composer.contentView.addSubview(attachmentBar)
     composer.contentView.addSubview(attachSurface)
@@ -505,7 +821,7 @@ final class ChatComposerView: UIView, UITextViewDelegate {
     for view in [input, hint, accessoryBar, modelButton, send] {
       inputSurface.contentView.addSubview(view)
     }
-    for view in [composer, inputSurface, attachSurface, notice, attachmentBar, input, hint, accessoryBar, send, attach, modelButton] {
+    for view in [composer, queueView, inputSurface, attachSurface, notice, attachmentBar, input, hint, accessoryBar, send, attach, modelButton] {
       view.translatesAutoresizingMaskIntoConstraints = false
     }
     inputHeight = input.heightAnchor.constraint(equalToConstant: 48)
@@ -514,13 +830,17 @@ final class ChatComposerView: UIView, UITextViewDelegate {
     hintTop = hint.topAnchor.constraint(equalTo: input.topAnchor, constant: 13)
     noticeHeight = notice.heightAnchor.constraint(equalToConstant: 0)
     attachmentHeight = attachmentBar.heightAnchor.constraint(equalToConstant: 0)
+    queueHeight = queueView.heightAnchor.constraint(equalToConstant: 0)
     inputLeading = inputSurface.leadingAnchor.constraint(equalTo: attachSurface.trailingAnchor, constant: 8)
     NSLayoutConstraint.activate([
       composer.topAnchor.constraint(equalTo: topAnchor),
       composer.leadingAnchor.constraint(equalTo: leadingAnchor),
       composer.trailingAnchor.constraint(equalTo: trailingAnchor),
       composer.bottomAnchor.constraint(equalTo: bottomAnchor),
-      notice.topAnchor.constraint(equalTo: composer.topAnchor), notice.leadingAnchor.constraint(equalTo: composer.leadingAnchor, constant: 20),
+      queueView.topAnchor.constraint(equalTo: composer.topAnchor),
+      queueView.leadingAnchor.constraint(equalTo: inputSurface.leadingAnchor),
+      queueView.trailingAnchor.constraint(equalTo: inputSurface.trailingAnchor), queueHeight,
+      notice.topAnchor.constraint(equalTo: queueView.bottomAnchor), notice.leadingAnchor.constraint(equalTo: composer.leadingAnchor, constant: 20),
       notice.trailingAnchor.constraint(equalTo: composer.trailingAnchor, constant: -20), noticeHeight,
       attachmentBar.topAnchor.constraint(equalTo: notice.bottomAnchor),
       attachmentBar.leadingAnchor.constraint(equalTo: composer.leadingAnchor, constant: 16),
@@ -690,6 +1010,11 @@ final class ChatComposerView: UIView, UITextViewDelegate {
     composerOptions = value
     updateComposerOptions()
   }
+  func setQueue(_ drafts: [ChatQueuedDraft]) {
+    guard queuedDrafts != drafts else { return }
+    queuedDrafts = drafts
+    updateComposer()
+  }
   private func updateComposer() {
     let sending = state.sending || pendingDraft != nil
     let expanded = input.isFirstResponder
@@ -704,10 +1029,25 @@ final class ChatComposerView: UIView, UITextViewDelegate {
     attachmentHeight.constant = attachments.isEmpty ? 0 : 42
     hint.text = state.placeholder
     hint.isHidden = !input.text.isEmpty
-    send.isEnabled = failedDraft == nil && displayError == nil && state.editable && state.canSend && !sending && (!input.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty)
-    send.accessibilityLabel = LodyStrings.text(sending ? "native.chat.composer.sending" : "native.chat.composer.send")
-    send.setImage(sending ? nil : UIImage(systemName: "arrow.up.circle.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 26, weight: .medium)), for: .normal)
-    if sending { sendSpinner.startAnimating() } else { sendSpinner.stopAnimating() }
+    let hasContent = !input.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty
+    let stop = !hasContent && state.running == true
+    var label = "native.chat.composer.send"
+    if stop { label = "native.chat.composer.stop" }
+    let loading = sending || state.stopping == true
+    if sending { label = "native.chat.composer.sending" }
+    if state.stopping == true { label = "native.chat.composer.stopping" }
+    let actionable = stop ? state.canStop == true : state.canSend && hasContent
+    send.isEnabled = failedDraft == nil && displayError == nil && state.editable && actionable && !loading && state.controlling != true
+    if send.isEnabled && !stop { sendFeedback.prepare() }
+    send.accessibilityLabel = LodyStrings.text(label)
+    send.accessibilityIdentifier = stop ? "session-stop" : "session-send"
+    var actionMode: ChatComposerActionMode = stop ? .stop : .send
+    if loading { actionMode = .loading }
+    sendVisual.render(actionMode)
+    sendVisual.isHidden = false
+    sendVisual.alpha = send.isEnabled || loading ? 1 : 0.35
+    queueHeight.constant = ChatQueuedDraft.panelHeight(queuedDrafts)
+    queueView.render(queuedDrafts, enabled: state.canStop == true && !sending && state.controlling != true, steeringID: state.steerID ?? "")
     let noticeText = failedDraft == nil ? (displayError ?? state.notice) : LodyStrings.text("native.chat.composer.failedDraft")
     let canReconnect = failedDraft != nil || displayError != nil || state.reconnect
     notice.setTitle(noticeText, for: .normal)
@@ -725,7 +1065,7 @@ final class ChatComposerView: UIView, UITextViewDelegate {
     inputHeight.constant = min(140, max(expanded ? 68 : 48, height))
     input.isScrollEnabled = height > 140
     updateComposerOptions()
-    onHeightChange?(noticeHeight.constant + attachmentHeight.constant + inputHeight.constant + accessoryHeight.constant + 16)
+    onHeightChange?(queueHeight.constant + noticeHeight.constant + attachmentHeight.constant + inputHeight.constant + accessoryHeight.constant + 16)
     setNeedsLayout()
     if expansionChanged && window != nil && !UIAccessibility.isReduceMotionEnabled {
       UIView.animate(withDuration: 0.24, delay: 0, options: [.beginFromCurrentState, .curveEaseOut]) {
@@ -743,7 +1083,8 @@ final class ChatComposerView: UIView, UITextViewDelegate {
     title.addAttribute(.font, value: UIFont.preferredFont(forTextStyle: .caption1), range: NSRange(location: 0, length: title.length))
     var configuration = UIButton.Configuration.plain()
     configuration.attributedTitle = AttributedString(title)
-    configuration.image = UIImage(systemName: "chevron.down", withConfiguration: UIImage.SymbolConfiguration(pointSize: 10, weight: .medium))
+    configuration.image = UIImage(systemName: "chevron.down")
+    configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 5, weight: .medium)
     configuration.imagePlacement = .trailing
     configuration.imagePadding = 5
     configuration.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 6)
@@ -793,10 +1134,18 @@ final class ChatComposerView: UIView, UITextViewDelegate {
   }
   @objc private func submit() {
     guard send.isEnabled else { return }
+    if state.running == true && input.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && attachments.isEmpty {
+      onStop?()
+      return
+    }
+    sendFeedback.impactOccurred(intensity: 0.85)
+    let queued = queuesSubmission
     let id = UUID().uuidString.lowercased()
     let body = ([input.text ?? ""] + attachments.filter { !$0.isImage }.map(\.name)).filter { !$0.isEmpty }.joined(separator: "\n")
-    if !body.isEmpty { ChatSendHandoff.begin(id: id, text: body, source: input, background: inputSurface) }
-    ChatSendHandoff.beginImages(id: id, attachments: attachments, source: attachmentBar)
+    if !queued {
+      if !body.isEmpty { ChatSendHandoff.begin(id: id, text: body, source: input, background: inputSurface) }
+      ChatSendHandoff.beginImages(id: id, attachments: attachments, source: attachmentBar)
+    }
     takeDraft()
     saveDraft()
     pendingSendID = id
@@ -804,6 +1153,7 @@ final class ChatComposerView: UIView, UITextViewDelegate {
     updateComposer()
     onSend?([
       "id": id,
+      "queue": queued,
       "text": draft.text,
       "startedAt": Date().timeIntervalSince1970 * 1000,
       "attachments": draft.attachments.map {

@@ -9,7 +9,11 @@ export const homeVerify =
   process.env.EXPO_PUBLIC_UI_VERIFY === '1' &&
   process.env.EXPO_PUBLIC_UI_VERIFY_HOME === '1';
 
-const workspace = { id: 'ui-home', name: '我的工作区', slug: null };
+const workspace = {
+  id: 'ui-home',
+  name: '我的超长工作区名称不能折行',
+  slug: null,
+};
 // An unassigned project exercises search without requesting machine configuration.
 const catalog: Catalog = {
   projects: [

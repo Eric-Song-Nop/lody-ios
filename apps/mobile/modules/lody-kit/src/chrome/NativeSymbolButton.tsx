@@ -4,23 +4,33 @@ import type { ViewProps } from 'react-native';
 
 export interface NativeSymbolButtonProps extends ViewProps {
   accessibilityName: string;
-  /** SF Symbol name. */
   symbol: string;
-  /** Filled capsule treatment; plain glyph otherwise. */
   prominent?: boolean;
   disabled?: boolean;
-  /** Semantic name (warning/danger/secondary/tertiary) or a `#RRGGBB` value. */
   tint?: string;
   onPress: () => void;
+  onLongPress?: () => void;
 }
 
 const NativeView: ComponentType<
-  Omit<NativeSymbolButtonProps, 'onPress'> & { onSymbolPress: () => void }
+  Omit<NativeSymbolButtonProps, 'onPress' | 'onLongPress'> & {
+    longPress?: boolean;
+    onSymbolPress: () => void;
+    onSymbolLongPress?: () => void;
+  }
 > = requireNativeView('LodyKit', 'LodySymbolButton');
 
 export function NativeSymbolButton({
   onPress,
+  onLongPress,
   ...props
 }: NativeSymbolButtonProps) {
-  return <NativeView {...props} onSymbolPress={onPress} />;
+  return (
+    <NativeView
+      {...props}
+      longPress={!!onLongPress}
+      onSymbolPress={onPress}
+      onSymbolLongPress={onLongPress}
+    />
+  );
 }

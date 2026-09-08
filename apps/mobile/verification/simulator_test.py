@@ -191,7 +191,7 @@ class ReusableDeviceTests(unittest.TestCase):
 
 
 class SimulatorLeaseTests(unittest.TestCase):
-    def test_invalid_name_is_rejected_before_a_device_is_erased(self):
+    def test_invalid_name_is_rejected_before_a_device_is_touched(self):
         simulator = load_simulator_module()
         inventory = {
             'devices': {
@@ -217,8 +217,10 @@ class SimulatorLeaseTests(unittest.TestCase):
                     self.fail('invalid lease must not start')
 
             self.assertNotIn('PRESERVE', simctl.erase_counts)
+            self.assertEqual(simctl.device('PRESERVE')['name'], 'Lody Preserve Verify')
+            self.assertEqual(simctl.device('PRESERVE')['state'], 'Shutdown')
 
-    def test_reuse_cleans_renames_and_releases_a_stale_booted_device(self):
+    def test_reuse_renames_and_releases_a_stale_booted_device(self):
         simulator = load_simulator_module()
         self.assertTrue(hasattr(simulator, 'SimulatorPool'), 'SimulatorPool is missing')
         inventory = {
@@ -246,7 +248,7 @@ class SimulatorLeaseTests(unittest.TestCase):
                 self.assertEqual(udid, 'REUSABLE')
                 self.assertEqual(simctl.device(udid)['name'], 'Lody File Preview Verify')
                 self.assertEqual(simctl.device(udid)['state'], 'Booted')
-                self.assertEqual(simctl.erase_counts[udid], 1)
+                self.assertNotIn(udid, simctl.erase_counts)
 
             self.assertEqual(simctl.device('REUSABLE')['state'], 'Shutdown')
             self.assertFalse((lock_directory / 'REUSABLE.managed').exists())

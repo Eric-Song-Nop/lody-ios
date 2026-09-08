@@ -8,6 +8,8 @@ import { uiVerify } from './uiVerify';
 import { ComposerPreviewScreen } from './ComposerPreviewScreen';
 import { ChatPreviewScreen } from './ChatPreviewScreen';
 import { ChatPerformanceScreen } from './ChatPerformanceScreen';
+import { ChatStreamPerformanceScreen } from './ChatStreamPerformanceScreen';
+import { BannerPreviewScreen } from './BannerPreviewScreen';
 import { ScrollPreviewScreen } from './ScrollPreviewScreen';
 import { ShinePreviewScreen } from './ShinePreviewScreen';
 import { InboxPreviewScreen } from './InboxPreviewScreen';
@@ -105,6 +107,11 @@ function View() {
           : []),
         openRow('scroll-preview', '滚动连续性验收', 'arrow.up.and.down'),
         openRow('chat-performance', '10,000 条消息性能测试', 'gauge.medium'),
+        openRow(
+          'chat-stream-performance',
+          '300 TPS 流式性能测试',
+          'waveform.path',
+        ),
         ...(uiVerify
           ? [openRow('model-memory', 'Model memory verification', 'brain')]
           : []),
@@ -119,6 +126,7 @@ function View() {
         openRow('composer-failure', '聊天输入恢复', 'arrow.uturn.backward'),
         openRow('chat-preview', '原生聊天预览', 'bubble.left.and.bubble.right'),
         openRow('chat-shine-preview', '过程高光', 'sparkle'),
+        openRow('banner-preview', '会话横幅', 'bell.badge'),
       ],
     },
     {
@@ -191,6 +199,8 @@ function View() {
     'background-preview': () => void present(BackgroundPreviewScreen, {}),
     'scroll-preview': () => void present(ScrollPreviewScreen, {}),
     'chat-performance': () => void present(ChatPerformanceScreen, {}),
+    'chat-stream-performance': () =>
+      void present(ChatStreamPerformanceScreen, {}),
     'model-memory': () => void openModelMemory(),
     'composer-preview': () =>
       void present(ComposerPreviewScreen, {
@@ -211,6 +221,7 @@ function View() {
       ),
     'chat-preview': () => void present(ChatPreviewScreen, {}),
     'chat-shine-preview': () => void present(ShinePreviewScreen, {}),
+    'banner-preview': () => void present(BannerPreviewScreen, {}),
     'send-preview': () => void openSendPreview(false),
     'send-queue': () => void openSendPreview(false, true),
     'send-handoff': () => void openSendPreview(true),

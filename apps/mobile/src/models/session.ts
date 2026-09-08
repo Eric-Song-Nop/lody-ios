@@ -41,6 +41,7 @@ export type EntrySummary = {
   role: string;
   status: string;
   finished: boolean;
+  canSteer?: boolean;
   timestamp?: string;
   startedAt?: number;
   endedAt?: number;

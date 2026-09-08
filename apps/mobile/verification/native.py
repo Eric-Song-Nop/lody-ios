@@ -24,21 +24,28 @@ sdk = subprocess.check_output(['xcrun', '--sdk', 'iphonesimulator', '--show-sdk-
 checks = {
     'file-link': ['Chat/ChatFileLink.swift'],
     'strings': ['LodyStrings.swift'],
-    'chat': ['LodyStrings.swift', 'Chat/ChatTranscript.swift', 'Chat/ChatStream.swift', 'Chat/ChatTextFade.swift'],
+    'chat': ['LodyStrings.swift', 'Chat/ChatTranscript.swift', 'Chat/ChatStream.swift', 'Chat/ChatTextFade.swift', 'Chat/ChatHaptics.swift'],
     'watchdog': ['Cloud/RuntimeHealth.swift'],
-    'shake': ['LodyShakeUnlock.swift', 'LodyShakeMonitor.swift'],
     'local-store': ['Cloud/LocalStore.swift'],
     'content-store': ['Cloud/ContentStore.swift'],
     'chat-render': ['LodyStrings.swift', 'LodyTint.swift', 'UIFont+Dynamic.swift', 'Chat/ChatTranscript.swift', 'Chat/ChatTextView.swift', 'Chat/ChatTextFade.swift', 'Chat/ChatThrowCurve.swift', 'Chat/ChatAttachments.swift', 'Chat/ChatSendHandoff.swift', 'Chat/ChatCell.swift'],
     'composer': ['LodyStrings.swift', 'UIFont+Dynamic.swift', 'Chat/ChatAttachments.swift', 'Chat/ChatAttachmentSheet.swift', 'Chat/ChatComposerView.swift', 'Chat/ChatTranscript.swift', 'Chat/ChatSendHandoff.swift', 'Chat/ChatTextView.swift', 'Chat/ChatTextFade.swift', 'Chat/ChatThrowCurve.swift', 'LodyTint.swift'],
     'attachments': ['LodyStrings.swift', 'Cloud/SessionAttachments.swift'],
     'diff-font': ['Diff/DiffWebTypography.swift'],
-    'list': ['List/LodyListPhoto.swift'],
+    'list': [
+        'Chrome/LodyMenuButtonStyle.swift',
+        'List/LodyListCellBackground.swift',
+        'List/LodyListPhoto.swift',
+    ],
+    'banner': [
+        'LodyStrings.swift',
+        'Toast/LodySessionBannerView.swift',
+    ],
 }
 with tempfile.TemporaryDirectory(prefix='lody-native-verify-') as output:
     for name, files in checks.items():
         binary = str(Path(output) / name)
-        simulator = name in ['shake', 'chat-render', 'composer', 'attachments', 'diff-font', 'list']
+        simulator = name in ['chat-render', 'composer', 'attachments', 'diff-font', 'list', 'banner']
         command = ['xcrun', '--sdk', 'iphonesimulator', 'swiftc'] if simulator else ['xcrun', 'swiftc']
         if simulator:
             arch = 'arm64' if platform.machine() == 'arm64' else 'x86_64'

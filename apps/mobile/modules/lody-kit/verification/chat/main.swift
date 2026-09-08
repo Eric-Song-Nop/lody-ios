@@ -10,6 +10,8 @@ var transcript = ChatTranscript(entries: try JSONDecoder().decode([ChatEntry].se
 let streaming = transcript.rows()
 assert(!streaming.contains { $0.itemID == "tool" || $0.itemID == "intro" })
 assert(streaming.contains { $0.kind == "summary" && $0.actionable })
+assert(streaming.contains { $0.kind == "summary" && $0.symbol == "circle.fill" },
+  "Process rows must use a status pip, not a disclosure chevron")
 let process = transcript.rows(processEntryID: "reply")
 assert(process.map(\.itemID) == ["intro", "tool"])
 assert(!process.contains { $0.kind == "summary" || $0.itemID == "answer" })
@@ -209,6 +211,27 @@ burstStream.receive(try JSONDecoder().decode([ChatEntry].self, from: Data(burst.
 for _ in 0..<30 { burstStream.advance() }
 assert(!burstStream.hasPending, "Large bursts must increase batch size instead of taking minutes")
 
+var fastStream = ChatStream()
+fastStream.receive([], animate: true)
+for chunk in 1...240 {
+  var input = live
+  let source = String(repeating: "word", count: chunk * 15)
+  input[0].items[2].text = source
+  fastStream.receive(input, animate: true)
+  fastStream.advance()
+  precondition(fastStream.presentation[0].items[2].text == source,
+    "300 synthetic TPS must not accumulate an artificial character queue")
+}
+var longTail = live
+longTail[0].items[2].text = String(repeating: "word", count: 3600) + "👩🏽‍💻"
+fastStream.receive(longTail, animate: true)
+fastStream.advance()
+precondition(!fastStream.hasPending && fastStream.presentation[0].items[2].text == longTail[0].items[2].text,
+  "A long block must commit even a small final suffix without another character queue")
+precondition(ChatScroll.advance(100, toward: 101, elapsed: 1.0 / 60, response: 0.1, minimumStep: 1.0 / 3) == 101,
+  "The bottom follower must finish when UIKit would round its next step away")
+print("Streaming pressure: sustained 300 TPS, long tail drain, and pixel-aligned scroll completion passed")
+
 var fade = ChatTextFade()
 fade.update("已有文字", animate: false, at: 0, reset: true)
 fade.update("已有文字👩🏽‍💻你好", animate: true, at: 1)
@@ -307,3 +330,29 @@ precondition(reconnectRows.last?.actionable == true && reconnectRows.last?.runni
   "Disconnected pending state must offer reconnect through the same static duration row")
 precondition(pendingRows.last?.actionable == false, "Ordinary pending status must not open the execution process")
 print("Pending reconnect: one actionable status row while disconnected passed")
+
+func notifyTurn(_ previous: String?, _ next: String?, process: String = "", window: Bool = true) -> Bool {
+  ChatHaptics.shouldNotifyTurnCompletion(
+    previousLive: previous,
+    nextLive: next,
+    processEntryID: process,
+    inWindow: window
+  )
+}
+precondition(!notifyTurn(nil, nil), "Opening completed history must not buzz")
+precondition(!notifyTurn(nil, "a"), "Starting a live turn must not buzz")
+precondition(!notifyTurn("a", "a"), "Streaming the same live turn must not buzz")
+precondition(notifyTurn("a", nil), "A finished live turn must buzz")
+precondition(notifyTurn("a", "b"), "A queued next turn must still buzz for the finished round")
+precondition(!notifyTurn("a", nil, process: "a"), "The process sheet must not duplicate the session haptic")
+precondition(!notifyTurn("a", nil, window: false), "Detached chat must not buzz")
+print("Chat haptics: completion fires once per finished round")
+
+var queueTranscript = ChatTranscript()
+queueTranscript.entries = try! JSONDecoder().decode([ChatEntry].self, from: Data(#"[{"id":"queued-turn","role":"user","status":"queued","finished":false,"items":[{"itemId":"text","type":"text","text":"Wait for me"}]}]"#.utf8))
+precondition(queueTranscript.rows().isEmpty, "Queued input must never render in the transcript")
+let queuedPending = try! JSONDecoder().decode(ChatPendingSend.self, from: Data(#"{"id":"queued-turn","text":"Wait for me","attachments":[],"status":"Sending","queue":true}"#.utf8))
+precondition(queuedPending.rows(entries: []).isEmpty, "Optimistic queued input must never flash as a sent message")
+queueTranscript.entries = try! JSONDecoder().decode([ChatEntry].self, from: Data(#"[{"id":"queued-turn","role":"user","status":"processing","finished":true,"items":[{"itemId":"text","type":"text","text":"Wait for me"}]}]"#.utf8))
+precondition(queueTranscript.rows().filter { $0.kind == "user" }.count == 1, "Consumed queue input must appear exactly once using its original identity")
+print("Queue transcript: hidden while queued or pending; one message on execution passed")

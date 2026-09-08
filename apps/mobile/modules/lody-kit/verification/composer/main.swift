@@ -63,6 +63,64 @@ composer.setComposerState(#"{"editable":false,"canSend":true,"sending":false,"no
 precondition(!input.isEditable && !send.isEnabled, "Uncertain creation must prevent retry")
 print("Composer: empty input, double send, restore, accept, multiline and uncertain state passed")
 
+let actionComposer = ChatComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 64))
+let actionWindow = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+actionWindow.addSubview(actionComposer)
+actionWindow.isHidden = false
+actionComposer.setComposerState(ready)
+actionComposer.layoutIfNeeded()
+let actionInput = descendants(actionComposer).compactMap { $0 as? UITextView }.first!
+actionInput.text = "Send this"
+actionComposer.textViewDidChange(actionInput)
+let actionButton = descendants(actionComposer).compactMap { $0 as? UIButton }.first {
+  $0.accessibilityIdentifier == "session-send"
+}!
+let actionVisual = descendants(actionButton).first { $0.accessibilityIdentifier == "session-action-visual" }
+precondition(
+  actionVisual?.backgroundColor?.isEqual(UIColor.systemBlue) == true,
+  "An actionable Send must render as a blue circular control"
+)
+actionInput.text = ""
+actionComposer.textViewDidChange(actionInput)
+actionComposer.setComposerState(
+  #"{"editable":true,"canSend":true,"sending":false,"running":true,"canStop":true,"notice":"","reconnect":false,"placeholder":"任务"}"#
+)
+precondition(
+  actionVisual?.backgroundColor?.isEqual(UIColor.systemRed) == true,
+  "Stop must render as a red circular control"
+)
+actionComposer.setComposerState(
+  #"{"editable":true,"canSend":true,"sending":false,"running":true,"canStop":true,"stopping":true,"notice":"","reconnect":false,"placeholder":"任务"}"#
+)
+precondition(
+  actionVisual?.isHidden == false
+    && actionVisual?.backgroundColor?.isEqual(UIColor.systemGray) == true,
+  "Loading must keep the circular control visible and turn it gray"
+)
+let actionProgress = descendants(actionButton).first {
+  $0.accessibilityIdentifier == "session-action-progress"
+}
+precondition(
+  actionProgress?.isHidden == false
+    && actionProgress?.layer.animation(forKey: "composer.loading.rotation") != nil,
+  "Loading must replace the action symbol with a rotating white arc"
+)
+precondition(
+  !descendants(actionButton).compactMap { $0 as? UIActivityIndicatorView }.contains { $0.isAnimating },
+  "Loading must not fall back to the detached activity indicator"
+)
+actionInput.text = "Next"
+actionComposer.textViewDidChange(actionInput)
+actionComposer.setComposerState(ready)
+let actionContent = descendants(actionButton).first {
+  $0.accessibilityIdentifier == "session-action-content"
+}
+precondition(
+  actionContent?.layer.animationKeys()?.isEmpty == false,
+  "Action-state replacement must animate the icon content"
+)
+print("Composer action: Send is blue, Stop is red and Loading is a gray circle with a rotating arc")
+
 let attachmentComposer = ChatComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 106))
 attachmentComposer.setComposerState(ready)
 attachmentComposer.setInitialAttachments(#"[{"id":"synthetic-file","name":"test.txt","uri":"file:///tmp/lody-composer-test.txt","kind":"file"}]"#)
@@ -241,3 +299,89 @@ RunLoop.current.run(until: Date().addingTimeInterval(0.5))
 precondition(!throwTarget.isHidden, "Cancellation must reveal the destination")
 precondition(throwWindow.subviews.count == 2, "Cancellation must remove every flight overlay")
 print("Send throw: cancellation reveals target, removes overlays without replacing destination content")
+
+let queueComposer = ChatComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 244))
+let runningState = #"{"editable":true,"canSend":true,"sending":false,"running":true,"canStop":true,"notice":"","reconnect":false,"placeholder":"任务"}"#
+queueComposer.setComposerState(runningState)
+let queueInput = descendants(queueComposer).compactMap { $0 as? UITextView }.first!
+let queueSend = descendants(queueComposer).compactMap { $0 as? UIButton }.first { $0.accessibilityIdentifier == "session-stop" }!
+var stopCalls = 0
+var queuePayload: [String: Any] = [:]
+queueComposer.onStop = { stopCalls += 1 }
+queueComposer.onSend = { queuePayload = $0 }
+func tapQueueAction() {
+  for action in queueSend.actions(forTarget: queueComposer, forControlEvent: .touchUpInside) ?? [] {
+    queueComposer.perform(NSSelectorFromString(action))
+  }
+}
+tapQueueAction()
+precondition(stopCalls == 1 && queuePayload.isEmpty, "Empty running input must stop without creating a message")
+queueInput.text = "  "
+queueComposer.textViewDidChange(queueInput)
+precondition(queueSend.accessibilityIdentifier == "session-stop", "Whitespace is not a draft")
+queueInput.text = "Next instruction"
+queueComposer.textViewDidChange(queueInput)
+precondition(queueSend.accessibilityIdentifier == "session-send" && queueSend.isEnabled, "Typing switches Stop to Send")
+tapQueueAction()
+precondition(queuePayload["queue"] as? Bool == true && queueInput.text.isEmpty, "Busy submission must queue and clear the draft")
+queueComposer.clearDraft(token: 1)
+precondition(queueSend.accessibilityIdentifier == "session-stop" && queueSend.isEnabled, "Queue ACK restores Stop")
+queueComposer.setQueue((1...4).map { ChatQueuedDraft(id: "q\($0)", text: "Queued \($0)") })
+queueComposer.layoutIfNeeded()
+let queuePanel = descendants(queueComposer).first { $0.accessibilityIdentifier == "session-queue" }!
+precondition(queuePanel.bounds.height == 132 && !queuePanel.isHidden, "Long plain queues stay compact at three 44 pt rows and scroll")
+queueComposer.setQueue([
+  ChatQueuedDraft(id: "q1", text: "Queued 1"),
+  ChatQueuedDraft(id: "q2", text: "Queued 2", attachments: ["shot.png"]),
+])
+queueComposer.layoutIfNeeded()
+let queuedRows = descendants(queuePanel).compactMap { $0 as? UILabel }
+precondition(queuedRows.contains { $0.text == "shot.png" }, "Queued attachments must show their file names")
+precondition(queuePanel.bounds.height > 44 + 44, "An attachment row is taller than a plain row")
+queueComposer.setQueue([ChatQueuedDraft(id: "q3", text: "", attachments: ["shot.png"])])
+queueComposer.layoutIfNeeded()
+precondition(
+  descendants(queuePanel).compactMap { ($0 as? UILabel)?.text }.contains(LodyStrings.text("native.chat.row.queuedAttachmentsOnly")),
+  "An attachment-only queued turn needs a message placeholder"
+)
+queueComposer.setQueue([])
+precondition(queuePanel.isHidden, "Drained queue must leave no empty card")
+queueComposer.setInitialAttachments(#"[{"id":"queue-file","name":"next.txt","uri":"file:///tmp/next.txt","kind":"file"}]"#)
+precondition(queueSend.accessibilityIdentifier == "session-send" && queueSend.isEnabled, "An attachment switches Stop to Send even with empty text")
+print("Queue composer: Stop, whitespace, typing, queued submission, ACK, bounded queue and attachment-only input passed")
+
+// A steered queue row hands its frame to the send animation instead of vanishing.
+let steerWindow = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+let steerComposer = ChatComposerView(frame: CGRect(x: 0, y: 600, width: 390, height: 244))
+steerWindow.addSubview(steerComposer)
+steerWindow.isHidden = false
+steerComposer.setComposerState(runningState)
+steerComposer.setQueue([ChatQueuedDraft(id: "s1", text: "Steer me"), ChatQueuedDraft(id: "s2", text: "Stay queued")])
+steerComposer.layoutIfNeeded()
+steerComposer.setQueue([ChatQueuedDraft(id: "s2", text: "Stay queued")])
+precondition(ChatSendHandoff.isWaiting(id: "s1"), "A steered row must start its flight before leaving the queue")
+precondition(!ChatSendHandoff.isWaiting(id: "s2"), "A row that stays queued must not fly")
+let steerTarget = ChatMessageContent(frame: CGRect(x: 200, y: 120, width: 170, height: 45))
+steerTarget.label.setText(NSAttributedString(string: "Steer me"))
+steerWindow.addSubview(steerTarget)
+ChatSendHandoff.hold(id: "s1", target: steerTarget)
+ChatSendHandoff.deliver(id: "s1", to: steerTarget)
+let steerFlight = steerWindow.subviews.compactMap { $0 as? ChatMessageContent }.first { $0 !== steerTarget }
+precondition(steerFlight?.layer.animation(forKey: "throw.scale") == nil, "A steered message slides straight, without the throw squash")
+precondition(steerFlight?.layer.animation(forKey: "throw.position") != nil, "A steered message must animate to its landed row")
+ChatSendHandoff.cancel(id: "s1")
+RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+precondition(!steerTarget.isHidden, "Cancelling a steer flight must reveal the landed row")
+print("Steer flight: departing queue rows slide straight into the transcript and clean up on cancellation")
+
+
+let modelComposer = ChatComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 120))
+modelComposer.setComposerState(ready)
+modelComposer.setComposerOptions(#"{"modelId":"gpt","models":[{"id":"gpt","title":"GPT"}],"effort":"medium","efforts":[{"id":"medium","title":"Medium"}]}"#)
+let modelButton = descendants(modelComposer).compactMap { $0 as? UIButton }.first { $0.accessibilityIdentifier == "session-model" }!
+precondition(
+  modelButton.configuration?.preferredSymbolConfigurationForImage
+    == UIImage.SymbolConfiguration(pointSize: 5, weight: .medium),
+  "The model trigger chevron must use the compact 5-point symbol size"
+)
+print("Composer: model trigger chevron stays compact")

@@ -1,4 +1,4 @@
-"""Lease clean, reusable Simulators for local Lody verification."""
+"""Lease reusable Simulators for local Lody verification."""
 
 import argparse
 from contextlib import contextmanager
@@ -102,7 +102,6 @@ class SimulatorPool:
         try:
             if device.get('state') != 'Shutdown':
                 self.simctl('shutdown', udid)
-            self.simctl('erase', udid)
             self.simctl('rename', udid, name)
             self.simctl('boot', udid)
             self.simctl('bootstatus', udid, '-b', timeout=300)

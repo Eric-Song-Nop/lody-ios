@@ -171,7 +171,7 @@ async function setup(
 test('send waits for durable dispatch state and carries the same identity and attachments', async () => {
   const disk = deferred();
   const calls = [];
-  const { outbox } = await setup(
+  const { hooks, outbox } = await setup(
     draft,
     {
       createSession() {
@@ -192,6 +192,11 @@ test('send waits for durable dispatch state and carries the same identity and at
   assert.equal(calls[0].id, draft.id);
   assert.deepEqual(calls[0].attachments, draft.attachments);
   assert.equal(outbox.records[0].send.phase, 'accepted');
+  assert.equal(
+    hooks.result.awaitingReply,
+    true,
+    'The ACK-to-assistant gap must still use busy composer behavior',
+  );
 });
 
 test('a definite send failure retains the draft and an ambiguous result never automatically retries', async () => {
@@ -310,6 +315,7 @@ test('receipts unlock successive sends while an assistant is running; writes sti
   await tick();
   await tick();
   assert.equal(outbox.records[0].send.phase, 'queued');
+  assert.equal(hooks.result.awaitingReply, false);
   assert.equal(hooks.result.canSend, true);
   assert.equal(hooks.result.sending, false);
   hooks.result.submit({ ...draft, id: 'next' });

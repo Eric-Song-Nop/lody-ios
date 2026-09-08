@@ -12,7 +12,6 @@ import { nativePresentationOptions } from '@/lib/presentation';
 import { navigationThemes } from '@/lib/theme/palette';
 import { softScrollEdgeEffects } from '@/ui/Screen';
 import { useBindSessionNav } from '@/hooks/screens/useBindSessionNav';
-import { useDebugShake } from '@/hooks/screens/useDebugShake';
 import { useOnboardingGate } from '@/hooks/screens/useOnboardingGate';
 
 export const unstable_settings = { initialRouteName: 'index' };
@@ -54,7 +53,6 @@ export default function RootLayout() {
 function Bindings() {
   useBindSessionNav();
   useOnboardingGate();
-  useDebugShake();
   return null;
 }
 

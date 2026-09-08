@@ -239,6 +239,8 @@ export function useSessionSend({
     clearDraftToken,
     restoreDraftToken,
     sending: hasPending,
+    awaitingReply:
+      !!send && !send.creation && ['accepted', 'uploaded'].includes(send.phase),
     canSend:
       outbox.ready &&
       !dispatching &&
@@ -249,6 +251,10 @@ export function useSessionSend({
     pendingSendJSON: send
       ? JSON.stringify({
           ...send,
+          queue:
+            send.phase === 'queued' ||
+            (send.queue === true &&
+              !['accepted', 'uploaded', 'failed'].includes(send.phase)),
           status: pendingSendStatus(send, live),
           reconnect: send.phase === 'waiting' && !live,
           failed: send.phase === 'failed',

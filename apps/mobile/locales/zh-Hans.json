@@ -136,6 +136,7 @@
   "send.status.uploading": "正在上传附件…",
   "send.status.sending": "正在发送…",
   "native.chat.row.queued": "已排队，当前回复结束后发送",
+  "native.chat.row.queuedAttachmentsOnly": "仅附件",
   "send.status.waiting": "等待回复…",
   "send.status.preparing": "正在准备…",
   "send.status.awaitingConnection": "等待连接…",
@@ -354,6 +355,9 @@
   "native.close": "关闭",
   "native.list.expanded": "已展开",
   "native.list.collapsed": "已折叠",
+  "native.session.banner.completed": "已完成",
+  "native.session.banner.attention": "等待确认",
+  "native.session.banner.openHint": "打开该会话",
   "native.session.sync.title": "同步会话回复",
   "native.session.sync.sending": "正在发送",
   "native.session.sync.waitingReply": "等待回复",
@@ -403,5 +407,12 @@
   "settings.remote.duplicate": "已有 MCP 服务器使用此名称。",
   "settings.remote.readOnly": "仅机器所有者可编辑",
   "file.preview": "预览",
-  "file.source": "源码"
+  "file.source": "源码",
+  "native.chat.composer.stop": "停止",
+  "native.chat.composer.stopping": "正在停止…",
+  "native.chat.composer.steer": "Steer",
+  "native.chat.composer.steering": "正在确认投递…",
+  "native.chat.composer.queue": "排队消息",
+  "native.chat.composer.controlError": "操作未完成，请检查连接后重试。",
+  "native.chat.composer.steerNotApplied": "尚未确认 Steer 成功，消息会保留在待发送区域，直到确认投递状态。"
 }

@@ -29,6 +29,7 @@ import {
   retainedSessionIds,
   itemDetail,
   respondPermission,
+  controlTurn,
   sendTurn as sendSessionTurn,
 } from './session';
 import { decodeFrames, encodeFrame } from '../decoder/frames';
@@ -590,6 +591,7 @@ Object.assign(globalThis, {
     },
     itemDetail,
     respondPermission,
+    controlTurn,
     sendTurn(args: Parameters<typeof sendSessionTurn>[0]) {
       if (!metaReplica)
         return { state: 'not_sent', reason: 'metadata_not_ready' };

@@ -42,8 +42,11 @@ extension LodyChatView {
           self.decoding = false
           switch decoded {
           case .success(let entries):
+            #if DEBUG
+            self.streamPerformanceProbe?.receive(entries)
+            #endif
             self.displayError = nil
-            let userID = entries.last { $0.role == "user" }?.id
+            let userID = entries.last { $0.role == "user" && !$0.isQueued }?.id
             if self.processEntryID.isEmpty, let userID, userID != self.lastUserID,
                self.awaitingUserAnchor {
               self.liveEntryID = nil
@@ -54,7 +57,6 @@ extension LodyChatView {
             }
             self.lastUserID = userID
             self.stream.receive(entries, animate: self.window != nil && !UIAccessibility.isReduceMotionEnabled)
-            self.renderFrame()
             self.startFrameTimer()
           case .failure:
             self.displayError = LodyStrings.text("native.chat.error.transcript")
@@ -68,12 +70,16 @@ extension LodyChatView {
   }
 
   func startFrameTimer() {
-    guard frameTimer == nil, stream.hasPending, window != nil else { return }
-    let timer = Timer(timeInterval: 1.0 / 30, repeats: true) { [weak self] timer in
-      guard let self, self.window != nil else { timer.invalidate(); return }
+    guard frameTimer == nil else { return }
+    guard !rendering else { framePending = true; return }
+    guard window != nil else { stream.finish(); return }
+    let interval = ChatStream.commitInterval(tailLength: renderTailLength)
+    let delay = max(0.001, lastRenderTime + interval - CACurrentMediaTime())
+    let timer = Timer(timeInterval: delay, repeats: false) { [weak self] _ in
+      guard let self else { return }
+      self.frameTimer = nil
       if UIAccessibility.isReduceMotionEnabled { self.stream.finish() }
       self.renderFrame()
-      if !self.stream.hasPending { timer.invalidate(); self.frameTimer = nil }
     }
     frameTimer = timer
     RunLoop.main.add(timer, forMode: .common)
@@ -82,6 +88,7 @@ extension LodyChatView {
   func renderFrame() {
     guard !rendering else { framePending = true; return }
     rendering = true
+    lastRenderTime = CACurrentMediaTime()
     stream.advance()
     let entries = stream.presentation
     let parser = store.parser
@@ -96,7 +103,10 @@ extension LodyChatView {
         self.transcript.entries = entries
         self.applyRows()
         self.rendering = false
-        if self.framePending { self.framePending = false; self.renderFrame() }
+        if self.framePending || self.stream.hasPending {
+          self.framePending = false
+          self.startFrameTimer()
+        }
       }
     }
   }
@@ -119,10 +129,33 @@ extension LodyChatView {
   func applyRows() {
     guard !applying else { needsApply = true; return }
     applying = true
+    #if DEBUG
+    let commitStart = CACurrentMediaTime()
+    #endif
     let previousOffset = collection.contentOffset.y
-    if composerHasAcknowledgedSend, let pendingSend, pendingSend.rows(entries: transcript.entries).isEmpty {
+    if composerHasAcknowledgedSend, let pendingSend,
+       transcript.entries.contains(where: { $0.id == pendingSend.id }),
+       pendingSend.rows(entries: transcript.entries).isEmpty {
       self.pendingSend = nil
     }
+    var queue = transcript.entries.filter(\.isQueued).map { entry in
+      ChatQueuedDraft(
+        id: entry.id,
+        text: entry.items.compactMap { $0.type == "image" ? nil : $0.text }.joined(separator: "\n"),
+        canSteer: entry.canSteer != false,
+        attachments: entry.items.compactMap { $0.type == "image" ? $0.image?.fileName : nil }
+      )
+    }
+    if let pendingSend, pendingSend.queue == true, pendingSend.failed != true,
+       !transcript.entries.contains(where: { $0.id == pendingSend.id }) {
+      queue.append(ChatQueuedDraft(
+        id: pendingSend.id,
+        text: pendingSend.text,
+        canSteer: false,
+        attachments: pendingSend.attachments.map(\.name)
+      ))
+    }
+    composer.setQueue(queue)
     let now = Date().timeIntervalSince1970 * 1000
     var projected = transcript.rows(
       processEntryID: processEntryID,
@@ -133,16 +166,17 @@ extension LodyChatView {
     if processEntryID.isEmpty, let pendingSend { projected += pendingSend.rows(entries: transcript.entries) }
     updateWorkDurationTimer(rows: projected)
     let liveEntryID = transcript.entries.last { $0.isRunning && (processEntryID.isEmpty || $0.id == processEntryID) }?.id
-    let starting = self.liveEntryID == nil && liveEntryID != nil
+    let previousLive = self.liveEntryID
+    let starting = previousLive == nil && liveEntryID != nil
     let nearTail = collection.contentSize.height - collection.bounds.height + collection.adjustedContentInset.bottom - previousOffset < CGFloat(ChatScroll.resumeDistance)
     let following = followsBottom || (starting && nearTail && !trackingPausedByGesture)
     followsBottom = following
-    let completing = self.liveEntryID != nil && liveEntryID == nil
+    let completing = previousLive != nil && liveEntryID == nil
     // A stale running reply can complete together with an entire newer history.
     // Only fold in place when it is still the tail; bulk sync keeps the viewport anchor.
-    let folding = completing && processEntryID.isEmpty && window != nil && projected.last?.entryID == self.liveEntryID
+    let folding = completing && processEntryID.isEmpty && window != nil && projected.last?.entryID == previousLive
     let anchorID = folding && following
-      ? projected.last(where: { $0.entryID == self.liveEntryID && $0.kind == "text" })?.id
+      ? projected.last(where: { $0.entryID == previousLive && $0.kind == "text" })?.id
       : collection.indexPathsForVisibleItems.sorted().compactMap { dataSource.itemIdentifier(for: $0) }.first(where: { id in projected.contains { $0.id == id } })
     let anchor = anchorID.flatMap { id -> (String, CGFloat)? in
       guard let index = dataSource.indexPath(for: id), let frame = collection.layoutAttributesForItem(at: index)?.frame else { return nil }
@@ -152,6 +186,17 @@ extension LodyChatView {
       applying = false
       displayError = LodyStrings.text("native.chat.error.transcript")
       return
+    }
+    if ChatHaptics.shouldNotifyTurnCompletion(
+      previousLive: previousLive,
+      nextLive: liveEntryID,
+      processEntryID: processEntryID,
+      inWindow: window != nil
+    ) {
+      turnFeedback.notificationOccurred(.success)
+    }
+    if liveEntryID != nil && processEntryID.isEmpty && window != nil && previousLive != liveEntryID {
+      turnFeedback.prepare()
     }
     self.liveEntryID = liveEntryID
     let previous = rows
@@ -185,7 +230,13 @@ extension LodyChatView {
     }
     let finish = { [weak self] in
       guard let self else { return }
+      #if DEBUG
+      self.streamPerformanceProbe?.commit(milliseconds: (CACurrentMediaTime() - commitStart) * 1000)
+      #endif
       self.applying = false
+      if let tail = projected.last(where: { $0.streaming }) {
+        self.renderTailLength = self.store.tailLength(id: tail.id)
+      }
       if self.needsApply { self.needsApply = false; self.applyRows() }
     }
     if folding && !UIAccessibility.isReduceMotionEnabled {

@@ -3,13 +3,20 @@ import UIKit
 
 final class LodySymbolButton: ExpoView {
   let onSymbolPress = EventDispatcher()
+  let onSymbolLongPress = EventDispatcher()
   private let button = UIButton(type: .system)
+  private let hold = UILongPressGestureRecognizer()
   private var symbol = "circle"
   private var prominent = false
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
     button.addTarget(self, action: #selector(pressed), for: .primaryActionTriggered)
+    hold.addTarget(self, action: #selector(held))
+    hold.minimumPressDuration = 0.6
+    hold.isEnabled = false
+    button.addGestureRecognizer(hold)
+    button.tintColor = .label
     addSubview(button)
     apply()
   }
@@ -28,7 +35,6 @@ final class LodySymbolButton: ExpoView {
     button.accessibilityLabel = value
   }
 
-  /// Filled circular treatment for the send action; plain glyph for bar buttons.
   func setProminent(_ value: Bool) {
     prominent = value
     apply()
@@ -39,7 +45,11 @@ final class LodySymbolButton: ExpoView {
   }
 
   func setTint(_ value: String) {
-    button.tintColor = lodyTint(value)
+    button.tintColor = lodyTint(value) ?? .label
+  }
+
+  func setLongPress(_ value: Bool) {
+    hold.isEnabled = value
   }
 
   private func apply() {
@@ -58,5 +68,11 @@ final class LodySymbolButton: ExpoView {
 
   @objc private func pressed() {
     onSymbolPress([:])
+  }
+
+  @objc private func held(_ recognizer: UILongPressGestureRecognizer) {
+    guard recognizer.state == .began else { return }
+    UISelectionFeedbackGenerator().selectionChanged()
+    onSymbolLongPress([:])
   }
 }

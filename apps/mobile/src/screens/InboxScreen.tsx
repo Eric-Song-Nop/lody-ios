@@ -1,8 +1,9 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
 import {
   NativeGroupedList,
   NativeMenuButton,
+  NativeSymbolButton,
   initialInboxView,
   saveInboxView,
   readInboxExpansion,
@@ -32,6 +33,7 @@ const inboxViews = [
 ] as const;
 
 function View() {
+  const router = useRouter();
   const { account, localReady } = useAuth();
   const colors = usePalette();
   const { catalog, selected, setWorkspaceId, loading, connected, refresh } =
@@ -74,7 +76,7 @@ function View() {
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.Menu
           icon="line.3.horizontal.decrease"
-          tintColor={colors.accent}
+          tintColor={colors.label}
           accessibilityLabel={t('inbox.settings.section.view')}
         >
           {inboxViews.map((view) => (
@@ -91,12 +93,15 @@ function View() {
             </Stack.Toolbar.MenuAction>
           ))}
         </Stack.Toolbar.Menu>
-        <Stack.Toolbar.Button
-          icon="gearshape"
-          tintColor={colors.accent}
-          accessibilityLabel={t('tabs.settings')}
-          onPress={() => void present(SettingsScreen)}
-        />
+        <Stack.Toolbar.View>
+          <NativeSymbolButton
+            accessibilityName={t('tabs.settings')}
+            symbol="gearshape"
+            style={{ width: 44, height: 44 }}
+            onPress={() => void present(SettingsScreen)}
+            onLongPress={() => router.push('/debug')}
+          />
+        </Stack.Toolbar.View>
       </Stack.Toolbar>
       <Stack.SearchBar
         placement="integrated"

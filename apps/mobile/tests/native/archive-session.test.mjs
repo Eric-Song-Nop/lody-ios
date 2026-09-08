@@ -151,3 +151,148 @@ test('archive lands on the session even when the machine flock is unavailable', 
   assert.equal(remoteMeta.get(['m', 'session-s2', 'isArchived']), false);
   assert.equal(machine.get(['cmd', 'archiveSession', 's2']), undefined);
 });
+
+test('archive and pin accept field-level session metadata', async () => {
+  const meta = new Flock('meta'),
+    machine = new Flock('machine'),
+    remoteMeta = new Flock('remote-meta'),
+    remoteMachine = new Flock('remote-machine');
+  meta.put(['e', 'session-s3'], true);
+  meta.put(['m', 'session-s3', 'id'], 's3');
+  meta.put(['m', 'session-s3', 'machineId'], 'm1');
+  meta.put(['m', 'session-s3', 'isArchived'], false);
+  meta.put(['m', 'session-s3', 'status'], { type: 'running' });
+  meta.commit();
+  remoteMeta.importFile(meta.exportFile());
+  globalThis.__archiveClient = class {
+    constructor({ url }) {
+      this.url = decodeURIComponent(url);
+    }
+    async append({ part }) {
+      remoteMachine.importJson(unframe(part.body));
+      return { ok: true, result: {} };
+    }
+  };
+  const replica = {
+    flock: meta,
+    client: {
+      async append({ part }) {
+        remoteMeta.importJson(unframe(part.body));
+        return { ok: true, result: {} };
+      },
+    },
+  };
+  const grant = async () => ({ token: 't', gatewayBaseUrl: 'https://x' });
+  await pinSession({ sessionId: 's3', pinned: true }, replica);
+  assert.equal(remoteMeta.get(['m', 'session-s3', 'isPinned']), true);
+  assert.equal(remoteMeta.get(['m', 'session-s3']), undefined);
+  await archiveSession(
+    { workspaceId: 'w1', sessionId: 's3', archived: true },
+    replica,
+    new Map([['m1', machine]]),
+    grant,
+  );
+  assert.equal(remoteMeta.get(['m', 'session-s3', 'isArchived']), true);
+  assert.deepEqual(remoteMeta.get(['m', 'session-s3', 'status']), {
+    type: 'idle',
+  });
+  assert.equal(remoteMeta.get(['m', 'session-s3']), undefined);
+  assert.equal(remoteMachine.get(['cmd', 'archiveSession', 's3']).v, 1);
+  assert.equal(machine.get(['cmd', 'archiveSession', 's3']).v, 1);
+});
+
+test('archive cascades to child sessions and only queues the root machine command', async () => {
+  const meta = new Flock('meta'),
+    machine = new Flock('machine'),
+    remoteMeta = new Flock('remote-meta'),
+    remoteMachine = new Flock('remote-machine');
+  for (const [room, fields] of [
+    ['session-root', { id: 'root', machineId: 'm1' }],
+    [
+      'session-child',
+      { id: 'child', machineId: 'm1', parentSessionId: 'root' },
+    ],
+  ]) {
+    meta.put(['e', room], true);
+    for (const [key, value] of Object.entries(fields))
+      meta.put(['m', room, key], value);
+  }
+  meta.commit();
+  remoteMeta.importFile(meta.exportFile());
+  globalThis.__archiveClient = class {
+    async append({ part }) {
+      remoteMachine.importJson(unframe(part.body));
+      return { ok: true, result: {} };
+    }
+  };
+  const replica = {
+    flock: meta,
+    client: {
+      async append({ part }) {
+        remoteMeta.importJson(unframe(part.body));
+        return { ok: true, result: {} };
+      },
+    },
+  };
+  const grant = async () => ({ token: 't', gatewayBaseUrl: 'https://x' });
+  await archiveSession(
+    { workspaceId: 'w1', sessionId: 'root', archived: true },
+    replica,
+    new Map([['m1', machine]]),
+    grant,
+  );
+  assert.equal(remoteMeta.get(['m', 'session-root', 'isArchived']), true);
+  assert.equal(remoteMeta.get(['m', 'session-child', 'isArchived']), true);
+  assert.equal(machine.get(['cmd', 'archiveSession', 'root']).v, 1);
+  assert.equal(machine.get(['cmd', 'archiveSession', 'child']), undefined);
+  await archiveSession(
+    { workspaceId: 'w1', sessionId: 'root', archived: false },
+    replica,
+    new Map([['m1', machine]]),
+    grant,
+  );
+  assert.equal(remoteMeta.get(['m', 'session-root', 'isArchived']), false);
+  assert.equal(remoteMeta.get(['m', 'session-child', 'isArchived']), false);
+  assert.equal(machine.get(['cmd', 'archiveSession', 'root']), undefined);
+});
+
+test('archive records needToArchiveSessions on machine meta', async () => {
+  const meta = new Flock('meta'),
+    remoteMeta = new Flock('remote-meta');
+  meta.put(['e', 'session-s4'], true);
+  meta.put(['e', 'machine-m1'], true);
+  meta.put(['m', 'session-s4', 'id'], 's4');
+  meta.put(['m', 'session-s4', 'machineId'], 'm1');
+  meta.commit();
+  remoteMeta.importFile(meta.exportFile());
+  const replica = {
+    flock: meta,
+    client: {
+      async append({ part }) {
+        remoteMeta.importJson(unframe(part.body));
+        return { ok: true, result: {} };
+      },
+    },
+  };
+  const grant = async () => ({ token: 't', gatewayBaseUrl: 'https://x' });
+  await archiveSession(
+    { workspaceId: 'w1', sessionId: 's4', archived: true },
+    replica,
+    new Map(),
+    grant,
+  );
+  assert.deepEqual(
+    remoteMeta.get(['m', 'machine-m1', 'needToArchiveSessions']),
+    { s4: true },
+  );
+  await archiveSession(
+    { workspaceId: 'w1', sessionId: 's4', archived: false },
+    replica,
+    new Map(),
+    grant,
+  );
+  assert.deepEqual(
+    remoteMeta.get(['m', 'machine-m1', 'needToArchiveSessions']),
+    {},
+  );
+});

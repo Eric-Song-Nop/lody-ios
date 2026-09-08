@@ -32,7 +32,7 @@ final class ChatCell: UICollectionViewCell, UIContextMenuInteractionDelegate {
     if row.kind == "user" { ChatSendHandoff.hold(id: row.entryID, target: messageContent) }
     else { messageContent.isHidden = false }
     bubble.isHidden = row.kind != "user"
-    icon.image = row.symbol.isEmpty ? nil : UIImage(systemName: row.symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 13))
+    icon.image = row.symbol.isEmpty ? nil : UIImage(systemName: row.symbol, withConfiguration: Self.iconSymbolConfiguration(for: row))
     icon.tintColor = chromeColor(for: row)
     row.running && row.kind != "summary" && row.kind != "duration"
       ? spinner.startAnimating()
@@ -80,7 +80,27 @@ final class ChatCell: UICollectionViewCell, UIContextMenuInteractionDelegate {
   }
 
   static func leading(_ row: ChatRow) -> CGFloat {
-    row.kind == "text" || row.kind == "user" || row.kind == "duration" ? 0 : 24
+    switch row.kind {
+    case "text", "user", "duration": return 0
+    case "summary": return 12
+    default: return 24
+    }
+  }
+  static func iconSymbolConfiguration(for row: ChatRow) -> UIImage.SymbolConfiguration {
+    if row.kind == "summary" {
+      return UIImage.SymbolConfiguration(pointSize: 6)
+    }
+    if row.kind == "thought" {
+      return UIImage.SymbolConfiguration(pointSize: 13, weight: .regular, scale: .small)
+    }
+    return UIImage.SymbolConfiguration(pointSize: 13)
+  }
+  static func iconFrame(for row: ChatRow, textY: CGFloat, textHeight: CGFloat) -> CGRect {
+    if row.kind == "summary" {
+      let size: CGFloat = 8
+      return CGRect(x: 0, y: textY + (textHeight - size) / 2, width: size, height: size)
+    }
+    return CGRect(x: 2, y: textY, width: 20, height: min(textHeight, 20))
   }
   static func textWidth(_ row: ChatRow, width: CGFloat) -> CGFloat {
     // Reserve the status slot even after completion: status cannot rewrap text.
@@ -108,7 +128,7 @@ final class ChatCell: UICollectionViewCell, UIContextMenuInteractionDelegate {
       let height = label.sizeThatFits(CGSize(width: textWidth, height: .greatestFiniteMagnitude)).height
       let y = row.kind == "text" || row.kind == "thought" ? 6 : max(6, (bounds.height - height) / 2)
       label.frame = CGRect(x: inset, y: y, width: textWidth, height: height)
-      icon.frame = CGRect(x: 0, y: y, width: 16, height: min(height, 20))
+      icon.frame = Self.iconFrame(for: row, textY: y, textHeight: height)
     }
     spinner.frame = CGRect(x: width - 24, y: (bounds.height - 20) / 2, width: 20, height: 20)
     let pixel = 1 / max(1, traitCollection.displayScale)

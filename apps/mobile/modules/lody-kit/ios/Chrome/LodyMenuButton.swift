@@ -24,7 +24,6 @@ final class LodyMenuButton: ExpoView {
     super.init(appContext: appContext)
     button.changesSelectionAsPrimaryAction = false
     button.showsMenuAsPrimaryAction = true
-    button.titleLabel?.lineBreakMode = .byTruncatingTail
     addSubview(button)
   }
 
@@ -80,7 +79,7 @@ final class LodyMenuButton: ExpoView {
     var config = UIButton.Configuration.plain()
     config.image = avatarImage()
     config.imagePadding = 8
-    config.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 8)
+    config.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 2, bottom: 4, trailing: 4)
     config.attributedTitle = AttributedString(
       label,
       attributes: AttributeContainer([
@@ -88,7 +87,7 @@ final class LodyMenuButton: ExpoView {
         .foregroundColor: UIColor.label,
       ])
     )
-    button.configuration = config
+    LodyMenuButtonStyle.apply(config, to: button)
     onSize(["width": min(button.intrinsicContentSize.width, 200)])
   }
 }

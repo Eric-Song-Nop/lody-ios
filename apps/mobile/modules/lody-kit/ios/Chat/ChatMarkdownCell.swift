@@ -1,27 +1,15 @@
-import MarkdownView
 import UIKit
 
 final class ChatMarkdownCell: UICollectionViewCell {
-  let markdown: FileMarkdownView
-  private let label = ChatFadeLabelView()
+  private var markdown: ChatMarkdownView?
   private let icon = UIImageView()
   private let spinner = UIActivityIndicatorView(style: .medium)
   private(set) var row: ChatRow?
   var onLink: ((String) -> Void)?
 
   override init(frame: CGRect) {
-    markdown = FileMarkdownView(textLabelView: label)
     super.init(frame: frame)
-    markdown.throttleInterval = 1.0 / 60
-    markdown.linkHandler = { [weak self] payload, _, _ in
-      let href: String = switch payload {
-      case .url(let url): url.absoluteString
-      case .string(let string): string
-      }
-      self?.onLink?(href)
-    }
     icon.contentMode = .center
-    contentView.addSubview(markdown)
     contentView.addSubview(icon)
     contentView.addSubview(spinner)
     contentView.clipsToBounds = true
@@ -29,18 +17,20 @@ final class ChatMarkdownCell: UICollectionViewCell {
   }
   required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-  func configure(_ row: ChatRow, content: MarkdownContent, theme: MarkdownTheme) {
-    let sameRow = self.row?.id == row.id
+  func configure(_ row: ChatRow, markdown: ChatMarkdownView) {
     self.row = row
-    label.prepare(animate: row.streaming, reset: !sameRow)
-    if sameRow && markdown.theme == theme { markdown.setContent(content) }
-    else { markdown.setContentImmediately(content, theme: theme) }
-    icon.image = row.symbol.isEmpty ? nil : UIImage(systemName: row.symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 13))
+    if self.markdown !== markdown {
+      if self.markdown?.superview === contentView { self.markdown?.removeFromSuperview() }
+      self.markdown = markdown
+      contentView.addSubview(markdown)
+    }
+    markdown.onLink = { [weak self] in self?.onLink?($0) }
+    icon.image = row.symbol.isEmpty ? nil : UIImage(systemName: row.symbol, withConfiguration: ChatCell.iconSymbolConfiguration(for: row))
     icon.tintColor = row.attention ? .systemOrange : .secondaryLabel
     row.running ? spinner.startAnimating() : spinner.stopAnimating()
     accessibilityIdentifier = row.id
     accessibilityLabel = row.text
-    accessibilityCustomActions = markdown.fileActions(content)
+    accessibilityCustomActions = markdown.fileActions
     accessibilityTraits = row.actionable ? .button : .staticText
     setNeedsLayout()
   }
@@ -48,19 +38,23 @@ final class ChatMarkdownCell: UICollectionViewCell {
   override func prepareForReuse() {
     super.prepareForReuse()
     row = nil
-    label.prepare(animate: false, reset: true)
-    markdown.reset()
+    if markdown?.superview === contentView {
+      markdown?.onLink = nil
+      markdown?.removeFromSuperview()
+    }
+    markdown = nil
   }
 
   override func layoutSubviews() {
     super.layoutSubviews()
-    guard let row else { return }
+    guard let row, let markdown else { return }
     let width = contentView.bounds.width
     let inset = ChatCell.leading(row)
     let textWidth = ChatCell.textWidth(row, width: width)
-    let height = markdown.boundingSize(for: textWidth).height
+    markdown.measure(width: textWidth)
+    let height = markdown.measuredHeight
     markdown.frame = CGRect(x: inset, y: 6, width: textWidth, height: height)
-    icon.frame = CGRect(x: 0, y: 6, width: 16, height: min(height, 20))
+    icon.frame = ChatCell.iconFrame(for: row, textY: 6, textHeight: height)
     spinner.frame = CGRect(x: width - 24, y: (bounds.height - 20) / 2, width: 20, height: 20)
     var view: UIView? = superview
     while let current = view, !(current is UIScrollView) { view = current.superview }

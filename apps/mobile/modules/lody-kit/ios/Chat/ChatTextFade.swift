@@ -14,20 +14,23 @@ struct ChatTextFade {
 
   mutating func update(_ text: String, animate: Bool, at time: Double, reset: Bool = false) {
     let next = Array(text)
-    if reset {
+    if reset || !animate {
       characters = next
       births = Array(repeating: nil, count: next.count)
       active = []
       return
     }
     guard next != characters else { return }
-    let changes = next.difference(from: characters)
     var removed: Set<Int> = []
     var inserted: Set<Int> = []
-    for change in changes {
-      switch change {
-      case .remove(let index, _, _): removed.insert(index)
-      case .insert(let index, _, _): inserted.insert(index)
+    if next.starts(with: characters) {
+      inserted = Set(characters.count..<next.count)
+    } else {
+      for change in next.difference(from: characters) {
+        switch change {
+        case .remove(let index, _, _): removed.insert(index)
+        case .insert(let index, _, _): inserted.insert(index)
+        }
       }
     }
     var remaining = births.enumerated().filter { !removed.contains($0.offset) }.map(\.element).makeIterator()

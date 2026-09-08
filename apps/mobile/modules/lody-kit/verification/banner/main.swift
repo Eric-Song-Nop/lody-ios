@@ -1,0 +1,14 @@
+import UIKit
+
+assert(LodySessionBannerKind.completed.rawValue == "completed")
+assert(LodySessionBannerKind.attention.rawValue == "attention")
+assert(LodySessionBannerKind(rawValue: "error") == nil)
+assert(LodySessionBannerKind.completed.symbolName == "checkmark")
+assert(LodySessionBannerKind.attention.symbolName == "exclamationmark")
+assert(LodySessionBannerKind.completed.subtitleKey == "native.session.banner.completed")
+assert(LodySessionBannerKind.attention.subtitleKey == "native.session.banner.attention")
+assert(!LodySessionBannerKind.completed.sticky)
+assert(LodySessionBannerKind.attention.sticky)
+assert(LodySessionBannerKind.completed.feedback == .success)
+assert(LodySessionBannerKind.attention.feedback == .warning)
+print("PASS: session banner kind mapping")

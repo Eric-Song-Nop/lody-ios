@@ -76,3 +76,88 @@ precondition(durationSeparator?.frame.minX == 0 && durationSeparator?.frame.maxX
 precondition(durationSeparator?.frame.maxY == durationCell.contentView.bounds.maxY,
   "The duration separator must sit directly below the label row")
 print("Chat render: duration separator spans the row below the label")
+
+func resolved(_ color: UIColor?, traits: UITraitCollection) -> CGColor? {
+  color?.resolvedColor(with: traits).cgColor
+}
+
+let thoughtRow = ChatRow(
+  id: "reply:thought",
+  entryID: "reply",
+  kind: "thought",
+  text: "思考过程",
+  symbol: "brain"
+)
+let thoughtCell = ChatCell(frame: CGRect(x: 0, y: 0, width: 320, height: 44))
+window.addSubview(thoughtCell)
+thoughtCell.configure(thoughtRow, text: NSAttributedString(string: thoughtRow.text, attributes: [
+  .font: UIFont.systemFont(ofSize: 15),
+]))
+thoughtCell.layoutIfNeeded()
+precondition(thoughtCell.icon.frame.minX >= 2, "Thought icon must inset from the clipped leading edge")
+precondition(thoughtCell.icon.frame.width >= 20, "Thought icon slot must fit the brain symbol")
+precondition(thoughtCell.icon.frame.maxX <= ChatCell.leading(thoughtRow),
+  "Thought icon must stay inside the reserved leading gutter")
+precondition((thoughtCell.icon.image?.size.width ?? .greatestFiniteMagnitude) <= thoughtCell.icon.bounds.width,
+  "Thought icon must not overflow its slot")
+let toolRow = ChatRow(
+  id: "reply:read",
+  entryID: "reply",
+  kind: "tool_call",
+  text: "读取文件",
+  symbol: "doc.text.magnifyingglass"
+)
+let toolCell = ChatCell(frame: CGRect(x: 0, y: 0, width: 320, height: 44))
+window.addSubview(toolCell)
+toolCell.configure(toolRow, text: NSAttributedString(string: toolRow.text, attributes: [
+  .font: UIFont.systemFont(ofSize: 13),
+]))
+toolCell.layoutIfNeeded()
+let thoughtWidth = thoughtCell.icon.image?.size.width ?? .greatestFiniteMagnitude
+let toolWidth = toolCell.icon.image?.size.width ?? 0
+precondition(abs(thoughtWidth - toolWidth) <= 2,
+  "Thought and tool icons must share the same optical size, thought=\(thoughtWidth) tool=\(toolWidth)")
+print("Chat render: thought icon stays inside the leading gutter")
+
+func summaryRow(running: Bool, attention: Bool) -> ChatRow {
+  ChatRow(
+    id: "reply:process",
+    entryID: "reply",
+    kind: "summary",
+    text: "执行过程",
+    symbol: "circle.fill",
+    actionable: true,
+    running: running,
+    attention: attention
+  )
+}
+
+func summaryCell(for row: ChatRow) -> ChatCell {
+  let cell = ChatCell(frame: CGRect(x: 0, y: 0, width: 320, height: 44))
+  window.addSubview(cell)
+  cell.configure(row, text: NSAttributedString(string: row.text, attributes: [
+    .font: UIFont.systemFont(ofSize: 13),
+  ]))
+  cell.layoutIfNeeded()
+  return cell
+}
+
+let runningSummary = summaryCell(for: summaryRow(running: true, attention: false))
+let doneSummary = summaryCell(for: summaryRow(running: false, attention: false))
+let failedSummary = summaryCell(for: summaryRow(running: false, attention: true))
+let traits = runningSummary.traitCollection
+precondition(resolved(runningSummary.icon.tintColor, traits: traits) == resolved(.systemBlue, traits: traits),
+  "A live process pip must be system blue")
+precondition(resolved(doneSummary.icon.tintColor, traits: traits) == resolved(.secondaryLabel, traits: traits),
+  "A finished process pip must use secondary label")
+precondition(resolved(failedSummary.icon.tintColor, traits: traits) == resolved(.systemOrange, traits: traits),
+  "A failed or pending process pip must be system orange")
+precondition((runningSummary.icon.image?.size.width ?? .greatestFiniteMagnitude) < (thoughtCell.icon.image?.size.width ?? 0),
+  "The process status pip must be smaller than thought and tool icons")
+precondition(ChatCell.leading(doneSummary.row!) == 12, "The process pip must not keep the 24-point icon gutter")
+precondition(doneSummary.icon.frame.minX == 0, "The process pip must sit on the text leading edge")
+precondition(doneSummary.icon.frame.width == 8, "The process pip slot must match the 6-point dot")
+precondition(abs(doneSummary.icon.frame.midY - doneSummary.label.frame.midY) <= 0.5,
+  "The process pip must sit on the text baseline")
+precondition(doneSummary.label.frame.minX == 12, "Process text must follow the pip without extra padding")
+print("Chat render: process status pip uses running, done and attention colors")

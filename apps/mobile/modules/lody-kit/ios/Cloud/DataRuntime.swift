@@ -307,7 +307,7 @@ final class DataRuntime: NSObject, WKScriptMessageHandler, WKNavigationDelegate 
     )
   }
 
-  private static let sessionCommands: Set<String> = ["sendTurn", "itemDetail", "respondPermission", "turnDiff", "fileDiff", "readFile"]
+  private static let sessionCommands: Set<String> = ["sendTurn", "controlTurn", "itemDetail", "respondPermission", "turnDiff", "fileDiff", "readFile"]
   private static let contentCommands: Set<String> = ["turnDiff", "fileDiff", "readFile"]
   func command(_ method: String, payload: String, promise: Promise) {
     guard health.ready, let view = webView, let data = payload.data(using: .utf8), data.count <= 128 * 1024,

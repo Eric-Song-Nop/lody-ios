@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { usePendingSends } from '@/cloud/send/pendingSends';
 import { useConnection } from '@/cloud/catalog/connection';
+import { useSessionControl } from '@/features/sessions/useSessionControl';
 import { useSessionSend } from '@/features/sessions/useSessionSend';
 import { useCatalog } from '@/cloud/catalog/CatalogProvider';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -291,10 +292,16 @@ function View() {
   if (overflow) notice = t('chat.notice.syncStopped');
   else if (disconnected && !send.sending)
     notice = t('chat.notice.connectionPaused');
+  const control = useSessionControl(currentSession, snapshot, overflow);
   const composerJSON = JSON.stringify({
     editable: !currentSession.archived,
     canSend: send.canSend,
     sending: send.sending,
+    running: control.running || send.awaitingReply,
+    canStop: control.canStop,
+    stopping: control.stopping,
+    controlling: control.controlling,
+    steerID: control.steerID,
     notice,
     reconnect: disconnected || overflow,
     placeholder: composerPlaceholder({
@@ -325,7 +332,7 @@ function View() {
       />
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.Menu
-          icon="ellipsis.circle"
+          icon="ellipsis"
           accessibilityLabel={t('common.more')}
         >
           <Stack.Toolbar.MenuAction
@@ -404,11 +411,14 @@ function View() {
             ? t('chat.empty.prompt')
             : t('chat.empty.loading')
         }
+        onStop={control.stop}
+        onSteer={({ nativeEvent }) => control.steer(nativeEvent.id)}
         onSend={({ nativeEvent }) =>
           send.submit({
             id: nativeEvent.id,
             text: nativeEvent.text,
             startedAt: nativeEvent.startedAt,
+            queue: nativeEvent.queue,
             attachments: nativeEvent.attachments,
             phase: 'waiting',
             choice: {

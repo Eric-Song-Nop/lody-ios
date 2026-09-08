@@ -159,7 +159,8 @@ extension LodyChatView {
         if progress == 1 { self.sendScroll = nil }
       } else {
         y = reduce ? bottomOffset : CGFloat(ChatScroll.advance(
-          Double(collection.contentOffset.y), toward: Double(bottomOffset), elapsed: elapsed, response: 0.10))
+          Double(collection.contentOffset.y), toward: Double(bottomOffset), elapsed: elapsed, response: 0.10,
+          minimumStep: 1 / Double(window?.screen.scale ?? 3)))
       }
       collection.setContentOffset(CGPoint(x: 0, y: y), animated: false)
     }
@@ -196,6 +197,13 @@ extension LodyChatView {
     }
     let width = max(1, collection.bounds.width - 40)
     for row in projected where row != previous[row.id] {
+      // Long replies grow at the content-commit cadence. Animating their height
+      // would invalidate the entire collection at display refresh rate; the
+      // bottom follower and block opacity animation already keep motion smooth.
+      if (row.kind == "text" || row.kind == "thought") && row.text.utf16.count > ChatStream.blockAnimationLength {
+        rowHeights[row.id] = nil
+        continue
+      }
       guard row.streaming || previous[row.id]?.streaming == true else {
         rowHeights[row.id] = nil
         continue
@@ -215,7 +223,7 @@ extension LodyChatView {
     }
     let textWidth = ChatCell.textWidth(row, width: width)
     if row.kind == "text" || row.kind == "thought" {
-      return store.height(id: row.id, text: row.text, secondary: row.kind == "thought", width: textWidth)
+      return store.height(id: row.id, text: row.text, secondary: row.kind == "thought", streaming: row.streaming, width: textWidth)
     }
     let text = text(for: row)
     if let cached = measurements[row.id], cached.width == textWidth, cached.text.isEqual(to: text) {
@@ -262,19 +270,21 @@ extension LodyChatView {
   }
 
   func deliverPendingContent() {
-    guard let id = handoffID, window != nil else { return }
-    guard hasAppeared else { return }
+    guard window != nil, hasAppeared else { return }
     collection.layoutIfNeeded()
     for cell in collection.visibleCells {
       if let image = cell as? ChatImageCell { image.layoutIfNeeded(); image.deliverPendingImage() }
-      guard let cell = cell as? ChatCell, cell.row?.entryID == id, cell.row?.kind == "user" else { continue }
+      // A steered queue row flies under its own entry id, so any landed user row
+      // with a waiting flight is a destination, not only the pending send.
+      guard let cell = cell as? ChatCell, let row = cell.row, row.kind == "user",
+            row.entryID == handoffID || ChatSendHandoff.isWaiting(id: row.entryID) else { continue }
       cell.layoutIfNeeded()
       let distance = followsBottom ? bottomOffset - collection.contentOffset.y : 0
-      if ChatSendHandoff.isWaiting(id: id), followsBottom, abs(distance) > 0.5 {
+      if ChatSendHandoff.isWaiting(id: row.entryID), followsBottom, abs(distance) > 0.5 {
         sendScroll = (CACurrentMediaTime(), collection.contentOffset.y)
         startMotion()
       }
-      ChatSendHandoff.deliver(id: id, to: cell.messageContent, scrollDistance: distance)
+      ChatSendHandoff.deliver(id: row.entryID, to: cell.messageContent, scrollDistance: distance)
     }
   }
 }

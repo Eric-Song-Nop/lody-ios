@@ -1,5 +1,29 @@
 import UIKit
 
+let menuButton = UIButton(type: .system)
+var menuConfiguration = UIButton.Configuration.plain()
+menuConfiguration.attributedTitle = AttributedString("我的超长工作区名称不能折行")
+LodyMenuButtonStyle.apply(menuConfiguration, to: menuButton)
+assert(menuButton.titleLabel?.numberOfLines == 1, "Workspace menu title must stay on one line")
+assert(menuButton.titleLabel?.lineBreakMode == .byTruncatingTail, "Long workspace names must truncate at the tail")
+assert(menuButton.configuration?.titleLineBreakMode == .byTruncatingTail, "The button configuration must not restore wrapping")
+
+var swipedState = UICellConfigurationState(traitCollection: UITraitCollection())
+swipedState.isSwiped = true
+swipedState.isSelected = true
+swipedState.isHighlighted = true
+let swipedBackgroundState = LodyListCellBackground.visualState(for: swipedState)
+assert(!swipedBackgroundState.isSwiped, "Swipe actions must use the resting row background")
+assert(!swipedBackgroundState.isSelected, "Swipe actions must not render the selected background")
+assert(!swipedBackgroundState.isHighlighted, "Swipe actions must not render the highlighted background")
+
+var tappedState = UICellConfigurationState(traitCollection: UITraitCollection())
+tappedState.isSelected = true
+tappedState.isHighlighted = true
+let tappedBackgroundState = LodyListCellBackground.visualState(for: tappedState)
+assert(tappedBackgroundState.isSelected, "Normal row selection must stay visible")
+assert(tappedBackgroundState.isHighlighted, "Normal tap highlighting must stay visible")
+
 assert(LodyListPhoto.url("person.crop.circle") == nil)
 assert(LodyListPhoto.url("https://avatars.githubusercontent.com/u/1")?.scheme == "https")
 assert(LodyListPhoto.url("http://avatars.githubusercontent.com/u/1") == nil)
@@ -48,4 +72,10 @@ let dataURL = URL(string: "data:image/png;base64," + source.pngData()!.base64Enc
 let fromData = LodyListPhoto.image(for: dataURL, ready: { _ in })
 assert(fromData != nil, "data image URLs must decode a circular photo")
 
-print("PASS: list photos are https/data/file URLs cropped to a circle, not SF Symbols")
+print("PASS: workspace title stays single-line, swiped rows stay unselected, and list photos are safely cropped")
+
+let restingState = UICellConfigurationState(traitCollection: UITraitCollection())
+assert(LodyListCellBackground.outlineConfiguration(for: restingState).backgroundColor == .clear, "Outline rows at rest must show the section card, not their own background")
+assert(LodyListCellBackground.outlineConfiguration(for: tappedState).backgroundColor != .clear, "Outline rows must still paint their highlight")
+assert(LodyListCellBackground.outlineConfiguration(for: swipedState).backgroundColor != .clear, "A swiped outline row must carry an opaque background with it")
+assert(LodySectionCardView(frame: .zero).layer.cornerRadius > 0, "The section card must be rounded")

@@ -49,6 +49,7 @@ final class ChatFadeLabelView: TextLabelView, UIGestureRecognizerDelegate {
   private var animateNext = false
   private var resetNext = false
   private var renderedLayout: TextLabel.Layout?
+  private var wasAnimating = false
 
   override init(frame: CGRect) {
     super.init(frame: frame)
@@ -66,10 +67,24 @@ final class ChatFadeLabelView: TextLabelView, UIGestureRecognizerDelegate {
   override var attributedText: NSAttributedString {
     didSet {
       let animate = animateNext && window != nil && !UIAccessibility.isReduceMotionEnabled
+      guard animate else { finishAnimation(); return }
+      if !wasAnimating && !resetNext {
+        fade.update(oldValue.string, animate: false, at: CACurrentMediaTime(), reset: true)
+      }
       fade.update(attributedText.string, animate: animate, at: CACurrentMediaTime(), reset: resetNext)
       resetNext = false
+      wasAnimating = true
       pokeTimer()
     }
+  }
+
+  func finishAnimation() {
+    fade = ChatTextFade()
+    wasAnimating = false
+    resetNext = false
+    timer?.invalidate()
+    timer = nil
+    setNeedsDisplay()
   }
 
   override func makeTextLayout(_ attributedText: NSAttributedString) -> TextLabel.Layout {
@@ -104,7 +119,7 @@ final class ChatFadeLabelView: TextLabelView, UIGestureRecognizerDelegate {
 
   override func didMoveToWindow() {
     super.didMoveToWindow()
-    if window == nil { fade.update(attributedText.string, animate: false, at: CACurrentMediaTime(), reset: true) }
+    if window == nil { finishAnimation() }
     pokeTimer()
   }
 

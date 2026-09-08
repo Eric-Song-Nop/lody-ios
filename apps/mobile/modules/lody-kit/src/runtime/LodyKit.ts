@@ -24,7 +24,6 @@ export type DataRuntimeEvent = {
 type Events = {
   onAppActive: () => void;
   onDataRuntime: (event: DataRuntimeEvent) => void;
-  onDebugShake: () => void;
 };
 declare class LodyKitNativeModule extends NativeModule<Events> {
   readLocalStartup(): Promise<{
@@ -48,6 +47,7 @@ declare class LodyKitNativeModule extends NativeModule<Events> {
   createSession(payload: string): Promise<string>;
   archiveSession(payload: string): Promise<string>;
   pinSession(payload: string): Promise<string>;
+  controlSessionTurn(payload: string): Promise<string>;
   sendSessionTurn(payload: string): Promise<string>;
   sessionItemDetail(payload: string): Promise<string>;
   respondSessionPermission(payload: string): Promise<string>;
@@ -66,6 +66,8 @@ declare class LodyKitNativeModule extends NativeModule<Events> {
   debugRestartDataRuntime(): Promise<void>;
   selectionFeedback(): Promise<void>;
   showToast(message: string, kind: string): void;
+  showSessionBanner(title: string, kind: string): void;
+  dismissSessionBanner(): void;
   readAuthToken(): Promise<string | null>;
   saveAuthToken(token: string): Promise<void>;
   clearAuthToken(): Promise<void>;
@@ -86,16 +88,26 @@ export function selectionFeedback(): Promise<void> {
 }
 
 export type ToastKind = 'info' | 'warning' | 'error';
+export type SessionBannerKind = 'completed' | 'attention';
 
 /** Rendered by a dedicated UIWindow above sheets, so it is never occluded. */
 export function showToast(message: string, kind: ToastKind = 'error'): void {
   native.showToast(message, kind);
 }
+
+export function showSessionBanner(
+  title: string,
+  kind: SessionBannerKind,
+): void {
+  native.showSessionBanner(title, kind);
+}
+
+export function dismissSessionBanner(): void {
+  native.dismissSessionBanner();
+}
+
 export function addAppActiveListener(listener: () => void) {
   return native.addListener('onAppActive', listener);
-}
-export function addDebugShakeListener(listener: () => void) {
-  return native.addListener('onDebugShake', listener);
 }
 
 export const readAuthToken = () => native.readAuthToken();
@@ -125,6 +137,8 @@ export const debugRestartDataRuntime = () => native.debugRestartDataRuntime();
 
 export const watchSession = (id: string) => native.watchSession(id);
 export const unwatchSession = (id: string) => native.unwatchSession(id);
+export const controlSessionTurn = (payload: string) =>
+  native.controlSessionTurn(payload);
 export const sendSessionTurn = (payload: string) =>
   native.sendSessionTurn(payload);
 export const sessionItemDetail = (payload: string) =>

@@ -17,7 +17,9 @@ struct ChatEntry: Decodable {
   let startedAt: Double?
   var items: [ChatItem]
   let fileDiffs: [ChatFileDiff]?
+  var canSteer: Bool? = nil
   var isRunning: Bool { role == "assistant" && !finished }
+  var isQueued: Bool { role == "user" && status == "queued" }
 }
 
 struct ChatImage: Decodable, Equatable {
@@ -138,7 +140,7 @@ struct ChatTranscript {
       let processOnly = !processEntryID.isEmpty
       if processOnly && entry.id != processEntryID { return [] }
       if entry.role == "user" {
-        if processOnly { return [] }
+        if processOnly || entry.isQueued { return [] }
         var result: [ChatRow] = []
         for item in entry.items where item.type == "image" {
           guard let image = item.image else { continue }
@@ -148,10 +150,6 @@ struct ChatTranscript {
         let text = entry.items.compactMap { $0.type == "text" ? $0.text : nil }.joined(separator: "\n\n")
         if !text.isEmpty {
           result.append(ChatRow(id: entry.id + (result.isEmpty ? ":user" : ":user-text"), entryID: entry.id, kind: "user", text: text))
-        }
-        if entry.status == "queued" {
-          result.append(ChatRow(id: entry.id + ":queued", entryID: entry.id, kind: "status",
-            text: LodyStrings.text("native.chat.row.queued"), symbol: "clock"))
         }
         return result
       }
@@ -218,7 +216,7 @@ struct ChatTranscript {
             text: tools > 0
               ? LodyStrings.text("native.chat.transcript.summary", ["title": title, "tools": LodyStrings.plural("native.chat.transcript.toolCount", tools)])
               : title,
-            symbol: "chevron.right",
+            symbol: "circle.fill",
             processStartID: entry.finished ? "" : entry.items[index].itemId,
             actionable: true, running: running, attention: needsPermission || failed))
           continue
@@ -330,9 +328,10 @@ struct ChatPendingSend: Decodable {
   var startedAt: Double? = nil
   var failed: Bool? = nil
   var reconnect: Bool? = nil
+  var queue: Bool? = nil
 
   func rows(entries: [ChatEntry]) -> [ChatRow] {
-    guard failed != true, !entries.contains(where: { $0.id == id && $0.status == "queued" }) else { return [] }
+    guard failed != true, queue != true, !entries.contains(where: { $0.id == id && $0.isQueued }) else { return [] }
     var result: [ChatRow] = []
     if !entries.contains(where: { $0.id == id }) {
       for attachment in attachments where attachment.kind == "image" {

@@ -13,6 +13,7 @@ export const NativeChat: ComponentType<
   ViewProps & {
     entriesJSON: string;
     debugBenchmarkRun?: number;
+    debugStreamBenchmarkRun?: number;
     pendingSendJSON?: string;
     attachmentContextJSON?: string;
     navigationTitle?: string;
@@ -28,11 +29,14 @@ export const NativeChat: ComponentType<
     clearDraftToken: number;
     restoreDraftToken?: number;
     emptyText: string;
+    onStop?: () => void;
+    onSteer?: (event: NativeSyntheticEvent<{ id: string }>) => void;
     onSend: (
       event: NativeSyntheticEvent<{
         id: string;
         text: string;
         startedAt: number;
+        queue?: boolean;
         attachments: ChatDraftAttachment[];
       }>,
     ) => void;

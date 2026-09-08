@@ -39,6 +39,7 @@ final class ChatSendHandoff {
   private var probe: ChatThrowProbe?
   #endif
   private var delivering = false
+  private var straight = false
   private weak var target: UIView?
 
   static func isWaiting(id: String) -> Bool {
@@ -52,9 +53,10 @@ final class ChatSendHandoff {
     target.isHidden = true
   }
 
-  static func begin(id: String, text: String, source: UIView, background: UIView? = nil) {
-    guard let window = source.window else { return }
+  static func begin(id: String, text: String, source: UIView, background: UIView? = nil, straight: Bool = false) {
+    guard let window = source.window, active[id] == nil else { return }
     let handoff = ChatSendHandoff()
+    handoff.straight = straight
     handoff.sourceBackground = sampledBackground(background ?? source, in: window)
     handoff.content.backgroundColor = handoff.sourceBackground
     handoff.content.layer.cornerRadius = 19
@@ -197,8 +199,11 @@ final class ChatSendHandoff {
     if UIAccessibility.isReduceMotionEnabled { finish(); return }
     // Independent position, compression, bounds and text tracks.
     let duration = ChatThrowCurve.duration
-    let track = ChatThrowCurve.positionTrack(from: CGPoint(x: sourceFrame.midX, y: sourceFrame.midY),
-                                             to: CGPoint(x: destination.midX, y: destination.midY))
+    let start = CGPoint(x: sourceFrame.midX, y: sourceFrame.midY)
+    let end = CGPoint(x: destination.midX, y: destination.midY)
+    let track = handoff.straight
+      ? ChatThrowCurve.straightTrack(from: start, to: end)
+      : ChatThrowCurve.positionTrack(from: start, to: end)
     let content = handoff.content
     // Sheet dismissal can carry an enclosing UIView animation into this callback.
     // Only the explicit throw tracks may animate the window-space content.
@@ -228,7 +233,7 @@ final class ChatSendHandoff {
     for view in [content, handoff.sourceSnapshot].compactMap({ $0 }) {
       view.layer.position = CGPoint(x: destination.midX, y: destination.midY)
       view.layer.add(ChatThrowCurve.positionAnimation(track), forKey: "throw.position")
-      view.layer.add(ChatThrowCurve.scaleAnimation(), forKey: "throw.scale")
+      if !handoff.straight { view.layer.add(ChatThrowCurve.scaleAnimation(), forKey: "throw.scale") }
     }
     let size = CABasicAnimation(keyPath: "bounds.size")
     size.fromValue = NSValue(cgSize: sourceFrame.size)

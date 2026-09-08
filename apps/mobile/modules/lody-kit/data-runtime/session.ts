@@ -3,6 +3,7 @@ import { StreamsClient } from '@loro-dev/streams-client';
 import { decompress } from 'fzstd';
 import { decodeFrames, encodeFrame } from '../decoder/frames';
 import { identityAt, itemRev, projectSession } from './project';
+import { machineRpc } from './machine-rpc';
 export { projectSession } from './project';
 
 type Grant = { token: string; gatewayBaseUrl: string };
@@ -274,6 +275,7 @@ export function appendUserTurn(
   userId: string,
   config: Record<string, any>,
   timestamp: string,
+  status = 'pending',
 ) {
   const history = doc.getList('history');
   const entry = history.pushContainer(new LoroMap());
@@ -282,7 +284,7 @@ export function appendUserTurn(
     role: 'user',
     userId,
     timestamp,
-    status: 'pending',
+    status,
     read: false,
     finished: true,
     fileDiff: [],
@@ -565,6 +567,169 @@ export async function sendTurn(args: {
     };
   } finally {
     state.sending = false;
+  }
+}
+
+export async function controlTurn(args: {
+  action: 'stop' | 'steer';
+  sessionId: string;
+  machineId: string;
+  turnId: string;
+  messageId?: string;
+}) {
+  const state = active;
+  if (!state || state.id !== args.sessionId || !state.ready || state.sending)
+    throw new Error('session_not_ready');
+  if (
+    !['stop', 'steer'].includes(args.action) ||
+    typeof args.machineId !== 'string' ||
+    !args.machineId.trim() ||
+    typeof args.turnId !== 'string' ||
+    !args.turnId.trim()
+  )
+    throw new Error('invalid_control');
+  const history = state.doc.getList('history');
+  const entries = history.toJSON() as any[];
+  if (
+    !entries.some(
+      (entry) =>
+        entry.id === args.turnId &&
+        entry.role === 'assistant' &&
+        !entry.finished,
+    )
+  )
+    throw new Error('stale_turn');
+  state.sending = true;
+  try {
+    let params: Record<string, unknown> = {
+      sessionId: state.id,
+      turnId: args.turnId,
+    };
+    if (args.action === 'steer') {
+      if (typeof args.messageId !== 'string' || !args.messageId.trim())
+        throw new Error('invalid_message');
+      const queue = state.doc.getMovableList('mq');
+      const index = (queue.toJSON() as any[]).findIndex(
+        (item) => item.userTurnId === args.messageId,
+      );
+      const entry = entries.find((item) => item.id === args.messageId);
+      if (
+        entry &&
+        (entry.role !== 'user' ||
+          entry.status !== 'pending' ||
+          entry.inputConfig?._lodyDeliveryKind !== 'steer' ||
+          entries.some(
+            (item) =>
+              item.role === 'assistant' && item.userTurnId === args.messageId,
+          ))
+      )
+        throw new Error('message_not_queued');
+      const item = index >= 0 ? (queue.toJSON() as any[])[index] : undefined;
+      const config = entry?.inputConfig ?? item?.acpSessionConfig;
+      const userId = entry?.userId ?? item?.userId;
+      const timestamp = entry?.timestamp ?? item?.timestamp;
+      if (
+        !config ||
+        typeof config !== 'object' ||
+        Array.isArray(config) ||
+        typeof userId !== 'string' ||
+        !userId ||
+        typeof timestamp !== 'string' ||
+        !timestamp
+      )
+        throw new Error('message_not_queued');
+      const before = state.doc.version();
+      // Move the same id atomically. pending_apply is durable intent, not delivery.
+      // A lost append/RPC ACK must never trigger an automatic replay.
+      if (!entry) {
+        appendUserTurn(
+          state.doc,
+          args.messageId,
+          item.task,
+          userId,
+          { ...config, _lodyDeliveryKind: 'steer' },
+          timestamp,
+          'pending_apply',
+        );
+      } else {
+        const pending = history.get(entries.indexOf(entry));
+        if (!(pending instanceof LoroMap)) throw new Error('invalid_history');
+        pending.set('status', 'pending_apply');
+        pending.set('read', false);
+      }
+      if (index >= 0) queue.delete(index, 1);
+      state.doc.commit();
+      const uploaded = await state.client.append({
+        part: {
+          contentType: 'application/octet-stream',
+          body: encodeFrame(state.doc.export({ mode: 'update', from: before })),
+        },
+      });
+      scheduleEmit(state, state.status);
+      if (!uploaded.ok) throw new Error('steer_unconfirmed');
+      params = {
+        sessionId: state.id,
+        expectedTurnId: args.turnId,
+        userTurnId: args.messageId,
+        userId,
+        timestamp,
+        inputConfig: config,
+      };
+    }
+    const reply = await machineRpc(
+      state.workspace,
+      args.machineId,
+      args.action === 'stop' ? 'session/cancel' : 'session/steer',
+      params,
+      state.getGrant,
+      AbortSignal.any([state.controller.signal, AbortSignal.timeout(35000)]),
+    );
+    if (reply.error) throw new Error(reply.error.message ?? 'control_failed');
+    const result = reply.result as
+      | {
+          success?: boolean;
+          applied?: boolean;
+          disposition?: string;
+          error?: string;
+        }
+      | undefined;
+    if (args.action === 'stop') {
+      if (result?.success !== true)
+        throw new Error(result?.error ?? 'stop_failed');
+      return { state: 'stopped' };
+    }
+    if (result?.applied !== true) {
+      // The machine requeues proven-undelivered steers. Leave its durable state
+      // in charge; an ambiguous provider failure must not be sent again here.
+      return { state: 'not_applied', reason: result?.disposition ?? 'unknown' };
+    }
+    const before = state.doc.version();
+    for (let i = 0; i < history.length; i++) {
+      const entry = history.get(i);
+      if (
+        entry instanceof LoroMap &&
+        entry.get('id') === args.messageId &&
+        entry.get('status') === 'pending_apply'
+      ) {
+        entry.set('status', 'processing');
+        entry.set('read', true);
+      }
+    }
+    state.doc.commit();
+    scheduleEmit(state, state.status);
+    // Delivery is confirmed even if this redundant display-status append fails.
+    await state.client
+      .append({
+        part: {
+          contentType: 'application/octet-stream',
+          body: encodeFrame(state.doc.export({ mode: 'update', from: before })),
+        },
+      })
+      .catch(() => {});
+    return { state: 'applied' };
+  } finally {
+    state.sending = false;
+    scheduleEmit(state, state.status);
   }
 }
 

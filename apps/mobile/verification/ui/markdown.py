@@ -21,20 +21,20 @@ answer = ui.element('preview:answer')
 copy_label = catalog.system('copy')
 old_copy_frames = {
     tuple(item['frame'][key] for key in ('x', 'y', 'width', 'height'))
-    for item in ui.state() if item.get('AXLabel') == copy_label and item.get('frame')
+    for item in ui.state() if (item.get('AXLabel') or '').casefold() == copy_label.casefold() and item.get('frame')
 }
 frame = answer['frame']
 subprocess.run(['xcrun', 'simctl', 'pbcopy', ui.udid], input='selection sentinel', text=True, check=True, timeout=10)
-ui.axe('touch', '--x', str(frame['x'] + 70), '--y', str(frame['y'] + frame['height'] - 25),
+ui.axe('touch', '-x', str(frame['x'] + 70), '-y', str(frame['y'] + frame['height'] - 25),
        '--down', '--up', '--delay', '.7')
 copy_action = ui.wait(
     lambda items: next((item for item in items
-                        if item.get('AXLabel') == copy_label and item.get('frame') and
+                        if (item.get('AXLabel') or '').casefold() == copy_label.casefold() and item.get('frame') and
                         tuple(item['frame'][key] for key in ('x', 'y', 'width', 'height')) not in old_copy_frames), None),
     'Long press did not open the selection menu')
 action_frame = copy_action['frame']
-ui.axe('tap', '--x', str(action_frame['x'] + action_frame['width'] / 2),
-       '--y', str(action_frame['y'] + action_frame['height'] / 2), '--post-delay', '.3')
+ui.axe('tap', '-x', str(action_frame['x'] + action_frame['width'] / 2),
+       '-y', str(action_frame['y'] + action_frame['height'] / 2), '--post-delay', '.3')
 selected = subprocess.check_output(['xcrun', 'simctl', 'pbpaste', ui.udid], text=True, timeout=10).strip()
 assert selected and selected != 'selection sentinel' and selected in answer['AXLabel'], repr(selected)
 ui.capture('markdown-code')

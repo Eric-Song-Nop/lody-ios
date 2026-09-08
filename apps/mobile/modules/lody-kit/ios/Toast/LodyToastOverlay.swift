@@ -16,6 +16,18 @@ enum LodyToastOverlay {
       window?.layoutIfNeeded()
       canvas.enqueue(message, kind: kind)
     }
+
+    func showBanner(title: String, kind: String) {
+      guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+      attachIfNeeded()
+      window?.isHidden = false
+      window?.layoutIfNeeded()
+      canvas.showBanner(title: title, kind: kind)
+    }
+
+    func dismissBanner() {
+      canvas.dismissBanner()
+    }
   }
 
   fileprivate final class PassThroughWindow: UIWindow {
@@ -29,6 +41,8 @@ enum LodyToastOverlay {
   fileprivate final class Canvas: UIView {
     private var pills: [LodyToastPillView] = []
     private var timer: Timer?
+    private var bannerTimer: Timer?
+    private var banner: LodySessionBannerView?
     private var dragOffset: CGFloat = 0
 
     override init(frame: CGRect) {
@@ -71,9 +85,57 @@ enum LodyToastOverlay {
       UINotificationFeedbackGenerator().notificationOccurred(kind == "error" ? .error : .success)
     }
 
+    func showBanner(title: String, kind: String) {
+      guard let parsed = LodySessionBannerKind(rawValue: kind) else { return }
+      bannerTimer?.invalidate()
+      bannerTimer = nil
+      banner?.removeFromSuperview()
+      let view = LodySessionBannerView(title: title, kind: parsed)
+      view.onTap = { [weak self] in self?.dismissBanner() }
+      view.onDismiss = { [weak self] in self?.dismissBanner() }
+      addSubview(view)
+      banner = view
+      layoutBanner(entering: view)
+      if !parsed.sticky {
+        let duration: TimeInterval = UIAccessibility.isVoiceOverRunning ? 6 : 4
+        bannerTimer = Timer.scheduledTimer(withTimeInterval: duration, repeats: false) { [weak self] _ in
+          self?.dismissBanner()
+        }
+      }
+      UIAccessibility.post(notification: .announcement, argument: view.accessibilityLabel)
+      UINotificationFeedbackGenerator().notificationOccurred(parsed.feedback)
+    }
+
+    func dismissBanner() {
+      bannerTimer?.invalidate()
+      bannerTimer = nil
+      guard let view = banner else {
+        hideIfEmpty()
+        return
+      }
+      banner = nil
+      view.isUserInteractionEnabled = false
+      UIView.animate(
+        withDuration: UIAccessibility.isReduceMotionEnabled ? 0 : 0.2,
+        delay: 0, options: [.beginFromCurrentState, .curveEaseIn]
+      ) {
+        view.alpha = 0
+        view.transform = view.transform.translatedBy(x: 0, y: -8)
+      } completion: { [weak self] _ in
+        view.removeFromSuperview()
+        self?.hideIfEmpty()
+      }
+    }
+
     override func layoutSubviews() {
       super.layoutSubviews()
       layoutPills()
+      layoutBanner()
+    }
+
+    override func gestureRecognizerShouldBegin(_ gesture: UIGestureRecognizer) -> Bool {
+      if let banner, banner.frame.contains(gesture.location(in: self)) { return false }
+      return !pills.isEmpty
     }
 
     private func layoutPills(entering: LodyToastPillView? = nil) {
@@ -141,11 +203,54 @@ enum LodyToastOverlay {
         }
       } completion: { [weak self] _ in
         departing.forEach { $0.removeFromSuperview() }
-        if self?.subviews.isEmpty == true { LodyToastOverlay.shared.window?.isHidden = true }
+        self?.hideIfEmpty()
       }
     }
 
+    private func hideIfEmpty() {
+      if subviews.isEmpty { LodyToastOverlay.shared.window?.isHidden = true }
+    }
+
+    private func layoutBanner(entering: LodySessionBannerView? = nil) {
+      guard let banner else { return }
+      let reduced = UIAccessibility.isReduceMotionEnabled
+      let size = banner.fittedSize(maxWidth: min(bounds.width - 20, 400))
+      let center = CGPoint(
+        x: bounds.midX,
+        y: safeAreaInsets.top + 8 + size.height / 2
+      )
+      if banner === entering {
+        banner.bounds = CGRect(origin: .zero, size: size)
+        banner.center = center
+        banner.transform = reduced ? .identity : CGAffineTransform(translationX: 0, y: -10)
+          .scaledBy(x: 0.96, y: 0.96)
+        banner.alpha = 0
+        let changes = {
+          banner.bounds = CGRect(origin: .zero, size: size)
+          banner.center = center
+          banner.transform = .identity
+          banner.alpha = 1
+        }
+        if reduced {
+          changes()
+        } else {
+          UIView.animate(
+            withDuration: 0.35, delay: 0,
+            usingSpringWithDamping: 0.88, initialSpringVelocity: 0,
+            options: [.beginFromCurrentState, .allowUserInteraction], animations: changes
+          )
+        }
+        return
+      }
+      banner.bounds = CGRect(origin: .zero, size: size)
+      banner.center = center
+    }
+
     override func accessibilityPerformEscape() -> Bool {
+      if banner != nil {
+        dismissBanner()
+        return true
+      }
       guard !pills.isEmpty else { return false }
       dismiss()
       return true

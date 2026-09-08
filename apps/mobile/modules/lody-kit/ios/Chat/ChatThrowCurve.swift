@@ -63,6 +63,23 @@ enum ChatThrowCurve {
     return PositionTrack(points: points, times: times, duration: total)
   }
 
+  /// Steered queue messages travel straight: same easing and duration, no arc, squash or settle.
+  static func straightTrack(from source: CGPoint, to destination: CGPoint) -> PositionTrack {
+    let (x1, y1, x2, y2) = positionTiming
+    let count = Int((duration * sampleRate).rounded(.up))
+    var points: [CGPoint] = []
+    var times: [CFTimeInterval] = []
+    for index in 0...count {
+      let t = min(Double(index) / sampleRate, duration)
+      let progress = CGFloat(cubicBezier(x1, y1, x2, y2, at: t / duration))
+      points.append(CGPoint(x: source.x + (destination.x - source.x) * progress,
+                            y: source.y + (destination.y - source.y) * progress))
+      times.append(t)
+    }
+    points[points.count - 1] = destination
+    return PositionTrack(points: points, times: times, duration: duration)
+  }
+
   static func positionAnimation(_ track: PositionTrack) -> CAKeyframeAnimation {
     let position = CAKeyframeAnimation(keyPath: "position")
     position.values = track.points.map { NSValue(cgPoint: $0) }

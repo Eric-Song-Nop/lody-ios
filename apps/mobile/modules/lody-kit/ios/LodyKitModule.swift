@@ -11,11 +11,9 @@ public final class LodyKitModule: Module {
   public func definition() -> ModuleDefinition {
     Name("LodyKit")
 
-    Events("onAppActive", "onDataRuntime", "onDebugShake")
+    Events("onAppActive", "onDataRuntime")
     OnCreate {
       ContentPreview.clearAll()
-      LodyShakeMonitor.install()
-      LodyShakeMonitor.onUnlock = { [weak self] in self?.sendEvent("onDebugShake", [:]) }
       #if DEBUG
       if ProcessInfo.processInfo.arguments.contains("--lody-offline") {
         URLProtocol.registerClass(OfflineProbe.self)
@@ -36,6 +34,7 @@ public final class LodyKitModule: Module {
     AsyncFunction("createSession") { (payload: String, promise: Promise) in self.dataRuntime.command("createSession", payload: payload, promise: promise) }.runOnQueue(.main)
     AsyncFunction("archiveSession") { (payload: String, promise: Promise) in self.dataRuntime.command("archiveSession", payload: payload, promise: promise) }.runOnQueue(.main)
     AsyncFunction("pinSession") { (payload: String, promise: Promise) in self.dataRuntime.command("pinSession", payload: payload, promise: promise) }.runOnQueue(.main)
+    AsyncFunction("controlSessionTurn") { (payload: String, promise: Promise) in self.dataRuntime.command("controlTurn", payload: payload, promise: promise) }.runOnQueue(.main)
     AsyncFunction("sendSessionTurn") { (payload: String, promise: Promise) in self.dataRuntime.sendTurn(payload, promise: promise) }.runOnQueue(.main)
     AsyncFunction("sessionItemDetail") { (payload: String, promise: Promise) in self.dataRuntime.command("itemDetail", payload: payload, promise: promise) }.runOnQueue(.main)
     AsyncFunction("respondSessionPermission") { (payload: String, promise: Promise) in self.dataRuntime.command("respondPermission", payload: payload, promise: promise) }.runOnQueue(.main)
@@ -180,6 +179,26 @@ public final class LodyKitModule: Module {
       }
     }
 
+    Function("showSessionBanner") { (title: String, kind: String) in
+      if Thread.isMainThread {
+        LodyToastOverlay.shared.showBanner(title: title, kind: kind)
+      } else {
+        DispatchQueue.main.async {
+          LodyToastOverlay.shared.showBanner(title: title, kind: kind)
+        }
+      }
+    }
+
+    Function("dismissSessionBanner") {
+      if Thread.isMainThread {
+        LodyToastOverlay.shared.dismissBanner()
+      } else {
+        DispatchQueue.main.async {
+          LodyToastOverlay.shared.dismissBanner()
+        }
+      }
+    }
+
     AsyncFunction("selectionFeedback") {
       UISelectionFeedbackGenerator().selectionChanged()
     }.runOnQueue(.main)
@@ -219,13 +238,18 @@ public final class LodyKitModule: Module {
 
     View(LodyChatView.self) {
       #if DEBUG
+      Prop("debugStreamBenchmarkRun") { (view: LodyChatView, value: Int) in
+        guard value > 0 else { return }
+        view.streamPerformanceProbe?.stop()
+        view.streamPerformanceProbe = ChatStreamPerformanceProbe(view)
+      }
       Prop("debugBenchmarkRun") { (view: LodyChatView, value: Int) in
         guard value > 0 else { return }
         view.performanceProbe?.stop()
         view.performanceProbe = ChatPerformanceProbe(view)
       }
       #endif
-      Events("onSend", "onActivityPress", "onFilePress", "onTurnChangesPress", "onReconnect", "onTitlePress", "onComposerOptionChange")
+      Events("onStop", "onSteer", "onSend", "onActivityPress", "onFilePress", "onTurnChangesPress", "onReconnect", "onTitlePress", "onComposerOptionChange")
       Prop("navigationTitle") { (view: LodyChatView, value: String) in view.setNavigationTitle(value) }
       Prop("navigationSubtitle") { (view: LodyChatView, value: String) in view.setNavigationSubtitle(value) }
       Prop("attachmentContextJSON") { (view: LodyChatView, value: String) in view.setAttachmentContext(value) }
@@ -322,7 +346,7 @@ public final class LodyKitModule: Module {
     }
 
     View(LodySymbolButton.self) {
-      Events("onSymbolPress")
+      Events("onSymbolPress", "onSymbolLongPress")
       Prop("symbol") { (view: LodySymbolButton, symbol: String) in
         view.setSymbol(symbol)
       }
@@ -337,6 +361,9 @@ public final class LodyKitModule: Module {
       }
       Prop("tint") { (view: LodySymbolButton, tint: String) in
         view.setTint(tint)
+      }
+      Prop("longPress") { (view: LodySymbolButton, value: Bool) in
+        view.setLongPress(value)
       }
     }
 

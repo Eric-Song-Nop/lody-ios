@@ -33,6 +33,8 @@ private final class ChatNavigationController: UIViewController {
 
 final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestureRecognizerDelegate {
   let onSend = EventDispatcher()
+  let onStop = EventDispatcher()
+  let onSteer = EventDispatcher()
   let onActivityPress = EventDispatcher()
   let onFilePress = EventDispatcher()
   let onTurnChangesPress = EventDispatcher()
@@ -61,6 +63,8 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
   var frameTimer: Timer?
   var rendering = false
   var framePending = false
+  var lastRenderTime = 0.0
+  var renderTailLength = 0
   var rows: [String: ChatRow] = [:]
   var update: DispatchWorkItem?
   var pendingEntries: String?
@@ -73,6 +77,7 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
   var followsBottom = true
   var trackingPausedByGesture = false
   var liveEntryID: String?
+  let turnFeedback = UINotificationFeedbackGenerator()
   var lastUserID: String?
   var anchoredUserID: String?
   var awaitingUserAnchor = false
@@ -84,6 +89,7 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
   #if DEBUG
   var scrollProbe: ChatScrollProbe?
   var performanceProbe: ChatPerformanceProbe?
+  var streamPerformanceProbe: ChatStreamPerformanceProbe?
   #endif
   private var laidOutHeight: CGFloat = 0
   private var hasInitialDraft = false
@@ -207,7 +213,8 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
             UIApplication.shared.open(url)
           }
         }
-        cell.configure(row, content: self.store.content(id: id, text: row.text, secondary: secondary), theme: self.store.theme(secondary: secondary))
+        let width = ChatCell.textWidth(row, width: max(1, collection.bounds.width - 40))
+        cell.configure(row, markdown: self.store.view(id: id, text: row.text, secondary: secondary, streaming: row.streaming, width: width))
         return cell
       }
       let cell = collection.dequeueReusableCell(withReuseIdentifier: "message", for: index) as! ChatCell
@@ -226,11 +233,15 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
          let pending = try? JSONDecoder().decode(ChatPendingSend.self, from: data) {
         self.setPendingSend(pending)
       }
-      self.awaitingUserAnchor = true
-      self.trackingPausedByGesture = false
-      self.followsBottom = true
+      if payload["queue"] as? Bool != true {
+        self.awaitingUserAnchor = true
+        self.trackingPausedByGesture = false
+        self.followsBottom = true
+      }
       self.onSend(payload)
     }
+    composer.onStop = { [weak self] in self?.onStop() }
+    composer.onSteer = { [weak self] in self?.onSteer(["id": $0]) }
     composer.onReconnect = { [weak self] in self?.onReconnect([:]) }
     composer.onComposerOptionChange = { [weak self] in self?.onComposerOptionChange($0) }
     empty.numberOfLines = 0
@@ -389,6 +400,7 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
       #if DEBUG
       scrollProbe?.stop(); scrollProbe = nil
       performanceProbe?.stop(); performanceProbe = nil
+      streamPerformanceProbe?.stop(); streamPerformanceProbe = nil
       #endif
       liveEntryID = nil
       update?.cancel(); update = nil
@@ -439,7 +451,7 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
       if let publishedPendingID, let pendingSend, pendingSend.id == publishedPendingID {
         // entriesJSON is decoded off-main. Keep the local rows until the same
         // authoritative rows arrive, even if React retires its pending prop first.
-        if pendingSend.rows(entries: transcript.entries).isEmpty { self.pendingSend = nil }
+        if pendingSend.rows(entries: transcript.entries).isEmpty && (pendingSend.queue != true || transcript.entries.contains(where: { $0.id == pendingSend.id })) { self.pendingSend = nil }
         self.publishedPendingID = nil
         applyRows()
       }
@@ -471,8 +483,8 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
     turnStartedAt[value.id] = start
     let changed = pendingSend?.id != value.id
     pendingSend = value
-    if changed {
-      composerHasAcknowledgedSend = false
+    if changed { composerHasAcknowledgedSend = false }
+    if changed && value.queue != true {
       handoffID = value.id
       anchoredUserID = value.id + ":user"
       followsBottom = true

@@ -16,13 +16,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from simulator import run_with_simulator, SimulatorPool
 
 CHAT = ROOT / 'apps/mobile/modules/lody-kit/verification/chat'
-CASES = ['send-queue', 'send-rounds', 'file-preview', 'chat-performance', 'settings', 'send', 'send-handoff', 'layout', 'tracking', 'smooth-scroll', 'model-options', 'image-preview', 'composer', 'composer-success', 'composer-failure', 'markdown', 'duration', 'changes', 'inbox', 'background', 'permission', 'home', 'model-memory', 'onboarding']
+CASES = ['send-queue', 'send-rounds', 'file-preview', 'chat-performance', 'chat-stream-performance', 'settings', 'send', 'send-handoff', 'layout', 'tracking', 'smooth-scroll', 'model-options', 'image-preview', 'composer', 'composer-success', 'composer-failure', 'markdown', 'duration', 'changes', 'inbox', 'background', 'permission', 'home', 'model-memory', 'onboarding']
 PREVIEW = {
     'permission': 'permission-preview',
     'send-queue': 'send-queue',
     'send-rounds': 'send-preview',
     'file-preview': 'file-preview',
     'chat-performance': 'chat-performance',
+    'chat-stream-performance': 'chat-stream-performance',
     'settings': 'settings-preview',
     'model-memory': 'model-memory',
     'smooth-scroll': 'scroll-preview',
@@ -148,16 +149,16 @@ try:
                 ready = 'ui-verify-ready' if case == 'home' else READY.get(case, 'session-input')
                 if case != 'home':
                     # The Debug list is a native UICollectionView; offscreen rows are not in the tree.
-                    for _ in range(4):
+                    for _ in range(8):
                         if any(item.get('AXUniqueId') == preview for item in ui.state()):
                             break
-                        ui.axe('swipe', '--start-x', '200', '--start-y', '700', '--end-x', '200', '--end-y', '300', '--duration', '0.3', '--post-delay', '0.6')
-                    ui.axe('tap', '--id', preview, '--pre-delay', '0.8', '--post-delay', '0.8', *(['--tap-style', 'physical'] if case in ['background', 'permission'] else []))
+                        ui.axe('swipe', '--start-x', '200', '--start-y', '700', '--end-x', '200', '--end-y', '500', '--duration', '0.5', '--post-delay', '0.6')
+                    ui.axe('tap', '--id', preview, '--pre-delay', '0.8', '--post-delay', '0.8', '--tap-style', 'physical')
                 try:
                     ui.element(ready)
                 except AssertionError:
                     if case in ['inbox', 'send', 'send-handoff', 'send-rounds', 'send-queue', 'smooth-scroll'] and any(item.get('AXUniqueId') == preview for item in ui.state()):
-                        ui.axe('tap', '--id', preview, '--pre-delay', '0.5', '--post-delay', '1.2')
+                        ui.axe('tap', '--id', preview, '--tap-style', 'physical', '--pre-delay', '0.5', '--post-delay', '1.2')
                         ui.element(ready)
                     else:
                         raise
@@ -178,7 +179,7 @@ try:
                 else:
                     raise TimeoutError('Video recorder did not start')
                 ui.capture('before')
-                script = Path(__file__).with_name(f'{case}.py') if case in ['file-preview', 'chat-performance', 'settings', 'send', 'send-handoff', 'send-rounds', 'send-queue', 'smooth-scroll', 'composer', 'markdown', 'duration', 'changes', 'background', 'inbox', 'permission', 'home', 'model-memory', 'onboarding'] else CHAT / ('composer.py' if case.startswith('composer-') else f'{case}.py')
+                script = Path(__file__).with_name(f'{case}.py') if case in ['file-preview', 'chat-performance', 'chat-stream-performance', 'settings', 'send', 'send-handoff', 'send-rounds', 'send-queue', 'smooth-scroll', 'composer', 'markdown', 'duration', 'changes', 'background', 'inbox', 'permission', 'home', 'model-memory', 'onboarding'] else CHAT / ('composer.py' if case.startswith('composer-') else f'{case}.py')
                 command = [sys.executable, str(script), args.udid]
                 if case.startswith('composer-'):
                     command += ['--expect', case.removeprefix('composer-'), '--output', str(output)]
@@ -187,7 +188,7 @@ try:
                 else:
                     command += [str(output)]
                 with (output / 'check.log').open('w') as log:
-                    subprocess.run(command, check=True, timeout=180, stdout=log, stderr=subprocess.STDOUT,
+                    subprocess.run(command, check=True, timeout=300 if case == 'chat-stream-performance' else 180, stdout=log, stderr=subprocess.STDOUT,
                                    env={**os.environ, 'LODY_UI_LANGUAGE': args.language})
                 ui.capture('after')
                 result['status'] = 'passed'

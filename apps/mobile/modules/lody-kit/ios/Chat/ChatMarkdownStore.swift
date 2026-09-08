@@ -8,33 +8,37 @@ final class ChatParseCache {
     init(_ result: MarkdownParser.ParseResult) { self.result = result }
   }
   private let cache = NSCache<NSString, Box>()
-  init() { cache.countLimit = 256 }
+  init() {
+    cache.countLimit = 256
+    cache.totalCostLimit = 8 * 1024 * 1024
+  }
 
   func parse(_ text: String) -> MarkdownParser.ParseResult {
     if let cached = cache.object(forKey: text as NSString) { return cached.result }
+    // ponytail: full background parsing preserves late reference/math changes;
+    // incremental source parsing needs parser-owned invalidation if it dominates.
     let result = MarkdownParser().parse(text)
-    cache.setObject(Box(result), forKey: text as NSString)
+    cache.setObject(Box(result), forKey: text as NSString, cost: text.utf8.count)
     return result
   }
 }
 
-/// Parsed content and offscreen sizing views per row. The sizing view keeps its
-/// document across width changes; only new text or a new theme rebuilds it.
+/// Cached blocks and heights outlive the bounded view pool. Visible rows use the
+/// same view that measured them, including the active streaming row.
 @MainActor
 final class ChatMarkdownStore {
   private struct Entry {
     let text: String
     let secondary: Bool
-    let content: MarkdownContent
-  }
-  private struct Sizing {
-    let view: MarkdownTextView
-    let text: String
-    let secondary: Bool
+    let streaming: Bool
+    let context: MarkdownContent
+    let math: [Int: String]
+    let blocks: [ChatMarkdownBlock]
   }
   private struct Height {
     let text: String
     let secondary: Bool
+    let streaming: Bool
     let width: CGFloat
     let height: CGFloat
   }
@@ -42,7 +46,7 @@ final class ChatMarkdownStore {
 
   let parser = ChatParseCache()
   private var entries: [String: Entry] = [:]
-  private var sizing: [String: Sizing] = [:]
+  private var views: [String: ChatMarkdownView] = [:]
   private var heights: [String: Height] = [:]
   private var recent: [String] = []
   private(set) var theme: MarkdownTheme
@@ -55,56 +59,73 @@ final class ChatMarkdownStore {
 
   func theme(secondary: Bool) -> MarkdownTheme { secondary ? secondaryTheme : theme }
 
+  func tailLength(id: String) -> Int { views[id]?.tailLength ?? 0 }
+
   func apply(traits: UITraitCollection) {
     theme = ChatMarkdownTheme.make(traits: traits, secondary: false)
     secondaryTheme = ChatMarkdownTheme.make(traits: traits, secondary: true)
     entries.removeAll()
     heights.removeAll()
-    for value in sizing.values { value.view.reset() }
-    sizing.removeAll()
+    views.removeAll()
     recent.removeAll()
   }
 
-  func content(id: String, text: String, secondary: Bool) -> MarkdownContent {
-    if let entry = entries[id], entry.text == text, entry.secondary == secondary { return entry.content }
-    let content = FileMarkdownView.content(MarkdownContent(parserResult: parser.parse(text), theme: theme(secondary: secondary)))
-    entries[id] = Entry(text: text, secondary: secondary, content: content)
-    return content
+  private func blocks(id: String, text: String, secondary: Bool, streaming: Bool) -> [ChatMarkdownBlock] {
+    let previous = entries[id]
+    if let previous, previous.text == text, previous.secondary == secondary, previous.streaming == streaming { return previous.blocks }
+    let parsed = parser.parse(text)
+    let sameContext = previous?.secondary == secondary && previous?.math == parsed.mathContext
+    let rendered = sameContext ? previous!.context.rendered : parsed.renderedContent(theme: theme(secondary: secondary))
+    let context = MarkdownContent(blocks: parsed.document, rendered: rendered,
+      highlightMaps: parsed.highlightMaps(theme: theme(secondary: secondary)))
+    let blocks: [ChatMarkdownBlock]
+    if !streaming, let first = parsed.document.first {
+      // Completed messages keep one native selection range across paragraphs.
+      blocks = [ChatMarkdownBlock(node: first, content: FileMarkdownView.content(context))]
+    } else {
+      blocks = parsed.document.enumerated().map { index, node -> ChatMarkdownBlock in
+        if sameContext, let previous, previous.streaming == streaming,
+           index < previous.blocks.count, previous.blocks[index].node == node {
+          return previous.blocks[index]
+        }
+        let content = MarkdownContent(blocks: [node], rendered: context.rendered, highlightMaps: context.highlightMaps)
+        return ChatMarkdownBlock(node: node, content: FileMarkdownView.content(content))
+      }
+    }
+    entries[id] = Entry(text: text, secondary: secondary, streaming: streaming, context: context, math: parsed.mathContext, blocks: blocks)
+    return blocks
+  }
+
+  func view(id: String, text: String, secondary: Bool, streaming: Bool, width: CGFloat) -> ChatMarkdownView {
+    let view = views[id] ?? ChatMarkdownView()
+    views[id] = view
+    view.update(blocks(id: id, text: text, secondary: secondary, streaming: streaming), theme: theme(secondary: secondary), streaming: streaming, width: width)
+    heights[id] = Height(text: text, secondary: secondary, streaming: streaming, width: max(1, width), height: view.measuredHeight)
+    recent.removeAll { $0 == id }
+    recent.append(id)
+    // Do not evict a view still attached to a cell: sizing must not create a
+    // second copy of that row. Offscreen views remain bounded by the pool.
+    while recent.count > Self.sizingLimit,
+          let index = recent.firstIndex(where: { $0 != id && views[$0]?.superview == nil }) {
+      views[recent.remove(at: index)] = nil
+    }
+    return view
   }
 
   // Flow layout asks every row for its size on each invalidation; only a
   // changed row may touch the bounded sizing pool.
-  func height(id: String, text: String, secondary: Bool, width: CGFloat) -> CGFloat {
+  func height(id: String, text: String, secondary: Bool, streaming: Bool, width: CGFloat) -> CGFloat {
     let width = max(1, width)
-    if let cached = heights[id], cached.text == text, cached.secondary == secondary, cached.width == width {
+    if let cached = heights[id], cached.text == text, cached.secondary == secondary, cached.streaming == streaming, cached.width == width {
       return cached.height
     }
-    let view: MarkdownTextView
-    if let cached = sizing[id], cached.text == text, cached.secondary == secondary {
-      view = cached.view
-    } else {
-      view = sizing[id]?.view ?? FileMarkdownView()
-      view.setContentImmediately(content(id: id, text: text, secondary: secondary), theme: theme(secondary: secondary))
-      sizing[id] = Sizing(view: view, text: text, secondary: secondary)
-    }
-    recent.removeAll { $0 == id }
-    recent.append(id)
-    while recent.count > Self.sizingLimit {
-      let evicted = recent.removeFirst()
-      sizing.removeValue(forKey: evicted)?.view.reset()
-    }
-    let height = ceil(view.boundingSize(for: width).height)
-    heights[id] = Height(text: text, secondary: secondary, width: width, height: height)
-    return height
+    return view(id: id, text: text, secondary: secondary, streaming: streaming, width: width).measuredHeight
   }
 
   func retain(_ ids: Set<String>) {
     entries = entries.filter { ids.contains($0.key) }
     heights = heights.filter { ids.contains($0.key) }
-    for (id, value) in sizing where !ids.contains(id) {
-      value.view.reset()
-      sizing[id] = nil
-    }
+    views = views.filter { ids.contains($0.key) }
     recent.removeAll { !ids.contains($0) }
   }
 }

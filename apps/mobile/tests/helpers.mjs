@@ -42,12 +42,14 @@ export function frame(bytes) {
 export async function openTestSession({
   failAppend = () => false,
   markDispatch = async () => {},
+  onRpc,
 } = {}) {
   const server = new LoroDoc();
   const ok = (result) => ({ ok: true, result });
   let sessionRead;
   let offset = 1;
   const appends = [];
+  const replies = new Map();
   globalThis.__sessionClient = class {
     constructor({ url }) {
       this.url = decodeURIComponent(url);
@@ -61,7 +63,21 @@ export async function openTestSession({
         updates: [],
       });
     }
-    readOnce() {
+    async readOnce() {
+      if (this.url.includes(':rpc:res:') && onRpc) {
+        const request = replies.get(this.url.split('/ds/lody/')[1]);
+        const result = await onRpc(request);
+        return ok({
+          nextOffset: '1',
+          upToDate: true,
+          closed: false,
+          payload: {
+            body: new TextEncoder().encode(
+              JSON.stringify({ id: request.id, ...result }),
+            ),
+          },
+        });
+      }
       return new Promise((resolve) => {
         sessionRead = resolve;
       });
@@ -73,7 +89,11 @@ export async function openTestSession({
       appends.push(this.url);
       if (failAppend(this.url))
         return { ok: false, result: { code: 'timeout' } };
-      if (!this.url.includes(':rpc:')) server.import(part.body.subarray(4));
+      if (this.url.includes(':rpc:req:')) {
+        const request = JSON.parse(part.body);
+        replies.set(request.replyTo, request);
+      } else if (!this.url.includes(':rpc:'))
+        server.import(part.body.subarray(4));
       return ok({ nextOffset: String(++offset) });
     }
   };

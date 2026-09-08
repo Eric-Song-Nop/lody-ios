@@ -100,8 +100,8 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
     LodyGroupedList.configureSystem(cell, row)
   }
 
-  private lazy var sessionRegistration = UICollectionView.CellRegistration<LodyIndentedCell, LodyListRow> { [weak self] cell, _, row in
-    LodyGroupedList.configureSession(cell, row, indented: self?.outline ?? false)
+  private lazy var sessionRegistration = UICollectionView.CellRegistration<LodyIndentedCell, LodyListRow> { cell, _, row in
+    LodyGroupedList.configureSession(cell, row)
   }
 
   private var outline: Bool { sections.contains { $0.rows.first?.parent == true } }
@@ -119,14 +119,12 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
     cell.accessibilityTraits = [.button, .header]
   }
 
-  private static func configureSession(_ cell: LodyIndentedCell, _ row: LodyListRow, indented: Bool) {
+  private static func configureSession(_ cell: LodyIndentedCell, _ row: LodyListRow) {
     let tint = lodyTint(row.imageTint)
-    cell.indented = indented
     cell.contentConfiguration = LodySessionRowContent(
       row: row,
       dot: tint,
-      live: tint != nil && row.imageTint.hasPrefix("#") && row.badge.isEmpty,
-      indented: indented
+      live: tint != nil && row.imageTint.hasPrefix("#") && row.badge.isEmpty
     )
     cell.accessories = []
     cell.accessibilityIdentifier = row.id
@@ -211,7 +209,7 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
       self?.onRowPress(["id": item.row, "expanded": false])
     }
     collection.delegate = self
-    collection.setCollectionViewLayout(UICollectionViewCompositionalLayout { [weak self] index, environment in
+    let layout = UICollectionViewCompositionalLayout { [weak self] index, environment in
       var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
       // The collection owns the ground; the layout must not repaint it at full detent.
       configuration.backgroundColor = .clear
@@ -219,15 +217,25 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
       // items card; a parent row is a plain first item so the card stays whole.
       let outline = self?.section(at: index)?.rows.first?.parent ?? false
       configuration.headerMode = outline ? .none : .supplementary
-      configuration.footerMode = .supplementary
+      configuration.footerMode = outline ? .none : .supplementary
       configuration.leadingSwipeActionsConfigurationProvider = { indexPath in
         self?.swipeActions(at: indexPath, leading: true)
       }
       configuration.trailingSwipeActionsConfigurationProvider = { indexPath in
         self?.swipeActions(at: indexPath, leading: false)
       }
-      return NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: environment)
-    }, animated: false)
+      let section = NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: environment)
+      if outline {
+        // The decoration spans the section frame including its insets; matching
+        // them puts the card exactly under the rows.
+        let card = NSCollectionLayoutDecorationItem.background(elementKind: LodySectionCardView.kind)
+        card.contentInsets = section.contentInsets
+        section.decorationItems = [card]
+      }
+      return section
+    }
+    layout.register(LodySectionCardView.self, forDecorationViewOfKind: LodySectionCardView.kind)
+    collection.setCollectionViewLayout(layout, animated: false)
     if #available(iOS 26.0, *) {
       collection.topEdgeEffect.style = .soft
       collection.bottomEdgeEffect.style = .soft
@@ -582,7 +590,7 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
   private func configure(_ cell: UICollectionViewListCell, row: LodyListRow) {
     switch kind(of: row) {
     case .system: Self.configureSystem(cell, row)
-    case .session: if let cell = cell as? LodyIndentedCell { Self.configureSession(cell, row, indented: outline) }
+    case .session: if let cell = cell as? LodyIndentedCell { Self.configureSession(cell, row) }
     case .project: Self.configureProject(cell, row)
     }
     decorate(cell, row: row)
@@ -594,14 +602,24 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
     cell.configurationUpdateHandler = nil
     cell.automaticallyUpdatesBackgroundConfiguration = true
     if contentStyle {
+      cell.automaticallyUpdatesBackgroundConfiguration = false
       if var content = cell.contentConfiguration as? UIListContentConfiguration {
         content.textProperties.numberOfLines = 2
         content.secondaryTextProperties.font = .preferredFont(forTextStyle: .footnote)
-        content.directionalLayoutMargins = .init(top: 12, leading: outline ? LodyIndentedCell.textLeading(indented: true) : 22, bottom: 12, trailing: 22)
+        content.directionalLayoutMargins = .init(top: 12, leading: 22, bottom: 12, trailing: 22)
         if outline, row.navigates { content.textProperties.color = LodyGroupedList.accent }
         cell.contentConfiguration = content
       }
-      cell.backgroundConfiguration = UIBackgroundConfiguration.listGroupedCell()
+      if outline {
+        cell.configurationUpdateHandler = { cell, state in
+          cell.backgroundConfiguration = LodyListCellBackground.outlineConfiguration(for: state)
+        }
+      } else {
+        cell.configurationUpdateHandler = { cell, state in
+          let visual = LodyListCellBackground.visualState(for: state)
+          cell.backgroundConfiguration = UIBackgroundConfiguration.listGroupedCell().updated(for: visual)
+        }
+      }
     } else if transparent {
       // A static backgroundConfiguration freezes the cell's appearance, so the
       // highlighted and selected states stop rendering. The update handler

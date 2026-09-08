@@ -1,4 +1,4 @@
-"""Home keeps the workspace avatar and view/settings group in the navigation bar, the integrated bottom search beside the create button, and the settings sheet hosts remote and archived pages."""
+"""Home keeps the workspace avatar and view/settings group in the navigation bar, the integrated bottom search beside the create button, long-press Settings opens Debug, and the settings sheet hosts remote and archived pages."""
 import sys
 from driver import UI
 import catalog
@@ -29,11 +29,18 @@ def tap_create():
     ui.axe('tap', '-x', str(frame['x'] + frame['width'] / 2), '-y', str(frame['y'] + frame['height'] / 2), '--post-delay', '1')
 
 
-avatar_label = catalog.text('inbox.workspaceSwitch.accessibility', name='我的工作区')
+workspace_name = '我的超长工作区名称不能折行'
+avatar_label = catalog.text('inbox.workspaceSwitch.accessibility', name=workspace_name)
 
 
 def home_ready():
     ui.wait(lambda items: any(i.get('AXLabel') == avatar_label for i in items), 'Missing workspace avatar')
+
+
+def assert_swipe_has_no_selection(action_label):
+    ui.wait(lambda items: any(i.get('AXLabel') == action_label for i in items), f'Missing swipe action {action_label}')
+    row = ui.element('ui-design')
+    assert 'selected' not in str(row.get('traits') or []).lower(), row
 
 
 close_create = catalog.text('accessibility.closeSheet', title=catalog.text('create.title'))
@@ -42,6 +49,25 @@ home_ready()
 if any(i.get('AXUniqueId') == 'xmark' and i.get('AXLabel') == catalog.system('close') for i in ui.state()):
     ui.axe('tap', '--id', 'xmark', '--post-delay', '1')
 ui.capture('home')
+row = ui.element('ui-design')['frame']
+y = row['y'] + row['height'] / 2
+left = row['x'] + 12
+right = row['x'] + row['width'] - 12
+middle = row['x'] + row['width'] / 2
+ui.axe('swipe', '--start-x', str(right), '--start-y', str(y),
+       '--end-x', str(middle), '--end-y', str(y), '--duration', '.6', '--post-delay', '.5')
+archive_label = catalog.text('session.action.archive')
+assert_swipe_has_no_selection(archive_label)
+ui.capture('trailing-action')
+ui.axe('swipe', '--start-x', str(middle), '--start-y', str(y),
+       '--end-x', str(right), '--end-y', str(y), '--duration', '.4', '--post-delay', '.4')
+ui.axe('swipe', '--start-x', str(left), '--start-y', str(y),
+       '--end-x', str(middle), '--end-y', str(y), '--duration', '.6', '--post-delay', '.5')
+pin_label = catalog.text('session.action.pin')
+assert_swipe_has_no_selection(pin_label)
+ui.capture('leading-action')
+ui.axe('swipe', '--start-x', str(middle), '--start-y', str(y),
+       '--end-x', str(left), '--end-y', str(y), '--duration', '.4', '--post-delay', '.4')
 tap_create()
 ui.element('create-session-input')
 ui.capture('create')
@@ -109,6 +135,32 @@ ui.capture('project-expanded')
 settings_label = catalog.text('tabs.settings')
 
 
+def settings_button():
+    return ui.wait(
+        lambda items: next((i for i in items if i.get('type') == 'Button' and i.get('AXLabel') == settings_label), None),
+        'Missing settings button',
+    )
+
+
+def hold_settings():
+    frame = settings_button()['frame']
+    ui.axe(
+        'touch',
+        '-x', str(frame['x'] + frame['width'] / 2),
+        '-y', str(frame['y'] + frame['height'] / 2),
+        '--down', '--up', '--delay', '.8', '--post-delay', '1',
+    )
+
+
+hold_settings()
+ui.element('permission-preview')
+assert not any(i.get('AXUniqueId') == 'account' for i in ui.state())
+ui.capture('debug')
+ui.axe('tap', '--id', 'BackButton', '--post-delay', '1')
+home_ready()
+assert not any(i.get('AXUniqueId') == 'permission-preview' for i in ui.state())
+
+
 def tap_sheet_back():
     # The inbox gear behind the sheet shares the Settings label; the back button is the leftmost.
     buttons = [i for i in ui.state() if i.get('type') == 'Button' and i.get('AXLabel') == settings_label]
@@ -142,4 +194,4 @@ ui.axe('tap', '--label', catalog.text('accessibility.closeSheet', title=settings
 home_ready()
 assert not any(i.get('AXUniqueId') == 'archived' for i in ui.state())
 ui.capture('settings-closed')
-print('Create opens repeatedly from the bottom toolbar; integrated search finds archived sessions and cancels back; the view menu regroups; the settings sheet pushes remote and archived pages and closes back to the inbox.')
+print('Create opens repeatedly from the bottom toolbar; integrated search finds archived sessions and cancels back; the view menu regroups; long-press Settings opens Debug and returns; the settings sheet pushes remote and archived pages and closes back to the inbox.')

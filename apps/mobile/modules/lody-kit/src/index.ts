@@ -3,9 +3,11 @@ export {
   runtimeInfo,
   selectionFeedback,
   showToast,
+  showSessionBanner,
+  dismissSessionBanner,
   type ToastKind,
+  type SessionBannerKind,
   addAppActiveListener,
-  addDebugShakeListener,
   type RuntimeInfo,
 } from './runtime/LodyKit';
 export {
@@ -38,6 +40,7 @@ export {
   watchSession,
   unwatchSession,
   sendSessionTurn,
+  controlSessionTurn,
   sessionItemDetail,
   respondSessionPermission,
   sessionCreationOptions,

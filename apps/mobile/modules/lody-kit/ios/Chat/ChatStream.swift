@@ -1,9 +1,11 @@
 import Foundation
 
-/// Presentation-only pacing: network history remains authoritative. Like
-/// FlowDown's BalancedEmitter, bursts drain in ~30 steps with larger batches
-/// for a larger backlog. Character boundaries preserve emoji and composed text.
+/// Presentation-only pacing. Small tails keep a short character reveal; long
+/// replies and bursts are committed together and animated by the block view.
+/// Network history remains authoritative, including corrections and completion.
 struct ChatStream {
+  static let blockAnimationLength = 1024
+  static let blockAnimationBatch = 48
   private struct Reveal {
     var source = ""
     var shown = ""
@@ -25,7 +27,11 @@ struct ChatStream {
       pending = Array(pending.dropFirst(offset)) + Array(text.dropFirst(source.count))
       offset = 0
       source = text
-      batch = max(1, Int(ceil(Double(pending.count) / 30)))
+      if text.utf16.count > ChatStream.blockAnimationLength || pending.count >= ChatStream.blockAnimationBatch {
+        batch = pending.count
+      } else {
+        batch = max(1, Int(ceil(Double(pending.count) / 8)))
+      }
     }
     mutating func advance() {
       guard hasPending else { return }
@@ -46,6 +52,10 @@ struct ChatStream {
   private var targets: [ChatEntry] = []
   private var initialized = false
   var hasPending: Bool { reveals.values.contains { $0.hasPending } }
+
+  static func commitInterval(tailLength: Int) -> Double {
+    min(0.096, 0.048 * (1 + Double(tailLength) / 256))
+  }
 
   mutating func receive(_ entries: [ChatEntry], animate: Bool) {
     let wasRunning = Set(targets.filter(\.isRunning).map(\.id))
@@ -92,8 +102,11 @@ enum ChatScroll {
 
   // Time-based convergence keeps a moving destination continuous across updates
   // and behaves the same at 60 and 120 Hz. Snap only a subpixel remainder.
-  static func advance(_ current: Double, toward target: Double, elapsed: Double, response: Double) -> Double {
+  static func advance(_ current: Double, toward target: Double, elapsed: Double, response: Double, minimumStep: Double = 0) -> Double {
     let next = current + (target - current) * (1 - exp(-max(0, elapsed) / response))
+    // UIScrollView rounds offsets to its pixel grid. A step smaller than one
+    // pixel can otherwise round back forever while the display link keeps firing.
+    if elapsed > 0 && abs(next - current) < minimumStep { return target }
     return abs(target - next) <= 0.5 ? target : next
   }
 

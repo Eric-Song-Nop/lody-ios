@@ -4,6 +4,7 @@ import { NativeChat, NativeComposer } from '@lody-ios/kit';
 import { definePage, present } from '@/lib/presentation';
 import { usePendingSends } from '@/cloud/send/pendingSends';
 import { useSessionSend } from '@/features/sessions/useSessionSend';
+import { useSessionControl } from '@/features/sessions/useSessionControl';
 import type { Session } from '@/models/catalog';
 import type { Snapshot } from '@/features/sessions/useSessionRuntime';
 import { Button } from '@/ui/Button';
@@ -28,6 +29,45 @@ const attachment = {
   uri: 'file:///tmp/lody-ui-fixture.txt',
   kind: 'file' as const,
 };
+
+function advanceQueue(old: Snapshot, messageId?: string): Snapshot {
+  const next = old.entries.find(
+    (entry) =>
+      entry.status === 'queued' && (!messageId || entry.id === messageId),
+  );
+  const history = old.entries
+    .filter((entry) => entry.status !== 'queued')
+    .map((entry) => ({ ...entry, finished: true }));
+  if (next)
+    history.push(
+      { ...next, status: 'processing', finished: true },
+      {
+        id: next.id + ':reply',
+        role: 'assistant',
+        status: 'processing',
+        finished: false,
+        rev: 0,
+        items: [
+          {
+            itemId: 'text',
+            type: 'text',
+            text: 'Working on: ' + next.id,
+            rev: 0,
+          },
+        ],
+      },
+    );
+  return {
+    ...old,
+    revision: old.revision + 1,
+    entries: [
+      ...history,
+      ...old.entries.filter(
+        (entry) => entry.status === 'queued' && entry.id !== next?.id,
+      ),
+    ],
+  };
+}
 
 function SendSource() {
   const { finish } = usePageRuntime<undefined, void>();
@@ -101,6 +141,17 @@ function SendPreview() {
       : [],
   });
   const completion = useRef<((result: string) => void) | null>(null);
+  const controlPending = useRef<{
+    args: { action: string; turnId: string; messageId?: string };
+    resolve: (result: string) => void;
+  } | null>(null);
+  const [controlRequest, setControlRequest] = useState('');
+  const control = useSessionControl(session, snapshot, false, (payload) => {
+    setControlRequest(payload);
+    return new Promise((resolve) => {
+      controlPending.current = { args: JSON.parse(payload), resolve };
+    });
+  });
   const services = useRef({
     createSession: () =>
       new Promise<string>((resolve) => {
@@ -127,15 +178,29 @@ function SendPreview() {
   useEffect(
     () => () => {
       completion.current?.(JSON.stringify({ state: 'unknown' }));
+      controlPending.current?.resolve(JSON.stringify({ state: 'not_applied' }));
     },
     [],
   );
   const complete = (failure: boolean) => {
+    if (controlPending.current) {
+      const { args, resolve } = controlPending.current;
+      controlPending.current = null;
+      if (!failure) setSnapshot((old) => advanceQueue(old, args.messageId));
+      resolve(
+        JSON.stringify({
+          state: failure
+            ? 'not_applied'
+            : { stop: 'stopped', steer: 'applied' }[args.action],
+        }),
+      );
+      return;
+    }
     const resolve = completion.current;
     if (!resolve) return;
     completion.current = null;
     let state = failure ? 'not_sent' : 'accepted';
-    if (queue && !failure && record) {
+    if (record?.send.queue && !failure) {
       state = 'queued';
       setSnapshot((old) => ({
         ...old,
@@ -187,42 +252,7 @@ function SendPreview() {
           testID="send-reply"
           onPress={() => {
             if (queue) {
-              setSnapshot((old) => {
-                const next = old.entries.find(
-                  (entry) => entry.status === 'queued',
-                );
-                if (!next) return old;
-                const history = old.entries
-                  .filter((entry) => entry.status !== 'queued')
-                  .map((entry) => ({ ...entry, finished: true }));
-                return {
-                  ...old,
-                  revision: old.revision + 1,
-                  entries: [
-                    ...history,
-                    { ...next, status: '', finished: true },
-                    {
-                      id: next.id + ':reply',
-                      role: 'assistant',
-                      status: '',
-                      finished: true,
-                      rev: 0,
-                      items: [
-                        {
-                          itemId: 'text',
-                          type: 'text',
-                          text: 'Queued reply completed',
-                          rev: 0,
-                        },
-                      ],
-                    },
-                    ...old.entries.filter(
-                      (entry) =>
-                        entry.status === 'queued' && entry.id !== next.id,
-                    ),
-                  ],
-                };
-              });
+              setSnapshot((old) => advanceQueue(old));
               return;
             }
             if (!record) return;
@@ -250,8 +280,8 @@ function SendPreview() {
                 {
                   id: `${record.send.id}:reply`,
                   role: 'assistant',
-                  status: 'processing',
-                  finished: false,
+                  status: '',
+                  finished: true,
                   startedAt: Date.now(),
                   rev: 0,
                   items: [],
@@ -273,6 +303,15 @@ function SendPreview() {
           style={{ color: colors.label }}
         >{`Queue: ${snapshot.entries.filter((entry) => entry.status === 'queued').length}`}</Text>
       )}
+      {queue && (
+        <Text
+          testID="control-request"
+          style={{ color: colors.label }}
+          numberOfLines={1}
+        >
+          {controlRequest}
+        </Text>
+      )}
       <NativeChat
         style={{ flex: 1 }}
         entriesJSON={JSON.stringify(snapshot.entries)}
@@ -281,17 +320,24 @@ function SendPreview() {
           editable: true,
           canSend: send.canSend,
           sending: send.sending,
+          running: control.running || send.awaitingReply,
+          canStop: control.canStop,
+          stopping: control.stopping,
+          controlling: control.controlling,
+          steerID: control.steerID,
           notice: '',
           reconnect: false,
           placeholder: '断网也可以发送',
         })}
         initialAttachmentsJSON={
-          record ? undefined : JSON.stringify([attachment])
+          record || queue ? undefined : JSON.stringify([attachment])
         }
         clearDraftToken={send.clearDraftToken}
         restoreDraftToken={send.restoreDraftToken}
         emptyText="离线发送验收"
         onActivityPress={() => {}}
+        onStop={control.stop}
+        onSteer={({ nativeEvent }) => control.steer(nativeEvent.id)}
         onReconnect={() => {
           setConnected(true);
           setSnapshot((old) => ({ ...old, status: 'live' }));

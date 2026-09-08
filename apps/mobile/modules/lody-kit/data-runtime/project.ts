@@ -330,6 +330,11 @@ export function projectSession(
         ],
   );
 
+  const waitingSteerIds = new Set(
+    raw
+      .filter((entry) => entry.inputConfig?._lodyDeliveryKind === 'steer')
+      .map((entry) => entry.id),
+  );
   revision += 1;
   const session = doc.getMap('session').toJSON();
   return {
@@ -355,7 +360,19 @@ export function projectSession(
         }
       : {}),
     entries: [
-      ...ordered.map(({ userTurnId, ...entry }) => entry),
+      ...ordered.map(({ userTurnId, ...entry }) => {
+        const waitingSteer =
+          entry.role === 'user' &&
+          waitingSteerIds.has(entry.id) &&
+          ['pending_apply', 'pending', 'seen'].includes(entry.status) &&
+          !replies.has(entry.id);
+        if (!waitingSteer) return entry;
+        return {
+          ...entry,
+          status: 'queued',
+          canSteer: entry.status === 'pending',
+        };
+      }),
       ...(doc.getMovableList('mq').toJSON() as any[])
         .filter(
           (item) =>

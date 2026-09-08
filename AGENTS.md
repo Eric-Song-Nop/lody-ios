@@ -48,5 +48,5 @@
 
 - UI baselines must run without login, user credentials, cloud access, or a connected machine. Add independently resettable Debug scenes using production components and `present`; inject deterministic data/service outcomes at their boundary.
 - UI changes must add/update a behavior check in `apps/mobile/verification/ui` or reuse the existing native checks. Shared controls must be exercised in each affected host.
-- Local checks omit `--udid` to lease an erased `Lody * Verify` Simulator. Wrap build + multi-check flows with `pnpm verify:simulator --name '<current verify>' -- <command>` and use `$LODY_VERIFY_UDID`; never call `simctl create` directly. Explicit `--udid` is for caller-owned devices such as CI. See `apps/mobile/verification/ui/README.md`.
+- Local checks omit `--udid` to lease a `Lody * Verify` Simulator. Wrap build + multi-check flows with `pnpm verify:simulator --name '<current verify>' -- <command>` and use `$LODY_VERIFY_UDID`; never call `simctl create` directly. Explicit `--udid` is for caller-owned devices such as CI. See `apps/mobile/verification/ui/README.md`.
 - Capture screenshots for visual states and video for temporal behavior. Missing scenes/timeouts fail verification; screenshots alone do not establish visual correctness.

@@ -136,6 +136,7 @@
   "send.status.uploading": "Uploading attachments…",
   "send.status.sending": "Sending…",
   "native.chat.row.queued": "Queued — sends after the current reply",
+  "native.chat.row.queuedAttachmentsOnly": "Attachments only",
   "send.status.waiting": "Waiting for a reply…",
   "send.status.preparing": "Preparing…",
   "send.status.awaitingConnection": "Waiting for a connection…",
@@ -354,6 +355,9 @@
   "native.close": "Close",
   "native.list.expanded": "Expanded",
   "native.list.collapsed": "Collapsed",
+  "native.session.banner.completed": "Done",
+  "native.session.banner.attention": "Needs approval",
+  "native.session.banner.openHint": "Open this session",
   "native.session.sync.title": "Syncing the session reply",
   "native.session.sync.sending": "Sending",
   "native.session.sync.waitingReply": "Waiting for a reply",
@@ -403,5 +407,12 @@
   "settings.remote.duplicate": "An MCP server already uses this name.",
   "settings.remote.readOnly": "Only the machine owner can edit",
   "file.preview": "Preview",
-  "file.source": "Source"
+  "file.source": "Source",
+  "native.chat.composer.stop": "Stop",
+  "native.chat.composer.stopping": "Stopping…",
+  "native.chat.composer.steer": "Steer",
+  "native.chat.composer.steering": "Confirming delivery…",
+  "native.chat.composer.queue": "Queued messages",
+  "native.chat.composer.controlError": "Could not complete the action. Check the connection and try again.",
+  "native.chat.composer.steerNotApplied": "Steer was not confirmed. The message stays in the waiting area until its delivery is confirmed."
 }

@@ -5,13 +5,13 @@ machine. `EXPO_PUBLIC_UI_VERIFY=1` in a **development** bundle prevents account
 restoration before Keychain/SQLite reads and disables login. The runner starts
 its own Metro and requires the `ui-verify-ready` marker before any interaction.
 Native image fixtures additionally require the `--ui-verify` launch argument and
-compile only in Debug. No production credentials are used; the managed verification
-Simulator is erased before each lease.
+compile only in Debug. No production credentials are used. The managed verification
+Simulator is reused without erasing between leases.
 
 ## Run locally
 
 If a normal signed Debug app is already built, each verification command can lease
-its own clean iPhone 17 Pro / iOS 26.5 device from the `Lody * Verify` pool:
+its own iPhone 17 Pro / iOS 26.5 device from the `Lody * Verify` pool:
 
 ```sh
 pnpm verify:native
@@ -39,14 +39,14 @@ pnpm verify:simulator --name 'File Preview' -- zsh -euc '
 The allocator serializes selection and locks each leased device. It only considers
 available, matching `Lody * Verify` devices; personal devices, other projects and
 legacy runtimes are never candidates. Reserve that name pattern for disposable
-verification devices. A shutdown candidate is erased, renamed to the current
+verification devices. A shutdown candidate is renamed to the current
 verification, then booted. If none is free, one device is created.
 Release shuts it down but keeps it for the next run. A device left booted after an
 interrupted managed run can be reclaimed once its lock is gone; an untracked booted
 device is treated as occupied.
 
 `--udid` remains available for CI or an explicitly owned Simulator. Supplying it
-bypasses leasing, erase, rename and shutdown, so its caller owns the full lifecycle.
+bypasses leasing, rename and shutdown, so its caller owns the full lifecycle.
 Do not call `simctl create` directly for local verification.
 
 Requires Python 3, AXe 1.8.0, Xcode 26.5 and the workspace dependencies.
@@ -72,11 +72,11 @@ visual smoothness. The probe contains fixture IDs and geometry only.
 | Case             | Production surface                                 | Behavior                                                                                                                                                                                              |
 | ---------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | settings         | RemoteSettingsView + RemoteSettingEditorScreen     | Leading Cancel/trailing Save while typing, compact Machine/MCP sheets, Agent prompt, failed load retry, failed-save Toast with draft retention, and saved-value readback                              |
-| home             | InboxScreen header + glass FAB + settings Sheet    | Inbox header search, archived results, cancellation restore; view menu group switching; bottom-right glass create repeated open; push remote settings and archive in settings sheet with close/return |
+| home             | InboxScreen header + glass FAB + settings Sheet    | Inbox header search, archived results, cancellation restore; view menu group switching; bottom-right glass create repeated open; long-press Settings opens Debug and returns; push remote settings and archive in settings sheet with close/return |
 | onboarding       | OnboardingScreen (non-dismissable pageSheet)       | No close button, swipe-down resists, connect → waiting code → cancel error → retry, sheet closes itself on sign-in                                                                                    |
 | send             | NativeChat + shared send lifecycle                 | Offline immediate user/static timer rows, no pre-connection dispatch, failed text/attachment restoration, uninterrupted authoritative takeover                                                        |
 | send-rounds      | NativeChat with retained history                   | Three accepted turns (short, wrapped, multiline), distinct IDs, cleared drafts, and native frame-by-frame landing checks                                                                              |
-| send-queue       | NativeChat + shared send lifecycle                 | Two sends while a reply runs, durable queue receipt unlocks composer, FIFO consumption, no duplicate draft                                                                                            |
+| send-queue       | NativeChat + shared send lifecycle                 | Queue above input, draft/Stop switching, selected Steer failure/retry, Stop advances FIFO, no transcript flash or duplicate draft                                                                     |
 | send-handoff     | NativeComposer sheet → NativeChat push             | Message UIView stays visible across navigation before creation; failed creation restores draft in target input                                                                                        |
 | layout           | NativeChat + navigation title                      | Stream segments, completion folding, full conclusion, process-row height, send positioning                                                                                                            |
 | duration         | NativeChat assistant duration row                  | Static (non-shiny) first-row duration advances each second; server process follows below; completion freezes the OSS-compatible duration above the final answer                                       |
@@ -122,7 +122,7 @@ For each new UI behavior:
    views and the existing `present` contract; inject data or service outcomes at
    the owning boundary. Do not duplicate a production screen into a fake UI.
 2. Add a runnable user-visible assertion and register it in the runner. New scenes
-   must run independently on a freshly erased lease, without earlier cases or login.
+   must run independently without earlier cases or login.
 3. Reproduce bugs with the original precondition; avoid internal constant-table
    snapshots. Prefer element-relative geometry and bounded state waits.
 4. For shared UI, exercise each real host (e.g. chat and creation sheet). Add
@@ -166,6 +166,22 @@ baseline. The sampler and video recording add overhead. Simulator Debug results
 are regression baselines, not physical-device Release performance or proof of
 absence of leaks. Native instrumentation is compiled only in Debug and stops
 when its view leaves the window.
+
+### Streaming Markdown pressure checks
+
+`--case chat-stream-performance` drives the production chat with 40 history rows
+and 12 seconds of 300 synthetic tokens/s (one token is four UTF-16 units, delivered
+in 50 ms batches). It repeats paragraphs, one long paragraph, and one long code
+block in both appearances. `stream-summary.json` reports callback FPS, p95 frame
+and commit time, text backlog, bottom gap, and catch-up time; `*-samples.json`
+retains raw samples. Screenshots and `run.mp4` capture streaming and completion.
+Assertions require complete output and final bottom alignment, plus native block
+layout parity, unchanged-prefix reuse, and late reference-link resolution.
+
+These are Simulator Debug main-run-loop measurements, not GPU-presented FPS or
+physical-device model-token throughput. Compare identical input and appearances;
+run `markdown`, `file-preview`, and `smooth-scroll` separately for interaction
+regressions. Performance numbers are reported without arbitrary pass thresholds.
 
 ### Send animation frame checks
 

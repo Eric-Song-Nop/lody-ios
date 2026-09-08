@@ -4,7 +4,6 @@ struct LodySessionRowContent: UIContentConfiguration {
   var row: LodyListRow
   var dot: UIColor?
   var live: Bool
-  var indented: Bool
 
   func makeContentView() -> UIView & UIContentView { LodySessionRowView(self) }
   func updated(for state: UIConfigurationState) -> LodySessionRowContent { self }
@@ -20,23 +19,15 @@ final class PillLabel: UILabel {
   }
 }
 
-/// Outline children sit on the project name's column: tile 16 + 32 + gap 12.
-/// Flat session lists keep the mark beside the text without that column.
 final class LodyIndentedCell: UICollectionViewListCell {
-  static func textLeading(indented: Bool) -> CGFloat { indented ? 60 : 32 }
-  static func markCenter(indented: Bool) -> CGFloat { indented ? 32 : 18 }
-
-  private lazy var separatorLeading = separatorLayoutGuide.leadingAnchor.constraint(
-    equalTo: contentView.leadingAnchor, constant: Self.textLeading(indented: true)
-  )
-
-  var indented = true {
-    didSet { separatorLeading.constant = Self.textLeading(indented: indented) }
-  }
+  static let textLeading: CGFloat = 32
+  static let markCenter: CGFloat = 18
 
   override init(frame: CGRect) {
     super.init(frame: frame)
-    separatorLeading.isActive = true
+    separatorLayoutGuide.leadingAnchor.constraint(
+      equalTo: contentView.leadingAnchor, constant: Self.textLeading
+    ).isActive = true
   }
 
   @available(*, unavailable)
@@ -131,8 +122,8 @@ final class LodySessionRowView: UIView, UIContentView {
     guard let content = configuration as? LodySessionRowContent else { return }
     let row = content.row
     let tint = content.dot ?? .secondaryLabel
-    directionalLayoutMargins.leading = LodyIndentedCell.textLeading(indented: content.indented)
-    markCenter.constant = LodyIndentedCell.markCenter(indented: content.indented)
+    directionalLayoutMargins.leading = LodyIndentedCell.textLeading
+    markCenter.constant = LodyIndentedCell.markCenter
     title.text = row.title
     title.font = .preferredFont(forTextStyle: row.unread ? .headline : .body)
     title.textColor = row.destructive ? .systemRed : .label
