@@ -5,6 +5,7 @@ import { Alert } from 'react-native';
 import { NativeChat } from '@lody-ios/kit';
 import { definePage, present } from '@/lib/presentation';
 import { FileDiffScreen } from '@/screens/FileDiffScreen';
+import { ItemDetailScreen } from '@/screens/ItemDetailScreen';
 import { basename } from '@/features/sessions/path';
 import { useProcessSheet } from '@/hooks/screens/useProcessSheet';
 import {
@@ -362,6 +363,18 @@ function View() {
                 finished: false,
               });
             }}
+          />
+          <Stack.Toolbar.Button
+            accessibilityLabel="Inline Diff Fixture"
+            icon="plusminus"
+            onPress={() =>
+              void present(ItemDetailScreen, {
+                sessionId: 'ui-verify-diff',
+                entryId: 'diff-preview',
+                itemIds: ['edit'],
+                generation: 0,
+              })
+            }
           />
           <Stack.Toolbar.Button
             accessibilityLabel="Permission Fixture"

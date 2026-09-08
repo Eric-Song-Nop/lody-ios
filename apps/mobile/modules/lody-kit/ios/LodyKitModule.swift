@@ -36,7 +36,32 @@ public final class LodyKitModule: Module {
     AsyncFunction("pinSession") { (payload: String, promise: Promise) in self.dataRuntime.command("pinSession", payload: payload, promise: promise) }.runOnQueue(.main)
     AsyncFunction("controlSessionTurn") { (payload: String, promise: Promise) in self.dataRuntime.command("controlTurn", payload: payload, promise: promise) }.runOnQueue(.main)
     AsyncFunction("sendSessionTurn") { (payload: String, promise: Promise) in self.dataRuntime.sendTurn(payload, promise: promise) }.runOnQueue(.main)
-    AsyncFunction("sessionItemDetail") { (payload: String, promise: Promise) in self.dataRuntime.command("itemDetail", payload: payload, promise: promise) }.runOnQueue(.main)
+    AsyncFunction("sessionItemDetail") { (payload: String, promise: Promise) in
+      #if DEBUG
+      if ProcessInfo.processInfo.arguments.contains("--ui-verify"),
+        let data = payload.data(using: .utf8),
+        let params = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        params["sessionId"] as? String == "ui-verify-diff",
+        params["entryId"] as? String == "diff-preview",
+        params["itemId"] as? String == "edit"
+      {
+        let result = try JSONSerialization.data(withJSONObject: [
+          "itemId": "edit",
+          "rev": 1,
+          "truncated": false,
+          "blocks": [[
+            "type": "diff",
+            "path": "src/inline.ts",
+            "oldText": "export const greeting = 'hi'\n",
+            "newText": "export const greeting = 'hello'\n",
+          ]],
+        ])
+        promise.resolve(String(decoding: result, as: UTF8.self))
+        return
+      }
+      #endif
+      self.dataRuntime.command("itemDetail", payload: payload, promise: promise)
+    }.runOnQueue(.main)
     AsyncFunction("respondSessionPermission") { (payload: String, promise: Promise) in self.dataRuntime.command("respondPermission", payload: payload, promise: promise) }.runOnQueue(.main)
     AsyncFunction("turnDiff") { (payload: String, promise: Promise) in
       #if DEBUG
@@ -285,14 +310,11 @@ public final class LodyKitModule: Module {
       Prop("path") { (view: LodyCodeView, value: String) in view.setPath(value) }
     }
 
-    View(LodyDiffView.self) {
+    View(LodyInlineDiffView.self) {
       Events("onRender", "onFail")
-      Prop("path") { (view: LodyDiffView, value: String) in view.setPath(value) }
-      Prop("oldText") { (view: LodyDiffView, value: String?) in view.setOldText(value) }
-      Prop("newText") { (view: LodyDiffView, value: String?) in view.setNewText(value) }
-      Prop("handle") { (view: LodyDiffView, value: String?) in view.setHandle(value ?? "") }
-      Prop("diffStyle") { (view: LodyDiffView, value: String?) in view.setStyle(value ?? "unified") }
-      Prop("scrollEnabled") { (view: LodyDiffView, value: Bool?) in view.setScrollEnabled(value ?? true) }
+      Prop("path") { (view: LodyInlineDiffView, value: String) in view.setPath(value) }
+      Prop("oldText") { (view: LodyInlineDiffView, value: String?) in view.setOldText(value) }
+      Prop("newText") { (view: LodyInlineDiffView, value: String?) in view.setNewText(value) }
     }
 
     View(LodyGroupedList.self) {

@@ -41,7 +41,7 @@ The project uses a hybrid architecture of **React Native + a deeply customized S
 ### Code Diffs & Workspace File Browsing
 
 - **Turn Changes Overview**: Automatically summarizes file changes for each conversation turn, with one-tap access to all modified files.
-- **Word-Level Diff Highlighting**: Powered by [YiTong](https://github.com/onevcat/YiTong) wrapping and locally rendering [@pierre/diffs](https://github.com/pierrecomputer/pierre/tree/main/packages/diffs), providing precise inline comparisons, syntax highlighting, and virtualized fast scrolling.
+- **Word-Level Diff Highlighting**: Full-screen diffs reuse a prewarmed Expo DOM WebView running [@pierre/diffs](https://github.com/pierrecomputer/pierre/tree/main/packages/diffs). Tool-detail diffs render natively in LodyKit.
 - **Remote Workspace File Tree**: Browse project directories and files on remote Macs or servers at any time, with previews via native code view `LodyCodeView` or system Quick Look.
 
 ### Offscreen WASM CRDT Data Sync Engine
@@ -73,7 +73,7 @@ flowchart TB
         LodyKitModule["LodyKit NativeModule Facade"]
         ChatView["LodyChatView (UICollectionView)"]
         Markdown["MarkdownView & Litext (CoreText Glyph Fade-In)"]
-        DiffView["YiTong & @pierre/diffs Native Code Diffs"]
+        DiffView["Shared DOM Diff + Native Inline Diff"]
         Composer["ChatComposerView (Native Input & Keyboard Avoidance)"]
     end
 
@@ -180,6 +180,5 @@ Lody iOS is made possible thanks to these open-source projects and creators:
 
 - **[FlowDown](https://github.com/Lakr233/FlowDown)**: Thanks to [Lakr233](https://github.com/Lakr233) and contributors. Lody's native message collection view, stream batching mechanism, and dynamic measurement cache architecture drew significant inspiration from FlowDown.
 - **[MarkdownView](https://github.com/Lakr233/MarkdownView) & [Litext](https://github.com/Lakr233/Litext)**: High-performance, extensible CoreText Markdown rendering and typography for iOS.
-- **[YiTong](https://github.com/onevcat/YiTong)**: Thanks to [onevcat](https://github.com/onevcat) for the elegant wrapper that enables native code diff rendering on iOS.
-- **[@pierre/diffs](https://github.com/pierrecomputer/pierre/tree/main/packages/diffs)**: Excellent word-level diff algorithms and modern diff viewer experience.
+- **[@pierre/diffs](https://github.com/pierrecomputer/pierre/tree/main/packages/diffs)**: Word-level diff algorithms and the full-screen DOM viewer.
 - **[Loro](https://github.com/loro-dev/loro)**: High-performance, production-grade next-generation CRDT state synchronization.

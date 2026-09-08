@@ -17,7 +17,6 @@ Pod::Spec.new do |s|
   s.dependency 'ExpoModulesCore'
   s.spm_dependency 'MarkdownView/MarkdownView'
   s.spm_dependency 'MarkdownView/MarkdownParser'
-  s.spm_dependency 'YiTong/YiTong'
   s.source_files = '**/*.swift'
   s.resources = 'Resources/*'
 end
