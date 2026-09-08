@@ -352,6 +352,7 @@ final class ChatComposerView: UIView, UITextViewDelegate {
   private var inputHeight: NSLayoutConstraint!
   private var accessoryHeight: NSLayoutConstraint!
   private var hintLeading: NSLayoutConstraint!
+  private var hintTop: NSLayoutConstraint!
   private var noticeHeight: NSLayoutConstraint!
   private var attachmentHeight: NSLayoutConstraint!
   private var state = ChatComposerState()
@@ -510,6 +511,7 @@ final class ChatComposerView: UIView, UITextViewDelegate {
     inputHeight = input.heightAnchor.constraint(equalToConstant: 48)
     accessoryHeight = accessoryBar.heightAnchor.constraint(equalToConstant: 0)
     hintLeading = hint.leadingAnchor.constraint(equalTo: input.leadingAnchor, constant: 21)
+    hintTop = hint.topAnchor.constraint(equalTo: input.topAnchor, constant: 13)
     noticeHeight = notice.heightAnchor.constraint(equalToConstant: 0)
     attachmentHeight = attachmentBar.heightAnchor.constraint(equalToConstant: 0)
     inputLeading = inputSurface.leadingAnchor.constraint(equalTo: attachSurface.trailingAnchor, constant: 8)
@@ -541,7 +543,7 @@ final class ChatComposerView: UIView, UITextViewDelegate {
       accessoryBar.leadingAnchor.constraint(equalTo: inputSurface.contentView.leadingAnchor),
       accessoryBar.trailingAnchor.constraint(equalTo: inputSurface.contentView.trailingAnchor),
       accessoryBar.bottomAnchor.constraint(equalTo: inputSurface.contentView.bottomAnchor), accessoryHeight,
-      hintLeading, hint.topAnchor.constraint(equalTo: input.topAnchor, constant: 13),
+      hintLeading, hintTop,
       hint.trailingAnchor.constraint(lessThanOrEqualTo: send.leadingAnchor),
       send.trailingAnchor.constraint(equalTo: inputSurface.contentView.trailingAnchor, constant: -2),
       send.bottomAnchor.constraint(equalTo: inputSurface.contentView.bottomAnchor, constant: -2),
@@ -715,8 +717,10 @@ final class ChatComposerView: UIView, UITextViewDelegate {
     let noticeSize = notice.sizeThatFits(CGSize(width: max(1, bounds.width - 40), height: .greatestFiniteMagnitude))
     noticeHeight.constant = noticeText.isEmpty ? 0 : max(44, noticeSize.height + 12)
     accessoryHeight.constant = expanded ? 44 : 0
-    input.textContainerInset = UIEdgeInsets(top: 13, left: 16, bottom: 13, right: expanded ? 16 : 46)
+    let verticalInset = expanded ? 13 : max(0, (48 - input.font!.lineHeight) / 2)
+    input.textContainerInset = UIEdgeInsets(top: verticalInset, left: 16, bottom: verticalInset, right: expanded ? 16 : 46)
     hintLeading.constant = 21
+    hintTop.constant = verticalInset
     let height = input.sizeThatFits(CGSize(width: max(1, input.bounds.width), height: .greatestFiniteMagnitude)).height
     inputHeight.constant = min(140, max(expanded ? 68 : 48, height))
     input.isScrollEnabled = height > 140

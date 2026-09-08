@@ -9,6 +9,27 @@ composer.setInputIdentifier("create-session-input")
 var height: CGFloat = 0
 composer.onHeightChange = { height = $0 }
 let ready = #"{"editable":true,"canSend":true,"sending":false,"notice":"","reconnect":false,"placeholder":"任务"}"#
+
+func verifyCollapsedTypography(_ category: UIContentSizeCategory, expectedPointSize: CGFloat) {
+  var scaledComposer: ChatComposerView!
+  UITraitCollection(preferredContentSizeCategory: category).performAsCurrent {
+    scaledComposer = ChatComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 64))
+  }
+  scaledComposer.setComposerState(ready)
+  scaledComposer.layoutIfNeeded()
+  let scaledInput = descendants(scaledComposer).compactMap { $0 as? UITextView }.first!
+  let placeholder = descendants(scaledComposer).compactMap { $0 as? UILabel }.first { $0.text == "任务" }!
+  precondition(abs(scaledInput.font!.pointSize - expectedPointSize) < 0.1, "Composer font must respect the app-supported scale limit")
+  precondition(abs(scaledInput.bounds.height - 48) < 0.5, "An empty collapsed composer must remain one 48-point row")
+  let inputLineMidY = scaledInput.textContainerInset.top + scaledInput.font!.lineHeight / 2
+  precondition(abs(inputLineMidY - scaledInput.bounds.midY) < 0.5, "Collapsed input text must be vertically centered")
+  precondition(abs(placeholder.frame.midY - scaledInput.frame.midY) < 0.5, "Collapsed placeholder must be vertically centered")
+}
+
+verifyCollapsedTypography(.extraSmall, expectedPointSize: 14)
+verifyCollapsedTypography(.accessibilityExtraExtraExtraLarge, expectedPointSize: 23)
+print("Composer typography: supported minimum and maximum sizes stay centered in one row")
+
 composer.setComposerState(ready)
 composer.layoutIfNeeded()
 let input = descendants(composer).compactMap { $0 as? UITextView }.first!
