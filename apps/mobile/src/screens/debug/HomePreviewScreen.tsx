@@ -47,7 +47,13 @@ export function HomePreviewProviders({ children }: PropsWithChildren) {
       value={{
         account: {
           token: '',
-          user: { id: 'ui-home', name: 'UI Preview', email: '' },
+          user: {
+            id: 'ui-home',
+            name: 'UI Preview',
+            email: '',
+            image:
+              'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAL0lEQVR42u3OIQEAAAgDMNJQk6J0gRg3E/Or7bmkEhAQEBAQEBAQEBAQEBAQSAceRa0Al+0rSMYAAAAASUVORK5CYII=',
+          },
           workspaces: [workspace],
         },
         busy: false,

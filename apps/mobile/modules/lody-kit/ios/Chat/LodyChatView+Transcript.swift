@@ -123,8 +123,15 @@ extension LodyChatView {
     if composerHasAcknowledgedSend, let pendingSend, pendingSend.rows(entries: transcript.entries).isEmpty {
       self.pendingSend = nil
     }
-    var projected = transcript.rows(processEntryID: processEntryID, processStartID: processStartID)
+    let now = Date().timeIntervalSince1970 * 1000
+    var projected = transcript.rows(
+      processEntryID: processEntryID,
+      processStartID: processStartID,
+      now: now,
+      turnStartedAt: turnStartedAt
+    )
     if processEntryID.isEmpty, let pendingSend { projected += pendingSend.rows(entries: transcript.entries) }
+    updateWorkDurationTimer(rows: projected)
     let liveEntryID = transcript.entries.last { $0.isRunning && (processEntryID.isEmpty || $0.id == processEntryID) }?.id
     let starting = self.liveEntryID == nil && liveEntryID != nil
     let nearTail = collection.contentSize.height - collection.bounds.height + collection.adjustedContentInset.bottom - previousOffset < CGFloat(ChatScroll.resumeDistance)
@@ -197,6 +204,21 @@ extension LodyChatView {
         finish()
       }
     }
+  }
+
+  private func updateWorkDurationTimer(rows: [ChatRow]) {
+    let needsTimer = window != nil && ChatWorkDuration.needsTimer(rows)
+    guard needsTimer else {
+      workDurationTimer?.invalidate()
+      workDurationTimer = nil
+      return
+    }
+    guard workDurationTimer == nil else { return }
+    let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
+      self?.applyRows()
+    }
+    workDurationTimer = timer
+    RunLoop.main.add(timer, forMode: .common)
   }
 }
 

@@ -1,8 +1,8 @@
 import { homeVerify } from '@/screens/debug/HomePreviewScreen';
 import { uiVerify } from '@/screens/debug/uiVerify';
+import { InboxScreen } from '@/screens/InboxScreen';
 import { Redirect } from 'expo-router';
-export default function Index() {
-  return (
-    <Redirect href={uiVerify && !homeVerify ? '/debug' : '/(tabs)/sessions'} />
-  );
+function DebugRedirect() {
+  return <Redirect href="/debug" />;
 }
+export default uiVerify && !homeVerify ? DebugRedirect : InboxScreen.Route;

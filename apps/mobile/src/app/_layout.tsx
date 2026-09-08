@@ -11,8 +11,11 @@ import { useColorScheme } from 'react-native';
 import { nativePresentationOptions } from '@/lib/presentation';
 import { navigationThemes } from '@/lib/theme/palette';
 import { softScrollEdgeEffects } from '@/ui/Screen';
+import { useBindSessionNav } from '@/hooks/screens/useBindSessionNav';
+import { useDebugShake } from '@/hooks/screens/useDebugShake';
+import { useOnboardingGate } from '@/hooks/screens/useOnboardingGate';
 
-export const unstable_settings = { initialRouteName: '(tabs)' };
+export const unstable_settings = { initialRouteName: 'index' };
 
 export default function RootLayout() {
   const theme =
@@ -22,6 +25,7 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={theme}>
       <Providers>
+        <Bindings />
         <StatusBar style="auto" />
         <Stack
           screenOptions={{
@@ -32,8 +36,7 @@ export default function RootLayout() {
             scrollEdgeEffects: softScrollEdgeEffects,
           }}
         >
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="index" options={{ title: '' }} />
           <Stack.Screen name="debug" options={{ title: 'Debug' }} />
           <Stack.Screen name="environment" options={{ title: '运行环境' }} />
           <Stack.Screen
@@ -46,6 +49,13 @@ export default function RootLayout() {
       </Providers>
     </ThemeProvider>
   );
+}
+
+function Bindings() {
+  useBindSessionNav();
+  useOnboardingGate();
+  useDebugShake();
+  return null;
 }
 
 function Providers({ children }: PropsWithChildren) {

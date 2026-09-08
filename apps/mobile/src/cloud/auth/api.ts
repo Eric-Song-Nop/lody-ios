@@ -22,6 +22,18 @@ export function requiredString(value: unknown): string {
     throw new Error(t('auth.error.missingFields'));
   return value;
 }
+function optionalHttpsUrl(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !value.startsWith('https://'))
+    return undefined;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' || url.username || url.password)
+      return undefined;
+    return url.href;
+  } catch {
+    return undefined;
+  }
+}
 export async function authRequest(
   path: string,
   options: { token?: string; body?: unknown; signal?: AbortSignal } = {},
@@ -148,6 +160,7 @@ export async function getAccount(
       email: requiredString(user.email),
       name:
         typeof user.name === 'string' ? user.name : requiredString(user.email),
+      image: optionalHttpsUrl(user.image),
     },
     workspaces: list.map((value) => {
       const item = record(value);

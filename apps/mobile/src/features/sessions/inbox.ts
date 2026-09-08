@@ -1,9 +1,14 @@
-import type { NativeListSection } from '@lody-ios/kit';
-import type { Catalog, Session } from '../../models/catalog.ts';
+import type { NativeListRow, NativeListSection } from '@lody-ios/kit';
+import type { Catalog, Project, Session } from '../../models/catalog.ts';
 import type { SessionState } from './status.ts';
 import { agentName, sessionState, stateTint } from './status.ts';
 import { activityBucket, relativeTime } from '../../ui/time.ts';
-import { t, type TranslationKey } from '../../lib/i18n/index.ts';
+import {
+  t,
+  tp,
+  type PluralKey,
+  type TranslationKey,
+} from '../../lib/i18n/index.ts';
 
 const groups = [
   { id: 'attention', header: 'inbox.section.attention' },
@@ -88,6 +93,7 @@ export function inboxSections(
         subtitle: names.get(session.projectId) ?? '',
         value: relativeTime(activityAt(session), now),
         unread: unreadOf(session),
+        pinned: session.pinned,
         badge: badgeOf(state),
         imageTint:
           state === 'live' || badges[state]
@@ -131,6 +137,7 @@ export function sessionRow(
     diff: session.diff,
     value: relativeTime(activityAt(session), now),
     unread: unreadOf(session),
+    pinned: session.pinned,
     badge: badgeOf(state),
     imageTint: ['live', 'attention', 'failed'].includes(state)
       ? stateTint(state, accent)
@@ -139,6 +146,58 @@ export function sessionRow(
     navigates: true,
     actions: [archiveAction(session.archived)],
     leadingActions: [pinAction(session.pinned)],
+  };
+}
+
+const countKeys = {
+  failed: 'inbox.project.failed',
+  attention: 'inbox.project.attention',
+  live: 'inbox.project.live',
+} satisfies Partial<Record<SessionState, PluralKey>>;
+
+function projectTrailing(
+  sessions: Session[],
+  open: boolean,
+  accent: string,
+): Partial<NativeListRow> {
+  if (!sessions.length) {
+    return {
+      value: t('inbox.project.empty'),
+      disclosure: true,
+      navigates: true,
+    };
+  }
+  if (!open) return { badge: String(sessions.length) };
+  const states = sessions.map(stateOf);
+  for (const state of ['failed', 'attention', 'live'] as const) {
+    const count = states.filter((s) => s === state).length;
+    if (count) {
+      return {
+        value: tp(countKeys[state], count, { count }),
+        imageTint: stateTint(state, accent),
+      };
+    }
+  }
+  return {};
+}
+
+const homePath = (path = '') => path.replace(/^\/(Users|home)\/[^/]+/, '~');
+
+function projectRow(
+  project: Project,
+  sessions: Session[],
+  open: boolean,
+  accent: string,
+): NativeListRow {
+  return {
+    id: sessions.length ? `toggle:${project.id}` : `project:${project.id}`,
+    parent: true,
+    monogram: project.name.slice(0, 1),
+    title: project.name,
+    subtitle: homePath(project.rootPath),
+    subtitleMono: true,
+    action: true,
+    ...projectTrailing(sessions, open, accent),
   };
 }
 
@@ -153,28 +212,23 @@ export function projectSections(
       .filter((s) => s.projectId === project.id && !s.archived)
       .sort(byActivity);
     const open = expanded[project.id] ?? true;
-    const rows: NativeListSection['rows'] = open
-      ? sessions
-          .slice(0, 5)
-          .map((session) => sessionRow(session, accent, '', now))
-      : [];
-    if (open && sessions.length > 5) {
+    const rows = [
+      projectRow(project, sessions, open, accent),
+      ...sessions
+        .slice(0, 5)
+        .map((session) => sessionRow(session, accent, '', now)),
+    ];
+    const rest = sessions.length - 5;
+    if (rest > 0) {
       rows.push({
         id: `project:${project.id}`,
-        title: t('common.more'),
+        title: tp('inbox.project.more', rest, { count: rest }),
         action: true,
         disclosure: true,
         navigates: true,
       });
     }
-    return {
-      id: project.id,
-      header: project.name,
-      headerValue: open ? undefined : String(sessions.length),
-      headerActionId: `toggle:${project.id}`,
-      headerExpanded: open,
-      rows,
-    };
+    return { id: project.id, headerExpanded: open, rows };
   });
 }
 

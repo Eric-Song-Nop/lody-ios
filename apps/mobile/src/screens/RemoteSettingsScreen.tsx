@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { Stack, useRouter } from 'expo-router';
 import { NativeGroupedList } from '@lody-ios/kit';
 import { useCatalog } from '@/cloud/catalog/CatalogProvider';
 import { requestSettings } from '@/cloud/settings';
@@ -139,22 +138,18 @@ export function RemoteSettingsView({
 }
 
 function View() {
-  const { params } = usePageRuntime<Params>();
+  const { params, cancel } = usePageRuntime<Params>();
   const { selected } = useCatalog();
-  const router = useRouter();
   useEffect(() => {
-    if (!selected) router.replace('/settings');
-  }, [selected, router]);
+    if (!selected) cancel();
+  }, [selected, cancel]);
   if (!selected) return null;
   return (
-    <>
-      <Stack.Screen options={{ title: settingsTitle(params.kind) }} />
-      <RemoteSettingsView
-        key={selected.id}
-        kind={params.kind}
-        workspaceId={selected.id}
-      />
-    </>
+    <RemoteSettingsView
+      key={selected.id}
+      kind={params.kind}
+      workspaceId={selected.id}
+    />
   );
 }
 

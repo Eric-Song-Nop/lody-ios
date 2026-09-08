@@ -195,8 +195,10 @@ final class ChatSendHandoff {
       #endif
     }
     if UIAccessibility.isReduceMotionEnabled { finish(); return }
-    // iMessageThrowDemo: independent position, compression, bounds and text tracks.
-    let duration: CFTimeInterval = destination.width > sourceFrame.width * 0.66 ? 0.35 : 0.4
+    // Independent position, compression, bounds and text tracks.
+    let duration = ChatThrowCurve.duration
+    let track = ChatThrowCurve.positionTrack(from: CGPoint(x: sourceFrame.midX, y: sourceFrame.midY),
+                                             to: CGPoint(x: destination.midX, y: destination.midY))
     let content = handoff.content
     // Sheet dismissal can carry an enclosing UIView animation into this callback.
     // Only the explicit throw tracks may animate the window-space content.
@@ -221,32 +223,18 @@ final class ChatSendHandoff {
     background.fromValue = handoff.sourceBackground.cgColor
     background.toValue = destinationBackground.cgColor
     background.duration = duration
-    background.timingFunction = CAMediaTimingFunction(controlPoints: 0.49, 0.08841463, 0.40548781, 0.90548784)
+    background.timingFunction = ChatThrowCurve.timingFunction
     content.layer.add(background, forKey: "throw.background")
     for view in [content, handoff.sourceSnapshot].compactMap({ $0 }) {
       view.layer.position = CGPoint(x: destination.midX, y: destination.midY)
-      let position = CABasicAnimation(keyPath: "position")
-      position.fromValue = NSValue(cgPoint: CGPoint(x: sourceFrame.midX, y: sourceFrame.midY))
-      position.toValue = NSValue(cgPoint: view.layer.position)
-      position.duration = duration
-      position.timingFunction = CAMediaTimingFunction(controlPoints: 0.49, 0.08841463, 0.40548781, 0.90548784)
-      view.layer.add(position, forKey: "throw.position")
-
-      let scale = CAKeyframeAnimation(keyPath: "transform.scale")
-      scale.values = [1, 0.88, 1]
-      scale.keyTimes = [0, 0.35, 1]
-      scale.timingFunctions = [
-        CAMediaTimingFunction(controlPoints: 0.66, 0, 1, 1),
-        CAMediaTimingFunction(controlPoints: 0, 0, 0.62268293, 0.92987806),
-      ]
-      scale.duration = duration
-      view.layer.add(scale, forKey: "throw.scale")
+      view.layer.add(ChatThrowCurve.positionAnimation(track), forKey: "throw.position")
+      view.layer.add(ChatThrowCurve.scaleAnimation(), forKey: "throw.scale")
     }
     let size = CABasicAnimation(keyPath: "bounds.size")
     size.fromValue = NSValue(cgSize: sourceFrame.size)
     size.toValue = NSValue(cgSize: destination.size)
     size.duration = duration
-    size.speed = 2
+    size.speed = ChatThrowCurve.boundsSpeed
     size.timingFunction = CAMediaTimingFunction(controlPoints: 0.54195118, 0, 0.58, 1)
     content.layer.add(size, forKey: "throw.bounds")
     if let snapshot = handoff.sourceSnapshot {
@@ -264,7 +252,7 @@ final class ChatSendHandoff {
     #if DEBUG
     if ProcessInfo.processInfo.arguments.contains("--ui-verify-throw"),
        ProcessInfo.processInfo.arguments.contains("--ui-verify") {
-      handoff.probe = ChatThrowProbe(content: content, target: target, source: sourceFrame, destination: destination, duration: duration, sourceBackground: handoff.sourceBackground, destinationBackground: destinationBackground)
+      handoff.probe = ChatThrowProbe(content: content, target: target, source: sourceFrame, destination: destination, track: track, sourceBackground: handoff.sourceBackground, destinationBackground: destinationBackground)
     }
     #endif
   }
@@ -279,6 +267,7 @@ private final class ChatThrowProbe: NSObject {
   private var link: CADisplayLink?
   private let started = CACurrentMediaTime()
   private let duration: Double
+  private let track: ChatThrowCurve.PositionTrack
   private let source: CGRect
   private let destination: CGRect
   private let sourceBackground: UIColor
@@ -286,9 +275,9 @@ private final class ChatThrowProbe: NSObject {
   private var adoptedAt: Double?
   private var samples: [[String: Any]] = []
 
-  init(content: UIView, target: UIView, source: CGRect, destination: CGRect, duration: Double, sourceBackground: UIColor, destinationBackground: UIColor) {
+  init(content: UIView, target: UIView, source: CGRect, destination: CGRect, track: ChatThrowCurve.PositionTrack, sourceBackground: UIColor, destinationBackground: UIColor) {
     self.content = content; self.target = target; self.window = content.window
-    self.source = source; self.destination = destination; self.duration = duration
+    self.source = source; self.destination = destination; self.track = track; self.duration = track.duration
     self.sourceBackground = sourceBackground; self.destinationBackground = destinationBackground
     super.init()
     let link = CADisplayLink(target: self, selector: #selector(tick(_:)))
@@ -354,6 +343,7 @@ private final class ChatThrowProbe: NSObject {
       "metric": "CADisplayLink + Core Animation presentation geometry; not GPU-presented FPS",
       "maximumFPS": window?.screen.maximumFramesPerSecond ?? 0,
       "source": rect(source), "destination": rect(destination), "duration": duration,
+      "flight": ChatThrowCurve.duration, "path": track.points.map { [Double($0.x), Double($0.y)] }, "pathTimes": track.times,
       "sourceBackground": rgba(sourceBackground), "destinationBackground": rgba(destinationBackground),
       "cancelled": cancelled, "samples": samples,
     ]

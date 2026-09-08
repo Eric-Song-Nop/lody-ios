@@ -4,13 +4,14 @@ struct LodySessionRowContent: UIContentConfiguration {
   var row: LodyListRow
   var dot: UIColor?
   var live: Bool
+  var indented: Bool
 
   func makeContentView() -> UIView & UIContentView { LodySessionRowView(self) }
   func updated(for state: UIConfigurationState) -> LodySessionRowContent { self }
 }
 
-private final class PillLabel: UILabel {
-  let insets = UIEdgeInsets(top: 2, left: 7, bottom: 2, right: 7)
+final class PillLabel: UILabel {
+  let insets = UIEdgeInsets(top: 1, left: 7, bottom: 1, right: 7)
   override func drawText(in rect: CGRect) { super.drawText(in: rect.inset(by: insets)) }
   override var intrinsicContentSize: CGSize {
     guard let text, !text.isEmpty else { return .zero }
@@ -19,11 +20,39 @@ private final class PillLabel: UILabel {
   }
 }
 
+/// Outline children sit on the project name's column: tile 16 + 32 + gap 12.
+/// Flat session lists keep the mark beside the text without that column.
+final class LodyIndentedCell: UICollectionViewListCell {
+  static func textLeading(indented: Bool) -> CGFloat { indented ? 60 : 32 }
+  static func markCenter(indented: Bool) -> CGFloat { indented ? 32 : 18 }
+
+  private lazy var separatorLeading = separatorLayoutGuide.leadingAnchor.constraint(
+    equalTo: contentView.leadingAnchor, constant: Self.textLeading(indented: true)
+  )
+
+  var indented = true {
+    didSet { separatorLeading.constant = Self.textLeading(indented: indented) }
+  }
+
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+    separatorLeading.isActive = true
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) { nil }
+}
+
 final class LodySessionRowView: UIView, UIContentView {
-  private let title = UILabel()
-  private let subtitle = UILabel()
-  private let time = UILabel()
+  private let ring = UIView()
+  private let dot = UIView()
+  private let meta = UILabel()
   private let pill = PillLabel()
+  private let time = UILabel()
+  private let title = UILabel()
+  private var withMeta: [NSLayoutConstraint] = []
+  private var withoutMeta: [NSLayoutConstraint] = []
+  private var markCenter: NSLayoutConstraint!
 
   var configuration: UIContentConfiguration {
     didSet { apply() }
@@ -34,50 +63,64 @@ final class LodySessionRowView: UIView, UIContentView {
     super.init(frame: .zero)
     insetsLayoutMarginsFromSafeArea = false
     preservesSuperviewLayoutMargins = false
-    directionalLayoutMargins = .init(top: 13, leading: 4, bottom: 13, trailing: 0)
+    directionalLayoutMargins = .init(top: 11, leading: 0, bottom: 11, trailing: 16)
     title.font = .preferredFont(forTextStyle: .body)
     title.numberOfLines = 2
     title.adjustsFontForContentSizeCategory = true
-    subtitle.adjustsFontForContentSizeCategory = true
-    subtitle.font = .preferredFont(forTextStyle: .footnote)
+    meta.adjustsFontForContentSizeCategory = true
+    meta.font = .preferredFont(forTextStyle: .footnote)
     time.font = .preferredFont(forTextStyle: .footnote)
     time.adjustsFontForContentSizeCategory = true
     time.textColor = .secondaryLabel
     time.textAlignment = .right
     pill.font = .preferredFont(forTextStyle: .caption1).withWeight(.medium)
     pill.adjustsFontForContentSizeCategory = true
-    pill.layer.cornerRadius = 10
+    pill.layer.cornerRadius = 9
     pill.layer.cornerCurve = .continuous
     pill.clipsToBounds = true
-    for label in [title, subtitle, time] {
+    ring.layer.cornerRadius = 7
+    dot.layer.cornerRadius = 4
+    for label in [title, meta, time] {
       label.lineBreakMode = .byTruncatingTail
     }
-    title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-    subtitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+    meta.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
     time.setContentCompressionResistancePriority(.required, for: .horizontal)
     pill.setContentCompressionResistancePriority(.required, for: .horizontal)
-    for view in [title, subtitle, time, pill] {
+    for view in [ring, dot, meta, pill, time, title] {
       view.translatesAutoresizingMaskIntoConstraints = false
+      addSubview(view)
     }
-    addSubview(title)
-    addSubview(subtitle)
-    addSubview(time)
-    addSubview(pill)
     let margin = layoutMarginsGuide
+    markCenter = ring.centerXAnchor.constraint(equalTo: leadingAnchor)
     NSLayoutConstraint.activate([
-      title.topAnchor.constraint(equalTo: margin.topAnchor),
-      title.leadingAnchor.constraint(equalTo: margin.leadingAnchor, constant: 16),
-      title.trailingAnchor.constraint(lessThanOrEqualTo: time.leadingAnchor, constant: -10),
-      subtitle.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 3),
-      subtitle.leadingAnchor.constraint(equalTo: title.leadingAnchor),
-      subtitle.trailingAnchor.constraint(lessThanOrEqualTo: pill.leadingAnchor, constant: -8),
-      subtitle.bottomAnchor.constraint(equalTo: margin.bottomAnchor),
-      time.firstBaselineAnchor.constraint(equalTo: title.firstBaselineAnchor),
-      time.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -22),
-      pill.topAnchor.constraint(equalTo: time.bottomAnchor, constant: 4),
-      pill.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -22),
-      pill.bottomAnchor.constraint(lessThanOrEqualTo: margin.bottomAnchor),
+      markCenter,
+      ring.widthAnchor.constraint(equalToConstant: 14),
+      ring.heightAnchor.constraint(equalToConstant: 14),
+      dot.widthAnchor.constraint(equalToConstant: 8),
+      dot.heightAnchor.constraint(equalToConstant: 8),
+      dot.centerXAnchor.constraint(equalTo: ring.centerXAnchor),
+      dot.centerYAnchor.constraint(equalTo: ring.centerYAnchor),
+      meta.topAnchor.constraint(equalTo: margin.topAnchor),
+      meta.leadingAnchor.constraint(equalTo: margin.leadingAnchor),
+      pill.leadingAnchor.constraint(equalTo: meta.trailingAnchor, constant: 5),
+      pill.centerYAnchor.constraint(equalTo: meta.centerYAnchor),
+      pill.trailingAnchor.constraint(lessThanOrEqualTo: time.leadingAnchor, constant: -10),
+      time.trailingAnchor.constraint(equalTo: margin.trailingAnchor),
+      title.leadingAnchor.constraint(equalTo: margin.leadingAnchor),
+      title.bottomAnchor.constraint(equalTo: margin.bottomAnchor),
     ])
+    withMeta = [
+      ring.centerYAnchor.constraint(equalTo: meta.centerYAnchor),
+      time.firstBaselineAnchor.constraint(equalTo: meta.firstBaselineAnchor),
+      title.topAnchor.constraint(equalTo: meta.bottomAnchor, constant: 3),
+      title.trailingAnchor.constraint(equalTo: margin.trailingAnchor),
+    ]
+    withoutMeta = [
+      ring.centerYAnchor.constraint(equalTo: title.firstBaselineAnchor, constant: -5),
+      time.firstBaselineAnchor.constraint(equalTo: title.firstBaselineAnchor),
+      title.topAnchor.constraint(equalTo: margin.topAnchor),
+      title.trailingAnchor.constraint(lessThanOrEqualTo: time.leadingAnchor, constant: -10),
+    ]
     apply()
   }
 
@@ -88,64 +131,65 @@ final class LodySessionRowView: UIView, UIContentView {
     guard let content = configuration as? LodySessionRowContent else { return }
     let row = content.row
     let tint = content.dot ?? .secondaryLabel
-    title.attributedText = Self.title(for: row, live: content.live, tint: tint)
-    subtitle.attributedText = Self.subtitle(for: row)
-    subtitle.isHidden = subtitle.attributedText?.length == 0
+    directionalLayoutMargins.leading = LodyIndentedCell.textLeading(indented: content.indented)
+    markCenter.constant = LodyIndentedCell.markCenter(indented: content.indented)
+    title.text = row.title
+    title.font = .preferredFont(forTextStyle: row.unread ? .headline : .body)
+    title.textColor = row.destructive ? .systemRed : .label
+    let metaText = Self.meta(for: row)
+    meta.attributedText = metaText
+    let hasMeta = metaText.length > 0 || !row.badge.isEmpty
+    meta.isHidden = !hasMeta
+    NSLayoutConstraint.deactivate(hasMeta ? withoutMeta : withMeta)
+    NSLayoutConstraint.activate(hasMeta ? withMeta : withoutMeta)
     time.text = row.value
     pill.text = row.badge
     pill.isHidden = row.badge.isEmpty
     pill.textColor = tint
     pill.backgroundColor = tint.withAlphaComponent(0.16)
+    dot.backgroundColor = tint
+    dot.isHidden = content.dot == nil
+    ring.backgroundColor = tint.withAlphaComponent(0.14)
+    ring.isHidden = !content.live
     isAccessibilityElement = true
-    accessibilityLabel = [row.title, row.badge, subtitle.attributedText?.string ?? "", row.value]
+    accessibilityLabel = [row.title, row.badge, metaText.string, row.value]
       .filter { !$0.isEmpty }
       .joined(separator: ", ")
   }
 
-  private static func title(for row: LodyListRow, live: Bool, tint: UIColor) -> NSAttributedString {
-    let font = UIFont.preferredFont(forTextStyle: row.unread ? .headline : .body)
-    let color: UIColor = row.destructive ? .systemRed : .label
-    let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
-    let text = NSMutableAttributedString()
-    if live {
-      let mark: CGFloat = 8
-      let image = UIGraphicsImageRenderer(size: CGSize(width: mark, height: mark)).image { _ in
-        tint.setFill()
-        UIBezierPath(ovalIn: CGRect(origin: .zero, size: CGSize(width: mark, height: mark))).fill()
-      }
-      let attachment = NSTextAttachment()
-      attachment.image = image
-      attachment.bounds = CGRect(x: 0, y: (font.capHeight - mark) / 2, width: mark, height: mark)
-      text.append(NSAttributedString(attachment: attachment))
-      text.append(NSAttributedString(string: "\u{00A0}", attributes: attributes))
-    }
-    text.append(NSAttributedString(string: row.title, attributes: attributes))
-    return text
-  }
-
-  private static func subtitle(for row: LodyListRow) -> NSAttributedString {
+  private static func meta(for row: LodyListRow) -> NSAttributedString {
     let footnote = UIFont.preferredFont(forTextStyle: .footnote)
     let base: UIFont = row.subtitleMono
       ? .monospacedSystemFont(ofSize: footnote.pointSize, weight: .regular)
       : footnote
     let text = NSMutableAttributedString()
+    if row.pinned, let pin = UIImage(systemName: "pin.fill") {
+      let attachment = NSTextAttachment()
+      attachment.image = pin.withTintColor(.systemYellow, renderingMode: .alwaysOriginal)
+      let side = footnote.capHeight
+      attachment.bounds = CGRect(x: 0, y: 0, width: side, height: side)
+      text.append(NSAttributedString(attachment: attachment))
+      text.append(NSAttributedString(string: " ", attributes: [.font: footnote]))
+    }
     if !row.subtitle.isEmpty {
       text.append(NSAttributedString(string: row.subtitle, attributes: [.font: base, .foregroundColor: UIColor.secondaryLabel]))
     }
     let add = row.diff["add"] ?? 0, del = row.diff["del"] ?? 0
-    if add > 0 || del > 0 {
+    if row.badge.isEmpty, add > 0 || del > 0 {
       let mono = UIFont.monospacedDigitSystemFont(ofSize: footnote.pointSize, weight: .regular)
-      if text.length > 0 {
+      if !row.subtitle.isEmpty {
         text.append(NSAttributedString(string: " · ", attributes: [.font: footnote, .foregroundColor: UIColor.tertiaryLabel]))
       }
       text.append(NSAttributedString(string: "+\(add)", attributes: [.font: mono, .foregroundColor: UIColor.systemBlue]))
       text.append(NSAttributedString(string: " −\(del)", attributes: [.font: mono, .foregroundColor: UIColor.systemRed]))
+    } else if !row.badge.isEmpty, !row.subtitle.isEmpty {
+      text.append(NSAttributedString(string: " ·", attributes: [.font: footnote, .foregroundColor: UIColor.tertiaryLabel]))
     }
     return text
   }
 }
 
-private extension UIFont {
+extension UIFont {
   func withWeight(_ weight: UIFont.Weight) -> UIFont {
     let traits = fontDescriptor.addingAttributes([.traits: [UIFontDescriptor.TraitKey.weight: weight]])
     return UIFont(descriptor: traits, size: pointSize)

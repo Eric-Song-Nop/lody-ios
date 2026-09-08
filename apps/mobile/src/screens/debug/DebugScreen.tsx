@@ -13,16 +13,19 @@ import { ShinePreviewScreen } from './ShinePreviewScreen';
 import { InboxPreviewScreen } from './InboxPreviewScreen';
 import { SettingsPreviewScreen } from './SettingsPreviewScreen';
 import { OnboardingPreviewScreen } from './OnboardingPreviewScreen';
-import { Link, useTheme } from 'expo-router';
+import { useRouter, useTheme } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Text, View as RNView } from 'react-native';
 import {
   NativeCloseButton,
+  NativeGroupedList,
   dataRuntimeStatus,
   addDataRuntimeListener,
   debugHangDataRuntime,
   debugProbeSchema,
   debugRestartDataRuntime,
+  type NativeListRow,
+  type NativeListSection,
 } from '@lody-ios/kit';
 import { EnvironmentScreen } from '@/screens/EnvironmentScreen';
 import {
@@ -30,35 +33,40 @@ import {
   present,
   type PagePresentationOptions,
 } from '@/lib/presentation';
-import { Screen } from '@/ui/Screen';
 import { Button } from '@/ui/Button';
 import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
+import { usePalette } from '@/lib/theme/palette';
+
+function openRow(id: string, title: string, image: string): NativeListRow {
+  return { id, title, image, action: true, disclosure: true, navigates: true };
+}
 
 function View() {
-  const [runtime, setRuntime] = useState('正在读取');
+  const router = useRouter();
+  const colors = usePalette();
+  const [runtime, setRuntime] = useState<{
+    title: string;
+    subtitle?: string;
+  }>({ title: '正在读取' });
   useEffect(() => {
     if (uiVerify) return;
     const update = (event: Awaited<ReturnType<typeof dataRuntimeStatus>>) =>
-      setRuntime(
-        JSON.stringify(
-          {
-            state: event.state,
-            generation: event.generation,
-            reason: event.reason,
-            lastStartReason: event.lastStartReason,
-            acknowledgements: event.acknowledgements,
-          },
-          null,
-          2,
-        ),
-      );
+      setRuntime({
+        title: event.state,
+        subtitle: [
+          event.generation != null ? `#${event.generation}` : '',
+          event.reason,
+          event.lastStartReason,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      });
     const subscription = addDataRuntimeListener(update);
     void dataRuntimeStatus()
       .then(update)
-      .catch(() => setRuntime('无法读取运行时状态'));
+      .catch(() => setRuntime({ title: '无法读取运行时状态' }));
     return () => subscription.remove();
   }, []);
-  const { colors } = useTheme();
   const [result, setResult] = useState('等待打开页面');
   async function open(style: PagePresentationOptions['style']) {
     try {
@@ -76,205 +84,171 @@ function View() {
       setResult(String(error));
     }
   }
-  if (!__DEV__)
-    return (
-      <Screen>
-        <Text>仅开发构建可用</Text>
-      </Screen>
-    );
+  const sections: NativeListSection[] = [];
+  if (uiVerify)
+    sections.push({
+      id: 'verify',
+      rows: [{ id: 'ui-verify-ready', title: 'Offline UI verification' }],
+    });
+  sections.push(
+    {
+      id: 'ui',
+      header: '界面验收',
+      rows: [
+        openRow('permission-preview', '权限验收', 'hand.raised'),
+        openRow('file-preview', '文件预览验收', 'doc'),
+        openRow('onboarding-preview', '登录引导验收', 'hand.wave'),
+        openRow('settings-preview', '远程设置验收', 'gear'),
+        openRow('inbox-preview', '动态分组验收', 'tray'),
+        ...(uiVerify
+          ? [openRow('background-preview', '后台连接验收', 'moon.zzz')]
+          : []),
+        openRow('scroll-preview', '滚动连续性验收', 'arrow.up.and.down'),
+        openRow('chat-performance', '10,000 条消息性能测试', 'gauge.medium'),
+        ...(uiVerify
+          ? [openRow('model-memory', 'Model memory verification', 'brain')]
+          : []),
+      ],
+    },
+    {
+      id: 'chat',
+      header: '聊天与输入',
+      rows: [
+        openRow('composer-preview', '输入框验收', 'square.and.pencil'),
+        openRow('composer-success', '聊天输入成功', 'checkmark.circle'),
+        openRow('composer-failure', '聊天输入恢复', 'arrow.uturn.backward'),
+        openRow('chat-preview', '原生聊天预览', 'bubble.left.and.bubble.right'),
+        openRow('chat-shine-preview', '过程高光', 'sparkle'),
+      ],
+    },
+    {
+      id: 'send',
+      header: '发送',
+      rows: [
+        openRow('send-preview', '离线发送验收', 'paperplane'),
+        openRow('send-queue', 'Queue 验收', 'list.bullet'),
+        openRow('send-handoff', '新建发送交接', 'arrow.triangle.swap'),
+      ],
+    },
+    {
+      id: 'runtime',
+      header: '数据运行时',
+      footer:
+        '故障注入会暂时中断同步。看门狗应自动重建；连续故障达到上限后，请返回项目页下拉重新同步。',
+      rows: [
+        {
+          id: 'runtime-state',
+          title: runtime.title,
+          subtitle: runtime.subtitle,
+          subtitleMono: true,
+          image: 'cpu',
+        },
+        {
+          id: 'runtime-probe',
+          title: '探测机器数据结构（只报字段名）',
+          image: 'antenna.radiowaves.left.and.right',
+          action: true,
+        },
+        {
+          id: 'runtime-hang',
+          title: '卡死 WebView JS',
+          image: 'exclamationmark.triangle',
+          action: true,
+          destructive: true,
+        },
+        {
+          id: 'runtime-restart',
+          title: '模拟 WebContent 进程丢失',
+          image: 'arrow.clockwise',
+          action: true,
+        },
+      ],
+    },
+    {
+      id: 'router',
+      header: 'Router 与原生模块',
+      footer: result,
+      rows: [
+        openRow('router-environment', '通过 Router 打开', 'link'),
+        openRow('present-pageSheet', '打开 Page Sheet', 'rectangle.portrait'),
+        openRow(
+          'present-formSheet',
+          '打开 Form Sheet',
+          'rectangle.bottomhalf.inset.filled',
+        ),
+        openRow('present-fullScreen', '打开 Full Screen', 'rectangle'),
+        openRow('present-overFullScreen', '打开透明覆盖层', 'square.on.square'),
+      ],
+    },
+  );
+
+  const actions: Record<string, () => void> = {
+    'permission-preview': () => void present(ChatPreviewScreen, {}),
+    'file-preview': () => void present(FilePreviewScreen, {}),
+    'onboarding-preview': () => void present(OnboardingPreviewScreen, {}),
+    'settings-preview': () => void present(SettingsPreviewScreen, {}),
+    'inbox-preview': () => void present(InboxPreviewScreen, {}),
+    'background-preview': () => void present(BackgroundPreviewScreen, {}),
+    'scroll-preview': () => void present(ScrollPreviewScreen, {}),
+    'chat-performance': () => void present(ChatPerformanceScreen, {}),
+    'model-memory': () => void openModelMemory(),
+    'composer-preview': () =>
+      void present(ComposerPreviewScreen, {
+        host: 'sheet',
+        outcome: 'failure',
+      }),
+    'composer-success': () =>
+      void present(
+        ComposerPreviewScreen,
+        { host: 'chat', outcome: 'success' },
+        { style: 'push' },
+      ),
+    'composer-failure': () =>
+      void present(
+        ComposerPreviewScreen,
+        { host: 'chat', outcome: 'failure' },
+        { style: 'push' },
+      ),
+    'chat-preview': () => void present(ChatPreviewScreen, {}),
+    'chat-shine-preview': () => void present(ShinePreviewScreen, {}),
+    'send-preview': () => void openSendPreview(false),
+    'send-queue': () => void openSendPreview(false, true),
+    'send-handoff': () => void openSendPreview(true),
+    'runtime-probe': () =>
+      void debugProbeSchema()
+        .then((report) => {
+          console.log('PROBE_BEGIN', report, 'PROBE_END');
+          setRuntime({
+            title: '探测结果',
+            subtitle: report.slice(0, 120),
+          });
+        })
+        .catch((error) => setRuntime({ title: String(error) })),
+    'runtime-hang': () => void debugHangDataRuntime(),
+    'runtime-restart': () => void debugRestartDataRuntime(),
+    'router-environment': () => router.push('/environment'),
+    'present-pageSheet': () => void open('pageSheet'),
+    'present-formSheet': () => void open('formSheet'),
+    'present-fullScreen': () => void open('fullScreen'),
+    'present-overFullScreen': () => {
+      void present(overlayPage)
+        .then((result) =>
+          setResult(
+            result.status === 'completed' ? '覆盖层已完成' : '覆盖层已取消',
+          ),
+        )
+        .catch((error) => setResult(String(error)));
+    },
+  };
+
   return (
-    <Screen>
-      {uiVerify && (
-        <Text testID="ui-verify-ready">Offline UI verification</Text>
-      )}
-      <Button
-        testID="permission-preview"
-        onPress={() => void present(ChatPreviewScreen, {})}
-      >
-        权限验收
-      </Button>
-      <Button
-        testID="file-preview"
-        onPress={() => void present(FilePreviewScreen, {})}
-      >
-        文件预览验收
-      </Button>
-      <Button
-        testID="onboarding-preview"
-        onPress={() => void present(OnboardingPreviewScreen, {})}
-      >
-        登录引导验收
-      </Button>
-      <Button
-        testID="settings-preview"
-        onPress={() => void present(SettingsPreviewScreen, {})}
-      >
-        远程设置验收
-      </Button>
-      <Button
-        testID="chat-performance"
-        onPress={() => void present(ChatPerformanceScreen, {})}
-      >
-        10,000 条消息性能测试
-      </Button>
-      {uiVerify && (
-        <Button testID="model-memory" onPress={() => void openModelMemory()}>
-          Model memory verification
-        </Button>
-      )}
-      <Button testID="send-preview" onPress={() => void openSendPreview(false)}>
-        离线发送验收
-      </Button>
-      <Button
-        testID="send-queue"
-        onPress={() => void openSendPreview(false, true)}
-      >
-        Queue 验收
-      </Button>
-      <Button testID="send-handoff" onPress={() => void openSendPreview(true)}>
-        新建发送交接
-      </Button>
-      <Button
-        testID="inbox-preview"
-        onPress={() => void present(InboxPreviewScreen, {})}
-      >
-        动态分组验收
-      </Button>
-      {uiVerify && (
-        <Button
-          testID="background-preview"
-          onPress={() => void present(BackgroundPreviewScreen, {})}
-        >
-          后台连接验收
-        </Button>
-      )}
-      <Button
-        testID="composer-preview"
-        onPress={() =>
-          void present(ComposerPreviewScreen, {
-            host: 'sheet',
-            outcome: 'failure',
-          })
-        }
-      >
-        输入框验收
-      </Button>
-      <Button
-        testID="composer-success"
-        onPress={() =>
-          void present(
-            ComposerPreviewScreen,
-            { host: 'chat', outcome: 'success' },
-            { style: 'push' },
-          )
-        }
-      >
-        聊天输入成功
-      </Button>
-      <Button
-        testID="composer-failure"
-        onPress={() =>
-          void present(
-            ComposerPreviewScreen,
-            { host: 'chat', outcome: 'failure' },
-            { style: 'push' },
-          )
-        }
-      >
-        聊天输入恢复
-      </Button>
-      <Button
-        testID="chat-preview"
-        onPress={() => void present(ChatPreviewScreen, {})}
-      >
-        原生聊天预览
-      </Button>
-      <Button
-        testID="chat-shine-preview"
-        onPress={() => void present(ShinePreviewScreen, {})}
-      >
-        过程高光
-      </Button>
-      <Button
-        testID="scroll-preview"
-        onPress={() => void present(ScrollPreviewScreen, {})}
-      >
-        滚动连续性验收
-      </Button>
-      <Text style={{ color: colors.text, fontSize: 22, fontWeight: '600' }}>
-        数据运行时
-      </Text>
-      <Text
-        testID="runtime-state"
-        selectable
-        style={{ color: colors.text, fontFamily: 'Menlo', lineHeight: 22 }}
-      >
-        {runtime}
-      </Text>
-      <Button
-        testID="runtime-probe"
-        onPress={() =>
-          void debugProbeSchema()
-            .then((report) => {
-              console.log('PROBE_BEGIN', report, 'PROBE_END');
-              setRuntime(report.slice(0, 400));
-            })
-            .catch((error) => setRuntime(String(error)))
-        }
-      >
-        探测机器数据结构（只报字段名）
-      </Button>
-      <Button testID="runtime-hang" onPress={() => void debugHangDataRuntime()}>
-        卡死 WebView JS
-      </Button>
-      <Button
-        testID="runtime-restart"
-        onPress={() => void debugRestartDataRuntime()}
-      >
-        模拟 WebContent 进程丢失
-      </Button>
-      <Text style={{ color: colors.text, opacity: 0.6 }}>
-        故障注入会暂时中断同步。看门狗应自动重建；连续故障达到上限后，请返回项目页下拉重新同步。
-      </Text>
-      <Text style={{ color: colors.text, fontSize: 22, fontWeight: '600' }}>
-        Router 与原生模块
-      </Text>
-      <Link
-        href="/environment"
-        style={{ color: colors.primary, fontSize: 17, paddingVertical: 14 }}
-      >
-        通过 Router 打开
-      </Link>
-      <Button testID="present-pageSheet" onPress={() => void open('pageSheet')}>
-        打开 Page Sheet
-      </Button>
-      <Button testID="present-formSheet" onPress={() => void open('formSheet')}>
-        打开 Form Sheet
-      </Button>
-      <Button
-        testID="present-fullScreen"
-        onPress={() => void open('fullScreen')}
-      >
-        打开 Full Screen
-      </Button>
-      <Button
-        testID="present-overFullScreen"
-        onPress={() => {
-          void present(overlayPage)
-            .then((result) =>
-              setResult(
-                result.status === 'completed' ? '覆盖层已完成' : '覆盖层已取消',
-              ),
-            )
-            .catch((error) => setResult(String(error)));
-        }}
-      >
-        打开透明覆盖层
-      </Button>
-      <Text accessibilityLiveRegion="polite" style={{ color: colors.text }}>
-        {result}
-      </Text>
-    </Screen>
+    <NativeGroupedList
+      style={{ flex: 1 }}
+      accent={colors.accent}
+      placeholder=""
+      sections={sections}
+      onRowPress={({ nativeEvent }) => actions[nativeEvent.id]?.()}
+    />
   );
 }
 

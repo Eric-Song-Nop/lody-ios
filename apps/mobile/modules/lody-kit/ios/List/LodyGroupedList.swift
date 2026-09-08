@@ -25,6 +25,9 @@ struct LodyListRow: Record {
   @Field var navigates: Bool = false
   @Field var disclosure: Bool = false
   @Field var destructive: Bool = false
+  @Field var parent: Bool = false
+  @Field var monogram: String = ""
+  @Field var pinned: Bool = false
   @Field var actions: [LodyListAction] = []
   @Field var leadingActions: [LodyListAction] = []
 }
@@ -94,6 +97,44 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
   private static let restingCard = UIColor.tertiarySystemGroupedBackground
 
   private let registration = UICollectionView.CellRegistration<UICollectionViewListCell, LodyListRow> { cell, _, row in
+    LodyGroupedList.configureSystem(cell, row)
+  }
+
+  private lazy var sessionRegistration = UICollectionView.CellRegistration<LodyIndentedCell, LodyListRow> { [weak self] cell, _, row in
+    LodyGroupedList.configureSession(cell, row, indented: self?.outline ?? false)
+  }
+
+  private var outline: Bool { sections.contains { $0.rows.first?.parent == true } }
+
+  private let projectRegistration = UICollectionView.CellRegistration<LodyIndentedCell, LodyListRow> { cell, _, row in
+    LodyGroupedList.configureProject(cell, row)
+  }
+
+  private static func configureProject(_ cell: UICollectionViewListCell, _ row: LodyListRow) {
+    cell.contentConfiguration = LodyProjectRowContent(row: row, accent: accent)
+    cell.accessories = row.navigates
+      ? [.disclosureIndicator()]
+      : [.outlineDisclosure(options: .init(style: .header, tintColor: .tertiaryLabel))]
+    cell.accessibilityIdentifier = row.id
+    cell.accessibilityTraits = [.button, .header]
+  }
+
+  private static func configureSession(_ cell: LodyIndentedCell, _ row: LodyListRow, indented: Bool) {
+    let tint = lodyTint(row.imageTint)
+    cell.indented = indented
+    cell.contentConfiguration = LodySessionRowContent(
+      row: row,
+      dot: tint,
+      live: tint != nil && row.imageTint.hasPrefix("#") && row.badge.isEmpty,
+      indented: indented
+    )
+    cell.accessories = []
+    cell.accessibilityIdentifier = row.id
+    cell.accessibilityTraits = row.action ? .button : .staticText
+  }
+
+  private static func configureSystem(_ cell: UICollectionViewListCell, _ row: LodyListRow) {
+    cell.accessibilityIdentifier = row.id
     let accent = LodyGroupedList.accent
     var content = UIListContentConfiguration.subtitleCell()
     content.text = row.title
@@ -110,6 +151,17 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
     content.textProperties.color = row.destructive ? .systemRed : .label
     if !row.filePath.isEmpty {
       content.image = MaterialFileIcon.image(for: row.filePath)
+    } else if let url = LodyListPhoto.url(row.image) {
+      if let image = LodyListPhoto.image(for: url, ready: { [weak cell] image in
+        guard let cell, cell.accessibilityIdentifier == row.id,
+              var next = cell.contentConfiguration as? UIListContentConfiguration else { return }
+        LodyListPhoto.apply(&next, image: image)
+        cell.contentConfiguration = next
+      }) {
+        LodyListPhoto.apply(&content, image: image)
+      } else if let placeholder = UIImage(systemName: "person.crop.circle.fill") {
+        LodyListPhoto.apply(&content, image: placeholder, placeholder: true)
+      }
     } else if !row.image.isEmpty {
       content.image = UIImage(systemName: row.image)
       content.imageProperties.tintColor =
@@ -125,19 +177,6 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
     }
     if row.disclosure { accessories.append(.disclosureIndicator()) }
     cell.accessories = accessories
-    cell.accessibilityIdentifier = row.id
-    cell.accessibilityTraits = row.action ? .button : .staticText
-  }
-
-  private let sessionRegistration = UICollectionView.CellRegistration<UICollectionViewListCell, LodyListRow> { cell, _, row in
-    let tint = lodyTint(row.imageTint)
-    cell.contentConfiguration = LodySessionRowContent(
-      row: row,
-      dot: tint,
-      live: tint != nil && row.imageTint.hasPrefix("#") && row.badge.isEmpty
-    )
-    cell.accessories = []
-    cell.accessibilityIdentifier = row.id
     cell.accessibilityTraits = row.action ? .button : .staticText
   }
 
@@ -150,13 +189,10 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
   ) { _, _, _ in }
 
   required init(appContext: AppContext? = nil) {
-    var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
-    // The collection owns the ground; the layout must not repaint it at full detent.
-    configuration.backgroundColor = .clear
-    configuration.headerMode = .supplementary
-    configuration.footerMode = .supplementary
-    collection = UICollectionView(frame: .zero, collectionViewLayout: UICollectionViewCompositionalLayout.list(using: configuration))
+    collection = UICollectionView(frame: .zero, collectionViewLayout: UICollectionViewCompositionalLayout.list(using: .init(appearance: .insetGrouped)))
     super.init(appContext: appContext)
+    // UIKit rejects a registration created inside the cell provider.
+    _ = sessionRegistration
     collection.backgroundColor = .systemGroupedBackground
     collection.contentInsetAdjustmentBehavior = .automatic
     collection.alwaysBounceVertical = true
@@ -168,14 +204,30 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
     dataSource.supplementaryViewProvider = { [weak self] collection, kind, index in
       self?.supplementary(in: collection, kind: kind, at: index)
     }
+    dataSource.sectionSnapshotHandlers.willExpandItem = { [weak self] item in
+      self?.onRowPress(["id": item.row, "expanded": true])
+    }
+    dataSource.sectionSnapshotHandlers.willCollapseItem = { [weak self] item in
+      self?.onRowPress(["id": item.row, "expanded": false])
+    }
     collection.delegate = self
-    configuration.leadingSwipeActionsConfigurationProvider = { [weak self] indexPath in
-      self?.swipeActions(at: indexPath, leading: true)
-    }
-    configuration.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in
-      self?.swipeActions(at: indexPath, leading: false)
-    }
-    collection.setCollectionViewLayout(UICollectionViewCompositionalLayout.list(using: configuration), animated: false)
+    collection.setCollectionViewLayout(UICollectionViewCompositionalLayout { [weak self] index, environment in
+      var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
+      // The collection owns the ground; the layout must not repaint it at full detent.
+      configuration.backgroundColor = .clear
+      // `.firstItemInSection` splits the inset card into a header card and an
+      // items card; a parent row is a plain first item so the card stays whole.
+      let outline = self?.section(at: index)?.rows.first?.parent ?? false
+      configuration.headerMode = outline ? .none : .supplementary
+      configuration.footerMode = .supplementary
+      configuration.leadingSwipeActionsConfigurationProvider = { indexPath in
+        self?.swipeActions(at: indexPath, leading: true)
+      }
+      configuration.trailingSwipeActionsConfigurationProvider = { indexPath in
+        self?.swipeActions(at: indexPath, leading: false)
+      }
+      return NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: environment)
+    }, animated: false)
     if #available(iOS 26.0, *) {
       collection.topEdgeEffect.style = .soft
       collection.bottomEdgeEffect.style = .soft
@@ -385,6 +437,11 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
     rowsByID = Dictionary(value.flatMap { section in
       section.rows.map { (ListItemID(section: section.id, row: $0.id), $0) }
     }, uniquingKeysWith: { _, latest in latest })
+    if contentStyle, value.contains(where: { $0.rows.first?.parent == true }) {
+      applyOutline(value, previous: previous)
+      updatePlaceholder()
+      return
+    }
     var snapshot = NSDiffableDataSourceSnapshot<String, ListItemID>()
     for section in value {
       snapshot.appendSections([section.id])
@@ -412,6 +469,38 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
       self.collection.collectionViewLayout.invalidateLayout()
     }
     updatePlaceholder()
+  }
+
+  /// Section snapshots own expansion, so a parent row collapses its children
+  /// with UIKit's outline animation instead of a React round trip. A section
+  /// order change rebuilds without animation: the flat snapshot that reorders
+  /// sections carries no items, and re-adding them animated would replay every
+  /// row.
+  private func applyOutline(_ value: [LodyListSection], previous: NSDiffableDataSourceSnapshot<String, ListItemID>) {
+    let ids = value.map(\.id)
+    let sameSections = previous.sectionIdentifiers == ids
+    if !sameSections {
+      var main = NSDiffableDataSourceSnapshot<String, ListItemID>()
+      main.appendSections(ids)
+      dataSource.apply(main, animatingDifferences: false)
+    }
+    let animate = sameSections && window != nil && !UIAccessibility.isReduceMotionEnabled
+    for section in value {
+      var snapshot = NSDiffableDataSourceSectionSnapshot<ListItemID>()
+      let items = section.rows.map { ListItemID(section: section.id, row: $0.id) }
+      if let parent = items.first, section.rows[0].parent {
+        snapshot.append([parent])
+        snapshot.append(Array(items.dropFirst()), to: parent)
+        if section.headerExpanded ?? true { snapshot.expand([parent]) }
+      } else {
+        snapshot.append(items)
+      }
+      dataSource.apply(snapshot, to: section.id, animatingDifferences: animate)
+    }
+    for index in collection.indexPathsForVisibleItems {
+      guard let cell = collection.cellForItem(at: index) as? UICollectionViewListCell, let row = row(at: index) else { continue }
+      configure(cell, row: row)
+    }
   }
 
   func setContentStyle(_ value: Bool) {
@@ -471,16 +560,45 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
     onRefresh([:])
   }
 
+  private enum RowKind { case system, session, project }
+
+  private func kind(of row: LodyListRow) -> RowKind {
+    guard contentStyle else { return .system }
+    if row.parent { return .project }
+    return row.value.isEmpty && row.badge.isEmpty ? .system : .session
+  }
+
   private func cell(in collectionView: UICollectionView, at indexPath: IndexPath, row: LodyListRow) -> UICollectionViewListCell {
-    let sessionRow = contentStyle && (!row.value.isEmpty || !row.badge.isEmpty)
-    let cell = collectionView.dequeueConfiguredReusableCell(using: sessionRow ? sessionRegistration : registration, for: indexPath, item: row)
+    let cell: UICollectionViewListCell
+    switch kind(of: row) {
+    case .system: cell = collectionView.dequeueConfiguredReusableCell(using: registration, for: indexPath, item: row)
+    case .session: cell = collectionView.dequeueConfiguredReusableCell(using: sessionRegistration, for: indexPath, item: row)
+    case .project: cell = collectionView.dequeueConfiguredReusableCell(using: projectRegistration, for: indexPath, item: row)
+    }
+    decorate(cell, row: row)
+    return cell
+  }
+
+  private func configure(_ cell: UICollectionViewListCell, row: LodyListRow) {
+    switch kind(of: row) {
+    case .system: Self.configureSystem(cell, row)
+    case .session: if let cell = cell as? LodyIndentedCell { Self.configureSession(cell, row, indented: outline) }
+    case .project: Self.configureProject(cell, row)
+    }
+    decorate(cell, row: row)
+  }
+
+  private func decorate(_ cell: UICollectionViewListCell, row: LodyListRow) {
+    // Outline children carry indentation level 1; the row views own their columns.
+    cell.indentationWidth = 0
     cell.configurationUpdateHandler = nil
     cell.automaticallyUpdatesBackgroundConfiguration = true
     if contentStyle {
       if var content = cell.contentConfiguration as? UIListContentConfiguration {
         content.textProperties.numberOfLines = 2
         content.secondaryTextProperties.font = .preferredFont(forTextStyle: .footnote)
-        content.directionalLayoutMargins = .init(top: 12, leading: 22, bottom: 12, trailing: 22)
+        content.directionalLayoutMargins = .init(top: 12, leading: outline ? LodyIndentedCell.textLeading(indented: true) : 22, bottom: 12, trailing: 22)
+        if outline, row.navigates { content.textProperties.color = LodyGroupedList.accent }
         cell.contentConfiguration = content
       }
       cell.backgroundConfiguration = UIBackgroundConfiguration.listGroupedCell()
@@ -499,13 +617,11 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
     } else {
       cell.backgroundConfiguration = UIBackgroundConfiguration.listGroupedCell()
     }
-    return cell
   }
 
   private func section(at index: Int) -> LodyListSection? {
-    let identifiers = dataSource.snapshot().sectionIdentifiers
-    guard identifiers.indices.contains(index) else { return nil }
-    return sections.first { $0.id == identifiers[index] }
+    guard let id = dataSource.sectionIdentifier(for: index) else { return nil }
+    return sections.first { $0.id == id }
   }
 
   private func supplementary(in collectionView: UICollectionView, kind: String, at indexPath: IndexPath) -> UICollectionReusableView? {
@@ -611,16 +727,13 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
   func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
     guard let row = row(at: indexPath) else { return }
     if !row.navigates { collectionView.deselectItem(at: indexPath, animated: true) }
+    // Outline parents toggle through UIKit; the expansion handlers report the change.
+    if row.parent && !row.navigates { return }
     onRowPress(["id": row.id])
   }
 
   private func indexPath(for id: String) -> IndexPath? {
-    for (section, entry) in sections.enumerated() {
-      if let item = entry.rows.firstIndex(where: { $0.id == id }) {
-        return IndexPath(item: item, section: section)
-      }
-    }
-    return nil
+    rowsByID.keys.first { $0.row == id }.flatMap { dataSource.indexPath(for: $0) }
   }
 
   private func deselectOnReturn(animated: Bool, coordinator: UIViewControllerTransitionCoordinator?) {

@@ -83,7 +83,14 @@ class UI:
             elif isinstance(node, list):
                 for child in node:
                     yield from walk(child)
-        return list(walk(json.loads(self.axe('describe-ui'))))
+        # Right after install+launch the simulator can briefly refuse describe-ui.
+        for attempt in range(6):
+            try:
+                return list(walk(json.loads(self.axe('describe-ui'))))
+            except subprocess.CalledProcessError:
+                if attempt == 5:
+                    raise
+                time.sleep(1)
 
     def wait(self, predicate, message, timeout=30):
         deadline = time.monotonic() + timeout

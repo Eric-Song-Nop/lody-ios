@@ -257,7 +257,7 @@ test('the session title comes from the first line of the first message', () => {
   assert.equal(draftTitle('\n\n真正的第一行'), '真正的第一行');
 });
 
-test('projects default to expanded, honor saved collapse, and show More only beyond five sessions', async () => {
+test('projects lead each card as an outline parent, keep children for native collapse, and show More only beyond five sessions', async () => {
   const { projectSections } =
     await import('../../src/features/sessions/inbox.ts');
   for (const count of [0, 5, 6]) {
@@ -270,28 +270,51 @@ test('projects default to expanded, honor saved collapse, and show More only bey
       session('archived', 'completed', { archived: true }),
     ]);
     assert.equal(projectSections(data, ACCENT)[0].headerExpanded, true);
-    assert.equal(
-      projectSections(data, ACCENT)[0].rows.length,
-      Math.min(count, 5) + (count > 5 ? 1 : 0),
-    );
     const [group] = projectSections(data, ACCENT, { p1: true });
-    assert.equal(group.headerExpanded, true);
-    assert.equal(group.headerActionId, 'toggle:p1');
+    const [parent, ...children] = group.rows;
+    assert.equal(group.header, undefined);
+    assert.equal(parent.parent, true);
+    assert.equal(parent.title, data.projects[0].name);
+    assert.equal(parent.monogram, data.projects[0].name.slice(0, 1));
+    assert.equal(parent.id, count ? 'toggle:p1' : 'project:p1');
+    assert.equal(parent.navigates, count ? undefined : true);
+    assert.equal(parent.value, count ? undefined : '没有会话');
     assert.equal(
-      group.rows.some((row) => row.title === '更多'),
+      children.some((row) => row.title === '还有 1 个会话'),
       count > 5,
     );
     assert.deepEqual(
-      group.rows.filter((row) => row.id !== 'project:p1').map((row) => row.id),
+      children.filter((row) => row.id !== 'project:p1').map((row) => row.id),
       Array.from({ length: Math.min(count, 5) }, (_, i) => `s${count - i - 1}`),
     );
-    if (count > 5) assert.equal(group.rows.at(-1).id, 'project:p1');
-    assert.equal(group.footer, undefined);
-    assert.equal(group.headerValue, undefined);
+    if (count > 5) assert.equal(children.at(-1).id, 'project:p1');
     const [collapsed] = projectSections(data, ACCENT, { p1: false });
-    assert.equal(collapsed.rows.length, 0);
-    assert.equal(collapsed.headerValue, String(count));
+    assert.equal(collapsed.headerExpanded, false);
+    assert.equal(collapsed.rows.length, group.rows.length);
+    assert.equal(collapsed.rows[0].badge, count ? String(count) : undefined);
   }
+});
+
+test('project parents summarize the most urgent state and shorten the home path', async () => {
+  const { projectSections } =
+    await import('../../src/features/sessions/inbox.ts');
+  const data = catalog([
+    session('run', 'running'),
+    session('wait', 'requestPermission'),
+    session('done', 'completed'),
+  ]);
+  data.projects[0].rootPath = '/Users/me/git/lody-ios';
+  const [parent] = projectSections(data, ACCENT)[0].rows;
+  assert.equal(parent.value, '1 个等你确认');
+  assert.equal(parent.imageTint, 'warning');
+  assert.equal(parent.subtitle, '~/git/lody-ios');
+  assert.equal(parent.subtitleMono, true);
+  const [live] = projectSections(
+    catalog([session('run', 'running'), session('done', 'completed')]),
+    ACCENT,
+  )[0].rows;
+  assert.equal(live.value, '1 个进行中');
+  assert.equal(live.imageTint, ACCENT);
 });
 
 test('project rows carry branch or agent, diff, activity time, unread and a badge', async () => {
@@ -315,9 +338,9 @@ test('project rows carry branch or agent, diff, activity time, unread and a badg
   const [group] = projectSections(data, ACCENT, {}, now);
   assert.deepEqual(
     group.rows.map((r) => r.id),
-    ['busy', 'quiet'],
+    ['toggle:p1', 'busy', 'quiet'],
   );
-  const [busy, quiet] = group.rows;
+  const [, busy, quiet] = group.rows;
   assert.equal(busy.subtitle, 'feat/map');
   assert.equal(busy.subtitleMono, true);
   assert.deepEqual(busy.diff, { add: 42, del: 7 });

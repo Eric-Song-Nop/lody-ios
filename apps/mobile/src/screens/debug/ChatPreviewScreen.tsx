@@ -89,6 +89,10 @@ const permissionService: PermissionService = {
 function View() {
   const [showImage, setShowImage] = useState(false);
   const [showChanges, setShowChanges] = useState(false);
+  const [durationFixture, setDurationFixture] = useState<{
+    startedAt: number;
+    finished: boolean;
+  } | null>(null);
   const [length, setLength] = useState(totalLength);
   const [step, setStep] = useState(48);
   const [mode, setMode] = useState<'normal' | 'attention'>('normal');
@@ -225,69 +229,103 @@ function View() {
       ],
     },
   ]);
-  const displayedEntriesJSON = showChanges
-    ? JSON.stringify([
-        {
-          id: 'diff-user',
-          role: 'user',
-          status: 'handled',
-          finished: true,
-          items: [
-            {
-              itemId: 'text',
-              type: 'text',
-              text: '修改文件，然后回复 done。',
-            },
-          ],
-        },
-        {
-          id: 'diff-preview',
-          role: 'assistant',
-          status: 'pending',
-          finished: true,
-          items: [
-            {
-              itemId: 'edit',
-              type: 'tool_call',
-              kind: 'edit',
-              title: 'Editing files',
-              status: 'completed',
-            },
-            { itemId: 'answer', type: 'text', text: 'done' },
-          ],
-          fileDiffs: [
-            { path: 'docs/superpowers/.diff-check.md', add: 1, del: 1 },
-            {
-              path: 'src/very-long-directory-name/nested/components/another-long-file-name.ts',
-              add: 1,
-              del: 1,
-            },
-          ],
-        },
-        {
-          id: 'diff-warning',
-          role: 'system',
-          status: 'pending',
-          finished: false,
-          items: [
-            {
-              itemId: 'notice',
-              type: 'system_notice',
-              name: 'agent_warning',
-            },
-          ],
-        },
-        {
-          id: 'diff-cached-warning',
-          role: 'system',
-          status: 'pending',
-          finished: false,
-          items: [{ itemId: 'notice', type: 'system_notice' }],
-        },
-      ])
-    : showImage
-      ? JSON.stringify(JSON.parse(entriesJSON).slice(0, 1))
-      : entriesJSON;
+  let displayedEntriesJSON = entriesJSON;
+  if (durationFixture) {
+    displayedEntriesJSON = JSON.stringify([
+      {
+        id: 'duration-preview',
+        role: 'assistant',
+        status: durationFixture.finished ? 'completed' : 'running',
+        finished: durationFixture.finished,
+        timestamp: new Date(durationFixture.startedAt).toISOString(),
+        startedAt: durationFixture.startedAt,
+        endedAt: durationFixture.finished
+          ? durationFixture.startedAt + 65_000
+          : undefined,
+        items: [
+          {
+            itemId: 'work',
+            type: 'tool_call',
+            kind: 'read',
+            title: '读取计时数据',
+            status: durationFixture.finished ? 'completed' : 'in_progress',
+            hasDetail: false,
+          },
+          ...(durationFixture.finished
+            ? [
+                {
+                  itemId: 'answer',
+                  type: 'text',
+                  text: '计时完成。',
+                },
+              ]
+            : []),
+        ],
+      },
+    ]);
+  } else if (showChanges) {
+    displayedEntriesJSON = JSON.stringify([
+      {
+        id: 'diff-user',
+        role: 'user',
+        status: 'handled',
+        finished: true,
+        items: [
+          {
+            itemId: 'text',
+            type: 'text',
+            text: '修改文件，然后回复 done。',
+          },
+        ],
+      },
+      {
+        id: 'diff-preview',
+        role: 'assistant',
+        status: 'pending',
+        finished: true,
+        items: [
+          {
+            itemId: 'edit',
+            type: 'tool_call',
+            kind: 'edit',
+            title: 'Editing files',
+            status: 'completed',
+          },
+          { itemId: 'answer', type: 'text', text: 'done' },
+        ],
+        fileDiffs: [
+          { path: 'docs/superpowers/.diff-check.md', add: 1, del: 1 },
+          {
+            path: 'src/very-long-directory-name/nested/components/another-long-file-name.ts',
+            add: 1,
+            del: 1,
+          },
+        ],
+      },
+      {
+        id: 'diff-warning',
+        role: 'system',
+        status: 'pending',
+        finished: false,
+        items: [
+          {
+            itemId: 'notice',
+            type: 'system_notice',
+            name: 'agent_warning',
+          },
+        ],
+      },
+      {
+        id: 'diff-cached-warning',
+        role: 'system',
+        status: 'pending',
+        finished: false,
+        items: [{ itemId: 'notice', type: 'system_notice' }],
+      },
+    ]);
+  } else if (showImage) {
+    displayedEntriesJSON = JSON.stringify(JSON.parse(entriesJSON).slice(0, 1));
+  }
   const openProcess = useProcessSheet(displayedEntriesJSON, () =>
     setMode('attention'),
   );
@@ -299,6 +337,7 @@ function View() {
             accessibilityLabel="Diff Fixture"
             icon="doc.text"
             onPress={() => {
+              setDurationFixture(null);
               setShowImage(false);
               setShowChanges(true);
             }}
@@ -307,8 +346,21 @@ function View() {
             accessibilityLabel="Image Fixture"
             icon="photo"
             onPress={() => {
+              setDurationFixture(null);
               setShowChanges(false);
               setShowImage(true);
+            }}
+          />
+          <Stack.Toolbar.Button
+            accessibilityLabel="Duration Fixture"
+            icon="timer"
+            onPress={() => {
+              setShowImage(false);
+              setShowChanges(false);
+              setDurationFixture({
+                startedAt: Date.now(),
+                finished: false,
+              });
             }}
           />
           <Stack.Toolbar.Button
@@ -326,10 +378,22 @@ function View() {
         </Stack.Toolbar>
       )}
       <Stack.Toolbar placement="right">
+        {durationFixture && !durationFixture.finished && (
+          <Stack.Toolbar.Button
+            accessibilityLabel="Finish Duration Fixture"
+            icon="stop.circle"
+            onPress={() =>
+              setDurationFixture((current) =>
+                current ? { ...current, finished: true } : current,
+              )
+            }
+          />
+        )}
         <Stack.Toolbar.Button
           accessibilityLabel="Fast Replay"
           icon="forward.end"
           onPress={() => {
+            setDurationFixture(null);
             setShowImage(false);
             setShowChanges(false);
             setStep(240);
@@ -341,6 +405,7 @@ function View() {
           accessibilityLabel="Retry"
           icon="arrow.trianglehead.clockwise.rotate.90"
           onPress={() => {
+            setDurationFixture(null);
             setShowImage(false);
             setShowChanges(false);
             setStep(48);

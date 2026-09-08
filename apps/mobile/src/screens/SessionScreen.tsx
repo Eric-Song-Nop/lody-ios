@@ -408,6 +408,7 @@ function View() {
           send.submit({
             id: nativeEvent.id,
             text: nativeEvent.text,
+            startedAt: nativeEvent.startedAt,
             attachments: nativeEvent.attachments,
             phase: 'waiting',
             choice: {

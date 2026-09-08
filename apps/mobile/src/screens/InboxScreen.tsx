@@ -1,8 +1,8 @@
 import { Stack } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   NativeGroupedList,
-  NativeTitleMenu,
+  NativeMenuButton,
   initialInboxView,
   saveInboxView,
   readInboxExpansion,
@@ -19,11 +19,17 @@ import {
   searchSections,
 } from '@/features/sessions/inbox';
 import { openCatalogRow } from '@/hooks/screens/openCatalogRow';
+import { requestNewSession } from '@/features/sessions/sessionNav';
 import { sessionRowAction } from '@/features/sessions/sessionActions';
 import { definePage, present } from '@/lib/presentation';
 import { showToast } from '@/ui/toast';
 import { t } from '../lib/i18n/index.ts';
-import { InboxSettingsScreen } from './InboxSettingsScreen';
+import { SettingsScreen } from './SettingsScreen';
+
+const inboxViews = [
+  { mode: 0, key: 'inbox.settings.view.projects', icon: 'folder' },
+  { mode: 1, key: 'inbox.settings.view.activity', icon: 'clock' },
+] as const;
 
 function View() {
   const { account, localReady } = useAuth();
@@ -33,6 +39,7 @@ function View() {
   const [mode, setMode] = useState(initialInboxView);
   const [expanded, setExpanded] = useState(readInboxExpansion);
   const [query, setQuery] = useState('');
+  const creating = useRef(false);
   const searching = !!query.trim();
   const sections = useMemo(
     () =>
@@ -42,44 +49,81 @@ function View() {
     [mode, catalog, colors.accent, expanded],
   );
   if (!localReady || !account) return <Screen />;
+  const workspaceName = selected?.name ?? t('common.workspace');
   return (
     <>
-      <Stack.Screen options={{ title: selected?.name ?? t('tabs.sessions') }} />
+      <Stack.Screen options={{ title: '' }} />
+      <Stack.Toolbar placement="left">
+        <Stack.Toolbar.View>
+          <NativeMenuButton
+            testID="workspace-menu"
+            accessibilityName={t('inbox.workspaceSwitch.accessibility', {
+              name: workspaceName,
+            })}
+            avatar={{ text: workspaceName.slice(0, 1), color: colors.accent }}
+            label={workspaceName}
+            items={account.workspaces.map((workspace) => ({
+              id: workspace.id,
+              title: workspace.name,
+              selected: workspace.id === selected?.id,
+            }))}
+            onSelect={setWorkspaceId}
+          />
+        </Stack.Toolbar.View>
+      </Stack.Toolbar>
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Menu
+          icon="line.3.horizontal.decrease"
+          tintColor={colors.accent}
+          accessibilityLabel={t('inbox.settings.section.view')}
+        >
+          {inboxViews.map((view) => (
+            <Stack.Toolbar.MenuAction
+              key={view.mode}
+              icon={view.icon}
+              isOn={mode === view.mode}
+              onPress={() => {
+                setMode(view.mode);
+                saveInboxView(view.mode);
+              }}
+            >
+              {t(view.key)}
+            </Stack.Toolbar.MenuAction>
+          ))}
+        </Stack.Toolbar.Menu>
+        <Stack.Toolbar.Button
+          icon="gearshape"
+          tintColor={colors.accent}
+          accessibilityLabel={t('tabs.settings')}
+          onPress={() => void present(SettingsScreen)}
+        />
+      </Stack.Toolbar>
       <Stack.SearchBar
-        placement="stacked"
+        placement="integrated"
         placeholder={t('search.field.placeholder')}
         hideWhenScrolling={false}
         onChangeText={({ nativeEvent }) => setQuery(nativeEvent.text)}
         onCancelButtonPress={() => setQuery('')}
       />
-      <Stack.Title asChild>
-        <NativeTitleMenu
-          accessibilityName={t('inbox.workspaceSwitch.accessibility', {
-            name: selected?.name ?? t('common.workspace'),
-          })}
-          label={selected?.name ?? t('common.workspace')}
-          items={account.workspaces.map((workspace) => ({
-            id: workspace.id,
-            title: workspace.name,
-            selected: workspace.id === selected?.id,
-          }))}
-          onSelect={setWorkspaceId}
-        />
-      </Stack.Title>
-      <Stack.Toolbar placement="right">
+      <Stack.Toolbar>
+        <Stack.Toolbar.SearchBarSlot />
+        <Stack.Toolbar.Spacer width={6} />
         <Stack.Toolbar.Button
-          accessibilityLabel={t('inbox.settings.accessibility')}
-          icon="slider.horizontal.3"
+          icon="plus"
+          separateBackground
           tintColor={colors.accent}
+          accessibilityLabel={t('tabs.newSession')}
           onPress={async () => {
+            if (creating.current) return;
+            if (!selected) {
+              showToast(t('tabs.toast.signInFirst'));
+              return;
+            }
+            creating.current = true;
             try {
-              const result = await present(InboxSettingsScreen, { mode });
-              if (result.status === 'completed') {
-                setMode(result.value);
-                saveInboxView(result.value);
-              }
-            } catch {
-              showToast(t('inbox.toast.settingsFailed'));
+              await requestNewSession(selected.id, catalog);
+            } finally {
+              creating.current = false;
             }
           }}
         />
@@ -98,10 +142,9 @@ function View() {
         }
         onRefresh={refresh}
         contentStyle
-        onRowPress={({ nativeEvent: { id } }) => {
+        onRowPress={({ nativeEvent: { id, expanded: next = true } }) => {
           if (id.startsWith('toggle:')) {
             const projectId = id.slice(7);
-            const next = !(expanded[projectId] ?? true);
             saveInboxExpansion(projectId, next);
             setExpanded((previous) => ({ ...previous, [projectId]: next }));
           } else openCatalogRow(id, catalog);

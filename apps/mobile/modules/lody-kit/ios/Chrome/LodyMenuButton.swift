@@ -1,110 +1,94 @@
 import ExpoModulesCore
 import UIKit
 
-struct LodyTitleMenuItem: Record {
+struct LodyMenuItem: Record {
   @Field var id: String = ""
   @Field var title: String = ""
+  @Field var symbol: String = ""
   @Field var selected: Bool = false
 }
 
-final class LodyTitleMenu: ExpoView {
+struct LodyMenuAvatar: Record {
+  @Field var text: String = ""
+  @Field var color: String = ""
+}
+
+final class LodyMenuButton: ExpoView {
   let onSelect = EventDispatcher()
+  let onSize = EventDispatcher()
   private let button = UIButton(type: .system)
-  private var title = ""
-  private var items: [LodyTitleMenuItem] = []
+  private var avatar = LodyMenuAvatar()
+  private var label = ""
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
     button.changesSelectionAsPrimaryAction = false
-    button.contentHorizontalAlignment = .leading
+    button.showsMenuAsPrimaryAction = true
+    button.titleLabel?.lineBreakMode = .byTruncatingTail
     addSubview(button)
-  }
-
-  override func didMoveToWindow() {
-    super.didMoveToWindow()
-    apply()
   }
 
   override func layoutSubviews() {
     super.layoutSubviews()
-    let pad = leadingInset()
-    button.sizeToFit()
-    button.layoutIfNeeded()
-    let titleShift = button.titleLabel?.frame.minX ?? 0
-    let width = min(
-      max(button.intrinsicContentSize.width, 44),
-      max(44, bounds.width - pad + titleShift)
-    )
-    button.frame = CGRect(x: pad - titleShift, y: 0, width: width, height: bounds.height)
-  }
-
-  override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-    button.frame.contains(point)
-  }
-
-  private func leadingInset() -> CGFloat {
-    let target: CGFloat = 20
-    guard let window else { return target }
-    return max(0, target - convert(.zero, to: window).x)
-  }
-
-  func setLabel(_ value: String) {
-    title = value
-    apply()
+    button.frame = bounds
   }
 
   func setAccessibilityName(_ value: String) {
     button.accessibilityLabel = value
   }
 
-  func setItems(_ value: [LodyTitleMenuItem]) {
-    items = value
+  func setAvatar(_ value: LodyMenuAvatar) {
+    avatar = value
     apply()
   }
 
-  private func apply() {
-    let font = UIFont.preferredFont(forTextStyle: .headline)
-    let color = UIColor.label
-    let labeled = NSMutableAttributedString(
-      string: title,
-      attributes: [.font: font, .foregroundColor: color]
+  func setLabel(_ value: String) {
+    label = value
+    apply()
+  }
+
+  func setItems(_ value: [LodyMenuItem]) {
+    button.menu = UIMenu(
+      options: .singleSelection,
+      children: value.map { item in
+        UIAction(
+          title: item.title,
+          image: item.symbol.isEmpty ? nil : UIImage(systemName: item.symbol),
+          state: item.selected ? .on : .off
+        ) { [weak self] _ in self?.onSelect(["id": item.id]) }
+      }
     )
-    let symbol = UIImage.SymbolConfiguration(pointSize: 10, weight: .semibold)
-    if let image = UIImage(systemName: "chevron.down", withConfiguration: symbol)?
-      .withTintColor(color, renderingMode: .alwaysOriginal)
-    {
-      labeled.append(NSAttributedString(string: "\u{00A0}", attributes: [.font: font]))
-      let attachment = NSTextAttachment()
-      attachment.image = image
-      let size = image.size
-      attachment.bounds = CGRect(
-        x: 0,
-        y: (font.capHeight - size.height) / 2,
-        width: size.width,
-        height: size.height
-      )
-      labeled.append(NSAttributedString(attachment: attachment))
-    }
-    button.configuration = nil
-    button.setAttributedTitle(labeled, for: .normal)
-    button.tintColor = color
-    button.titleLabel?.numberOfLines = 1
-    button.titleLabel?.lineBreakMode = .byTruncatingTail
-    if items.isEmpty {
-      button.menu = nil
-      button.showsMenuAsPrimaryAction = false
-    } else {
-      button.menu = UIMenu(
-        options: .singleSelection,
-        children: items.map { item in
-          UIAction(title: item.title, state: item.selected ? .on : .off) { [weak self] _ in
-            self?.onSelect(["id": item.id])
-          }
-        }
-      )
-      button.showsMenuAsPrimaryAction = true
-    }
-    let width = window?.bounds.width ?? UIScreen.main.bounds.width
-    setViewSize(CGSize(width: width, height: 44))
+  }
+
+  private func avatarImage() -> UIImage {
+    let side: CGFloat = 28
+    let fill = lodyTint(avatar.color) ?? .systemIndigo
+    return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { context in
+      fill.setFill()
+      context.cgContext.fillEllipse(in: CGRect(x: 0, y: 0, width: side, height: side))
+      let attributes: [NSAttributedString.Key: Any] = [
+        .font: UIFont.systemFont(ofSize: 13, weight: .semibold),
+        .foregroundColor: UIColor.white,
+      ]
+      let text = NSAttributedString(string: avatar.text, attributes: attributes)
+      let size = text.size()
+      text.draw(at: CGPoint(x: (side - size.width) / 2, y: (side - size.height) / 2))
+    }.withRenderingMode(.alwaysOriginal)
+  }
+
+  private func apply() {
+    var config = UIButton.Configuration.plain()
+    config.image = avatarImage()
+    config.imagePadding = 8
+    config.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 8)
+    config.attributedTitle = AttributedString(
+      label,
+      attributes: AttributeContainer([
+        .font: UIFont.preferredFont(forTextStyle: .headline),
+        .foregroundColor: UIColor.label,
+      ])
+    )
+    button.configuration = config
+    onSize(["width": min(button.intrinsicContentSize.width, 200)])
   }
 }

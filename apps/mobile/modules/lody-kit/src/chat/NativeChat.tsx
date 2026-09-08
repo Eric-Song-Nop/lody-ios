@@ -32,6 +32,7 @@ export const NativeChat: ComponentType<
       event: NativeSyntheticEvent<{
         id: string;
         text: string;
+        startedAt: number;
         attachments: ChatDraftAttachment[];
       }>,
     ) => void;

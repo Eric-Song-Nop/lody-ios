@@ -128,12 +128,20 @@ handoffInput.text = "用户继续修改"
 handoffComposer.setPendingSend(rejected)
 precondition(handoffInput.text == "用户继续修改", "Repeated failed props must not replace user edits")
 var generatedID = ""
-handoffComposer.onSend = { generatedID = $0["id"] as! String }
+var generatedStartedAt: Double = 0
+let beforeNativeSend = Date().timeIntervalSince1970 * 1000
+handoffComposer.onSend = {
+  generatedID = $0["id"] as! String
+  generatedStartedAt = $0["startedAt"] as? Double ?? 0
+}
 handoffComposer.textViewDidChange(handoffInput)
 for action in handoffSend.actions(forTarget: handoffComposer, forControlEvent: .touchUpInside) ?? [] {
   handoffComposer.perform(NSSelectorFromString(action))
 }
+let afterNativeSend = Date().timeIntervalSince1970 * 1000
 precondition(UUID(uuidString: generatedID) != nil, "The native click must generate a dispatch identity before emitting send")
+precondition((beforeNativeSend...afterNativeSend).contains(generatedStartedAt),
+  "The native send event must carry the timer's durable submission clock")
 print("Composer handoff: destination ownership, failed restore, no-overwrite and send identity passed")
 
 handoffComposer.clearDraft(token: 1)

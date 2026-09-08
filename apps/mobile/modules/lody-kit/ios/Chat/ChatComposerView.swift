@@ -801,6 +801,7 @@ final class ChatComposerView: UIView, UITextViewDelegate {
     onSend?([
       "id": id,
       "text": draft.text,
+      "startedAt": Date().timeIntervalSince1970 * 1000,
       "attachments": draft.attachments.map {
         ["id": $0.id, "name": $0.name, "uri": $0.url.absoluteString, "kind": $0.isImage ? "image" : "file"]
       },

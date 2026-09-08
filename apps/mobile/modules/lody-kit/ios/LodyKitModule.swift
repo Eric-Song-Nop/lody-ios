@@ -11,9 +11,11 @@ public final class LodyKitModule: Module {
   public func definition() -> ModuleDefinition {
     Name("LodyKit")
 
-    Events("onAppActive", "onDataRuntime")
+    Events("onAppActive", "onDataRuntime", "onDebugShake")
     OnCreate {
       ContentPreview.clearAll()
+      LodyShakeMonitor.install()
+      LodyShakeMonitor.onUnlock = { [weak self] in self?.sendEvent("onDebugShake", [:]) }
       #if DEBUG
       if ProcessInfo.processInfo.arguments.contains("--lody-offline") {
         URLProtocol.registerClass(OfflineProbe.self)
@@ -296,15 +298,18 @@ public final class LodyKitModule: Module {
         view.setPlaceholder(placeholder)
       }
     }
-    View(LodyTitleMenu.self) {
-      Events("onSelect")
-      Prop("label") { (view: LodyTitleMenu, label: String) in
-        view.setLabel(label)
-      }
-      Prop("accessibilityName") { (view: LodyTitleMenu, name: String) in
+    View(LodyMenuButton.self) {
+      Events("onSelect", "onSize")
+      Prop("accessibilityName") { (view: LodyMenuButton, name: String) in
         view.setAccessibilityName(name)
       }
-      Prop("items") { (view: LodyTitleMenu, items: [LodyTitleMenuItem]) in
+      Prop("avatar") { (view: LodyMenuButton, avatar: LodyMenuAvatar) in
+        view.setAvatar(avatar)
+      }
+      Prop("label") { (view: LodyMenuButton, label: String) in
+        view.setLabel(label)
+      }
+      Prop("items") { (view: LodyMenuButton, items: [LodyMenuItem]) in
         view.setItems(items)
       }
     }

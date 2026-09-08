@@ -69,27 +69,28 @@ cadence (`--ui-verify-scroll`); the check requires intermediate scroll/height
 frames in both hosts. Review the video for clipping and flashes before claiming
 visual smoothness. The probe contains fixture IDs and geometry only.
 
-| Case             | Production surface                                 | Behavior                                                                                                                                                                 |
-| ---------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| settings         | RemoteSettingsView + RemoteSettingEditorScreen     | Leading Cancel/trailing Save while typing, compact Machine/MCP sheets, Agent prompt, failed load retry, failed-save Toast with draft retention, and saved-value readback |
-| home             | NativeTabs + InboxScreen + creation Sheet          | 首页导航栏搜索、已归档结果、取消恢复；右下角新建反复打开并保留当前 Tab                                                                                                   |
-| onboarding       | OnboardingScreen (non-dismissable pageSheet)       | No close button, swipe-down resists, connect → waiting code → cancel error → retry, sheet closes itself on sign-in                                                       |
-| send             | NativeChat + shared send lifecycle                 | Offline immediate user/shiny rows, no pre-connection dispatch, failed text/attachment restoration, receipt reconciliation                                                |
-| send-rounds      | NativeChat with retained history                   | Three accepted turns (short, wrapped, multiline), distinct IDs, cleared drafts, and native frame-by-frame landing checks                                                 |
-| send-queue       | NativeChat + shared send lifecycle                 | Two sends while a reply runs, durable queue receipt unlocks composer, FIFO consumption, no duplicate draft                                                               |
-| send-handoff     | NativeComposer sheet → NativeChat push             | Message UIView stays visible across navigation before creation; failed creation restores draft in target input                                                           |
-| layout           | NativeChat + navigation title                      | Stream segments, completion folding, full conclusion, process-row height, send positioning                                                                               |
-| tracking         | NativeChat                                         | User drag releases following, stable history, return button during/after streaming                                                                                       |
-| model-memory     | CreateSessionScreen + ModelScreen + NativeComposer | Per-model effort and permission restoration across both selection hosts, full-access default                                                                             |
-| model-options    | ChatComposerView                                   | Model/effort controls, RN echo, reopen persistence                                                                                                                       |
-| image-preview    | ChatImageCell + ChatImagePreview                   | Synthetic bitmap, zoom/restore, button and gesture dismissal                                                                                                             |
-| composer         | NativeComposer in a real form sheet                | Floating list inset, half/full sheet contrast, last-row reachability, file paste, keyboard clearance, rejection restore, duplicate suppression                           |
-| composer-success | NativeChat composer                                | File paste, pending clear/lock, text and attachments stay cleared after acceptance                                                                                       |
-| markdown         | MarkdownView code block                            | Copy preserves complete code and indentation through the Simulator clipboard                                                                                             |
-| background       | DataRuntime + BGContinuedProcessingTask            | 同一 WebView 跨后台恢复、真实系统申请、完成/到期释放；系统拒绝时明确记录未验证长时执行                                                                                   |
-| changes          | NativeChat + file diff page                        | Grouped file rows after completion, header totals, long paths, direct diff navigation, hidden warnings                                                                   |
-| inbox            | NativeGroupedList + inboxSections                  | 动态分组；会话行是对话列表（标题前进行中圆点、时间在右、确认胶囊）；未读完成不进今天                                                                                     |
-| composer-failure | NativeChat composer                                | Pasted-file, text and attachment restoration after rejection                                                                                                             |
+| Case             | Production surface                                 | Behavior                                                                                                                                                                                              |
+| ---------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| settings         | RemoteSettingsView + RemoteSettingEditorScreen     | Leading Cancel/trailing Save while typing, compact Machine/MCP sheets, Agent prompt, failed load retry, failed-save Toast with draft retention, and saved-value readback                              |
+| home             | InboxScreen header + glass FAB + settings Sheet    | Inbox header search, archived results, cancellation restore; view menu group switching; bottom-right glass create repeated open; push remote settings and archive in settings sheet with close/return |
+| onboarding       | OnboardingScreen (non-dismissable pageSheet)       | No close button, swipe-down resists, connect → waiting code → cancel error → retry, sheet closes itself on sign-in                                                                                    |
+| send             | NativeChat + shared send lifecycle                 | Offline immediate user/static timer rows, no pre-connection dispatch, failed text/attachment restoration, uninterrupted authoritative takeover                                                        |
+| send-rounds      | NativeChat with retained history                   | Three accepted turns (short, wrapped, multiline), distinct IDs, cleared drafts, and native frame-by-frame landing checks                                                                              |
+| send-queue       | NativeChat + shared send lifecycle                 | Two sends while a reply runs, durable queue receipt unlocks composer, FIFO consumption, no duplicate draft                                                                                            |
+| send-handoff     | NativeComposer sheet → NativeChat push             | Message UIView stays visible across navigation before creation; failed creation restores draft in target input                                                                                        |
+| layout           | NativeChat + navigation title                      | Stream segments, completion folding, full conclusion, process-row height, send positioning                                                                                                            |
+| duration         | NativeChat assistant duration row                  | Static (non-shiny) first-row duration advances each second; server process follows below; completion freezes the OSS-compatible duration above the final answer                                       |
+| tracking         | NativeChat                                         | User drag releases following, stable history, return button during/after streaming                                                                                                                    |
+| model-memory     | CreateSessionScreen + ModelScreen + NativeComposer | Per-model effort and permission restoration across both selection hosts, full-access default                                                                                                          |
+| model-options    | ChatComposerView                                   | Model/effort controls, RN echo, reopen persistence                                                                                                                                                    |
+| image-preview    | ChatImageCell + ChatImagePreview                   | Synthetic bitmap, zoom/restore, button and gesture dismissal                                                                                                                                          |
+| composer         | NativeComposer in a real form sheet                | Floating list inset, half/full sheet contrast, last-row reachability, file paste, keyboard clearance, rejection restore, duplicate suppression                                                        |
+| composer-success | NativeChat composer                                | File paste, pending clear/lock, text and attachments stay cleared after acceptance                                                                                                                    |
+| markdown         | MarkdownView code block                            | Copy preserves complete code and indentation through the Simulator clipboard                                                                                                                          |
+| background       | DataRuntime + BGContinuedProcessingTask            | Same WebView cross-background restoration, real system task requests, completion/expiration release; explicitly records unverified long-running execution when system denies request                  |
+| changes          | NativeChat + file diff page                        | Grouped file rows after completion, header totals, long paths, direct diff navigation, hidden warnings                                                                                                |
+| inbox            | NativeGroupedList + inboxSections                  | Dynamic grouping; session rows as conversation list (in-progress dot before title, time on right, confirmation pill); unread completed items do not enter Today                                       |
+| composer-failure | NativeChat composer                                | Pasted-file, text and attachment restoration after rejection                                                                                                                                          |
 
 Every case starts a fresh app process and navigates from Debug. Both light and
 dark appearances run with default text size and English system controls. Product
@@ -133,13 +134,13 @@ Remote settings details now have an independent offline scene. It injects servic
 outcomes and checks the submitted values, but does not claim live cloud persistence.
 Product catalog navigation and live cloud workflows still need separate acceptance.
 
-后台用例通过 `--case background` 运行，模拟器 Home 停留 40 秒。计数来自真实离屏 WebView 回调；云端事件用本地脚本代替，不访问网络或凭据。若系统拒绝持续后台任务，该用例仅验证保留/恢复与申请失败降级，不能据此宣称后台长时执行已通过。长时间真机网络连接和能耗另需实测。
+The background case runs via `--case background`, dwelling on the Simulator Home screen for 40 seconds. Counts originate from real offscreen WebView callbacks; cloud events are substituted with local scripts without network or credential access. If the system denies sustained background tasks, this case only verifies retention/restoration and request-failure degradation, and cannot be used to claim that sustained background execution has passed. Prolonged physical-device network connectivity and power consumption require separate real-device testing.
 
-`--case home` 使用独立的 `EXPO_PUBLIC_UI_VERIFY_HOME=1` 开发包，在 Auth/Catalog Provider 边界注入内存数据，不启动认证或同步。完整运行会先以独立 Metro 运行该场景。新建只验证打开和取消；未绑定电脑的项目不读取电脑配置、不发送真实消息。
+`--case home` uses an independent `EXPO_PUBLIC_UI_VERIFY_HOME=1` development bundle, injecting in-memory data at the Auth/Catalog Provider boundary without launching authentication or synchronization. A full run executes this scene with an isolated Metro instance first. New session creation only verifies opening and cancelling; projects not bound to a machine do not read machine configuration or send real messages.
 
 ### 10,000-message performance demo
 
-Settings → Debug → **10,000 条消息性能测试** loads 5,000 user messages and
+Settings → Debug → **10,000-message performance test** (`10,000 条消息性能测试` in the UI) loads 5,000 user messages and
 5,000 Markdown answers through the production `NativeChat` collection. Tap the
 play button to run a 20-second scroll at 8,000 pt/s (10 seconds away from the
 current position, then back). Start at the bottom for the standard baseline.
@@ -172,10 +173,11 @@ when its view leaves the window.
 It requests the Simulator screen's maximum refresh rate and samples Core Animation
 presentation geometry on every `CADisplayLink` callback, through 350ms after the
 nominal flight. Each case saves raw `lody-throw-*.json` files and a
-`throw-summary.json`: observed FPS, callback gaps, center-path deviation,
-backwards movement, stationary interior frames, scale, and window-to-cell landing
+`throw-summary.json`: observed FPS, callback gaps, deviation from the designed
+path (arc plus settle tail, recorded by the probe), backwards movement during
+the flight segment, stationary interior frames, scale, and window-to-cell landing
 error. Missing samples, a callback gap over 50ms, or a position discontinuity over
-1.5pt fail the check. This measures main-thread callbacks and presentation-layer
+1.5pt fail the check. Tune the curve in `modules/lody-kit/verification/chat/throw-tuner.html`. This measures main-thread callbacks and presentation-layer
 state, not GPU-presented FPS; review the accompanying framebuffer video at its
 original variable frame timestamps as well. Do not upsample the movie and call
 interpolated or duplicated frames additional evidence.

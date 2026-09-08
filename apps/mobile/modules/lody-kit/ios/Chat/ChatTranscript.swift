@@ -12,6 +12,7 @@ struct ChatEntry: Decodable {
   let role: String
   let status: String
   var finished: Bool
+  let timestamp: String?
   let endedAt: Double?
   let startedAt: Double?
   var items: [ChatItem]
@@ -61,17 +62,76 @@ struct ChatRow: Equatable {
   var localImageURI: String? = nil
   var image: ChatImage? = nil
   var fileDiff: ChatFileDiff? = nil
+  var workDurationMs: Int? = nil
+  var shines: Bool { kind == "summary" && running && !attention }
   /// `only` / `first` / `middle` / `last` for consecutive file rows in one group.
   var group = ""
+}
+
+enum ChatWorkDuration {
+  private static let fractionalTimestamp: ISO8601DateFormatter = {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return formatter
+  }()
+  private static let timestamp = ISO8601DateFormatter()
+
+  static func startMilliseconds(for entry: ChatEntry) -> Double? {
+    let parsedTimestamp = entry.timestamp.flatMap {
+      fractionalTimestamp.date(from: $0) ?? timestamp.date(from: $0)
+    }
+    return parsedTimestamp.map { $0.timeIntervalSince1970 * 1000 } ?? entry.startedAt
+  }
+
+  static func milliseconds(for entry: ChatEntry, now: Double, startOverride: Double? = nil) -> Int? {
+    let start = startOverride ?? startMilliseconds(for: entry)
+    let end = entry.finished ? entry.endedAt : now
+    guard let start, let end, start.isFinite, end.isFinite, end >= start,
+          end - start <= Double(Int.max) else { return nil }
+    return Int(end - start)
+  }
+
+  static func needsTimer(_ rows: [ChatRow]) -> Bool {
+    rows.contains { $0.kind == "duration" && $0.running && $0.workDurationMs != nil }
+  }
+
+  static func format(
+    _ milliseconds: Int,
+    hour: String,
+    minute: String,
+    second: String
+  ) -> String {
+    guard milliseconds >= 0 else { return "" }
+    let totalSeconds = milliseconds / 1000
+    let hours = totalSeconds / 3600
+    let minutes = totalSeconds % 3600 / 60
+    let seconds = totalSeconds % 60
+    if hours > 0 {
+      return "\(hours)\(hour) \(pad2(minutes))\(minute) \(pad2(seconds))\(second)"
+    }
+    if minutes > 0 {
+      return "\(minutes)\(minute) \(pad2(seconds))\(second)"
+    }
+    return "\(seconds)\(second)"
+  }
+
+  private static func pad2(_ value: Int) -> String {
+    value < 10 ? "0\(value)" : String(value)
+  }
 }
 
 /// Stable identities belong to the protocol, never to the streamed text.
 struct ChatTranscript {
   var entries: [ChatEntry] = []
 
-  func rows(processEntryID: String = "", processStartID: String = "") -> [ChatRow] {
-    entries.flatMap { entry -> [ChatRow] in
-      var entry = entry
+  func rows(
+    processEntryID: String = "",
+    processStartID: String = "",
+    now: Double = Date().timeIntervalSince1970 * 1000,
+    turnStartedAt: [String: Double] = [:]
+  ) -> [ChatRow] {
+    entries.enumerated().flatMap { entryIndex, source -> [ChatRow] in
+      var entry = source
       // Older cached projections omitted notice names. Neither these placeholders nor
       // agent warnings belong in the conversation's execution process.
       entry.items.removeAll { $0.type == "system_notice" && ($0.name == nil || $0.name == "agent_warning") }
@@ -126,6 +186,21 @@ struct ChatTranscript {
         }
       }
       var result: [ChatRow] = []
+      if entry.role == "assistant", !processOnly {
+        let turn = entries[..<entryIndex].last { $0.role == "user" }
+        let turnID = turn?.id ?? entry.id
+        let start = turnStartedAt[turnID] ?? turn.flatMap(ChatWorkDuration.startMilliseconds)
+        if let duration = ChatWorkDuration.milliseconds(for: entry, now: now, startOverride: start) {
+          result.append(ChatRow(
+            id: turnID + ":duration",
+            entryID: entry.id,
+            kind: "duration",
+            text: workDurationTitle(duration, running: entry.isRunning),
+            running: entry.isRunning,
+            workDurationMs: duration
+          ))
+        }
+      }
       for index in visible {
         if let indices = groups[index] {
           let process = indices.map { entry.items[$0] }
@@ -133,7 +208,11 @@ struct ChatTranscript {
           let needsPermission = process.contains { $0.permission?.pending == true }
           let failed = process.contains { $0.status == "failed" }
           let running = entry.isRunning && indices.last == entry.items.indices.last
-          let title = processTitle(needsPermission: needsPermission, failed: failed, running: running)
+          let title = processTitle(
+            needsPermission: needsPermission,
+            failed: failed,
+            running: running
+          )
           let firstGroup = index == groups.keys.min()
           result.append(ChatRow(id: entry.id + ":process" + (firstGroup ? "" : ":" + entry.items[index].itemId), entryID: entry.id, kind: "summary",
             text: tools > 0
@@ -197,11 +276,28 @@ struct ChatTranscript {
   }
 }
 
-private func processTitle(needsPermission: Bool, failed: Bool, running: Bool) -> String {
+private func processTitle(
+  needsPermission: Bool,
+  failed: Bool,
+  running: Bool
+) -> String {
   if needsPermission { return LodyStrings.text("native.chat.transcript.status.pending") }
   if failed { return LodyStrings.text("native.chat.transcript.status.failed") }
   if running { return LodyStrings.text("native.chat.transcript.status.running") }
   return LodyStrings.text("native.chat.transcript.status.done")
+}
+
+private func workDurationTitle(_ milliseconds: Int, running: Bool) -> String {
+  let duration = ChatWorkDuration.format(
+    milliseconds,
+    hour: LodyStrings.text("native.chat.duration.hour"),
+    minute: LodyStrings.text("native.chat.duration.minute"),
+    second: LodyStrings.text("native.chat.duration.second")
+  )
+  return LodyStrings.text(
+    running ? "native.chat.transcript.status.workingFor" : "native.chat.transcript.status.workedFor",
+    ["duration": duration]
+  )
 }
 
 private func planPrefix(_ status: String?) -> String {
@@ -231,6 +327,7 @@ struct ChatPendingSend: Decodable {
   let text: String
   let attachments: [Attachment]
   let status: String
+  var startedAt: Double? = nil
   var failed: Bool? = nil
   var reconnect: Bool? = nil
 
@@ -252,7 +349,18 @@ struct ChatPendingSend: Decodable {
     let acceptedIndex = entries.firstIndex { $0.id == id }
     let hasReply = acceptedIndex.map { entries.dropFirst($0 + 1).contains { $0.role == "assistant" } } ?? false
     if !hasReply {
-      result.append(ChatRow(id: id + ":pending", entryID: id, kind: "summary", text: status, actionable: reconnect == true, running: true))
+      let now = Date().timeIntervalSince1970 * 1000
+      let start = startedAt.flatMap { $0.isFinite && $0 <= now ? $0 : nil } ?? now
+      let duration = Int(now - start)
+      result.append(ChatRow(
+        id: id + ":duration",
+        entryID: id,
+        kind: "duration",
+        text: workDurationTitle(duration, running: true),
+        actionable: reconnect == true,
+        running: true,
+        workDurationMs: duration
+      ))
     }
     return result
   }

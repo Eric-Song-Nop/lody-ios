@@ -236,6 +236,7 @@ function SendPreview() {
                   role: 'user',
                   status: '',
                   finished: true,
+                  startedAt: record.send.startedAt,
                   rev: 0,
                   items: [
                     {
@@ -249,17 +250,11 @@ function SendPreview() {
                 {
                   id: `${record.send.id}:reply`,
                   role: 'assistant',
-                  status: '',
-                  finished: true,
+                  status: 'processing',
+                  finished: false,
+                  startedAt: Date.now(),
                   rev: 0,
-                  items: [
-                    {
-                      itemId: 'text',
-                      type: 'text',
-                      rev: 0,
-                      text: '验收回复已完成',
-                    },
-                  ],
+                  items: [],
                 },
               ],
             }));

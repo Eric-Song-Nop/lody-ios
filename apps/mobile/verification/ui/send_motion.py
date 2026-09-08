@@ -14,6 +14,18 @@ def distance(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
+def project(point, path, cumulative):
+    best = (math.inf, 0)
+    for i, (a, b) in enumerate(zip(path, path[1:])):
+        ab = (b[0] - a[0], b[1] - a[1])
+        span = ab[0] ** 2 + ab[1] ** 2
+        u = 0 if span == 0 else min(1, max(0, ((point[0] - a[0]) * ab[0] + (point[1] - a[1]) * ab[1]) / span))
+        off = distance(point, (a[0] + ab[0] * u, a[1] + ab[1] * u))
+        if off < best[0]:
+            best = (off, cumulative[i] + u * math.sqrt(span))
+    return best
+
+
 class ThrowTrace:
     def __init__(self, ui):
         self.ui = ui
@@ -32,34 +44,39 @@ class ThrowTrace:
             frames = [s for s in samples if s['event'] == 'frame']
             flight = [s for s in frames if not s['adopted']]
             adopted = [s for s in samples if s['adopted']]
-            start, end = center(trace['source']), center(trace['destination'])
-            length = distance(start, end)
-            direction = [(b - a) / max(length, .001) for a, b in zip(start, end)]
-            along, cross = [], []
+            end = center(trace['destination'])
+            route, route_times, flight_time = trace['path'], trace['pathTimes'], trace['flight']
+            cumulative = [0]
+            for a, b in zip(route, route[1:]):
+                cumulative.append(cumulative[-1] + distance(a, b))
+            length = max(c for c, t in zip(cumulative, route_times) if t <= flight_time)
+            along, deviation = [], []
             for sample in flight:
-                delta = [v - origin for v, origin in zip(center(sample['frame']), start)]
-                along.append(sum(v * d for v, d in zip(delta, direction)))
-                cross.append(abs(delta[0] * direction[1] - delta[1] * direction[0]))
+                off, position = project(center(sample['frame']), route, cumulative)
+                along.append(position)
+                deviation.append(off)
             gaps = [b['t'] - a['t'] for a, b in zip(frames, frames[1:])]
             # Keep the first landed frame in the animation budget; later samples
             # still check geometry while alerts and draft edits may run.
             motion_gaps = [b['t'] - a['t'] for a, b in zip(frames, frames[1:]) if not a['adopted']]
             steps = [b - a for a, b in zip(along, along[1:])]
-            # The center follows a straight path. Bounds and the 88% compression
-            # may change the edges, but cannot send its center backwards/sideways.
-            backward = max([0] + [-step for step in steps])
-            landing = max([0] + [distance(center(s['modelFrame']), end) for s in adopted])
-            presentation_error = max([0] + [distance(center(s['frame']), center(s['modelFrame'])) for s in adopted])
+            # The center follows the designed path; the settle tail is part of it,
+            # so only the flight segment must keep moving forward along it.
+            backward = max([0] + [-step for step, sample in zip(steps, flight) if sample['t'] <= flight_time])
+            # Origins, not centers: the fixture may re-render the landed row's
+            # height afterwards, which is content, not a handoff shift.
+            landing = max([0] + [distance(s['modelFrame'][:2], trace['destination'][:2]) for s in adopted])
+            presentation_error = max([0] + [distance(s['frame'][:2], s['modelFrame'][:2]) for s in adopted])
             stalls = sum(abs(step) < .1 and .15 * length < along[i] < .85 * length
                          for i, step in enumerate(steps))
             fps = (len(frames) - 1) / max(frames[-1]['t'] - frames[0]['t'], .001) if len(frames) > 1 else 0
             report = dict(file=path.name, duration=trace['duration'], samples=len(frames), flightSamples=len(flight),
                           measuredFPS=fps, maximumFPS=trace['maximumFPS'], maxFrameGapMs=max(gaps, default=0) * 1000,
                           maxMotionFrameGapMs=max(motion_gaps, default=0) * 1000,
-                          distancePt=length, maxSidewaysErrorPt=max(cross, default=0), maxBackwardStepPt=backward,
+                          distancePt=length, maxPathDeviationPt=max(deviation, default=0), maxBackwardStepPt=backward,
                           maxLandingErrorPt=landing, maxAdoptedPresentationErrorPt=presentation_error,
                           interiorStallFrames=stalls, minScale=min([s['scale'] for s in flight], default=1))
-            text_frames = [s for s in flight if s['t'] > trace['duration'] * .35]
+            text_frames = [s for s in flight if s['t'] > flight_time * .35]
             invisible = [s for s in text_frames if s.get('textOpacity', 0) < .9 or min(s.get('textBounds', [0])) <= 0]
             report['invisibleTextFrames'] = len(invisible)
             if invisible or not text_frames:
@@ -82,8 +99,8 @@ class ThrowTrace:
                 failures.append((path.name, 'incomplete flight/adoption sampling'))
             if max(motion_gaps, default=1) > .05:
                 failures.append((path.name, 'flight/landing callback gap exceeds 50ms'))
-            if max(cross, default=0) > 1.5 or backward > 1.5:
-                failures.append((path.name, 'flight center deviated or moved backwards'))
+            if max(deviation, default=0) > 1.5 or backward > 1.5:
+                failures.append((path.name, 'flight center left the designed path or moved backwards'))
             if landing > 1.5 or presentation_error > 1.5:
                 failures.append((path.name, 'window-to-cell handoff changed position'))
             if stalls:

@@ -5,6 +5,7 @@ export {
   showToast,
   type ToastKind,
   addAppActiveListener,
+  addDebugShakeListener,
   type RuntimeInfo,
 } from './runtime/LodyKit';
 export {
@@ -85,10 +86,10 @@ export {
 export { readLocalStartup } from './runtime/LodyKit';
 
 export {
-  NativeTitleMenu,
-  type NativeTitleMenuItem,
-  type NativeTitleMenuProps,
-} from './chrome/NativeTitleMenu';
+  NativeMenuButton,
+  type NativeMenuItem,
+  type NativeMenuButtonProps,
+} from './chrome/NativeMenuButton';
 
 export {
   NativeContextMenu,

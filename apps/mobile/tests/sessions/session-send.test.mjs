@@ -87,6 +87,7 @@ const session = {
 const draft = {
   id: 'BFBAD3D5-3B07-4E9A-BA66-FC3002179887',
   text: 'hello',
+  startedAt: 1_780_000_000_000,
   attachments: [{ id: 'a', uri: 'file:///a', name: 'a.txt', kind: 'file' }],
   choice: {},
   phase: 'waiting',

@@ -193,6 +193,7 @@ function View() {
   function submit(
     id: string,
     draft: string,
+    startedAt: number,
     attachments: ChatDraftAttachment[],
   ) {
     const ready =
@@ -227,6 +228,7 @@ function View() {
     const send = {
       id,
       text: draft,
+      startedAt,
       attachments,
       phase: 'waiting' as const,
       choice: {
@@ -481,7 +483,12 @@ function View() {
         })}
         restoreDraftToken={restoreDraftToken}
         onSend={({ nativeEvent }) =>
-          submit(nativeEvent.id, nativeEvent.text, nativeEvent.attachments)
+          submit(
+            nativeEvent.id,
+            nativeEvent.text,
+            nativeEvent.startedAt,
+            nativeEvent.attachments,
+          )
         }
         onComposerOptionChange={({ nativeEvent }) => {
           const modelId = nativeEvent.modelId || undefined;

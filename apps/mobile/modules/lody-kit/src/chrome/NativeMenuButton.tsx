@@ -1,31 +1,41 @@
 import { requireNativeView } from 'expo';
-import type { ComponentType } from 'react';
+import { type ComponentType, useState } from 'react';
 import type { NativeSyntheticEvent, ViewProps } from 'react-native';
 
-export type NativeTitleMenuItem = {
+export type NativeMenuItem = {
   id: string;
   title: string;
+  symbol?: string;
   selected?: boolean;
 };
 
-export interface NativeTitleMenuProps extends ViewProps {
+export interface NativeMenuButtonProps extends ViewProps {
   accessibilityName: string;
+  avatar: { text: string; color: string };
   label: string;
-  items: NativeTitleMenuItem[];
+  items: NativeMenuItem[];
   onSelect: (id: string) => void;
 }
 
 const NativeView: ComponentType<
-  Omit<NativeTitleMenuProps, 'onSelect'> & {
+  Omit<NativeMenuButtonProps, 'onSelect'> & {
     onSelect: (event: NativeSyntheticEvent<{ id: string }>) => void;
+    onSize: (event: NativeSyntheticEvent<{ width: number }>) => void;
   }
-> = requireNativeView('LodyKit', 'LodyTitleMenu');
+> = requireNativeView('LodyKit', 'LodyMenuButton');
 
-export function NativeTitleMenu({ onSelect, ...props }: NativeTitleMenuProps) {
+export function NativeMenuButton({
+  onSelect,
+  style,
+  ...props
+}: NativeMenuButtonProps) {
+  const [width, setWidth] = useState(44);
   return (
     <NativeView
       {...props}
+      style={[{ width, height: 44 }, style]}
       onSelect={({ nativeEvent }) => onSelect(nativeEvent.id)}
+      onSize={({ nativeEvent }) => setWidth(Math.ceil(nativeEvent.width))}
     />
   );
 }

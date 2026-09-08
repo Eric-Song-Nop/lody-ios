@@ -5,6 +5,7 @@ import { Flock } from '@loro-dev/flock-wasm/base64';
 import {
   pollDeviceToken,
   requestDeviceCode,
+  getAccount,
   getStreamsGrant,
 } from '../../src/cloud/auth/api.ts';
 import { setLocale } from '../../src/lib/i18n/index.ts';
@@ -160,6 +161,37 @@ test('official auth-site device URL opens the web approval page and rejects fore
   );
   origin = 'https://untrusted.invalid';
   await assert.rejects(requestDeviceCode(), /无效的官方授权地址/);
+});
+
+test('account photo keeps https avatars and drops other image values', async (t) => {
+  const images = [
+    'https://avatars.githubusercontent.com/u/1',
+    'http://avatars.githubusercontent.com/u/1',
+    'javascript:alert(1)',
+    '',
+  ];
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    if (String(url).includes('/get-session')) {
+      return new Response(
+        JSON.stringify({
+          user: {
+            id: 'u1',
+            email: 'i@innei.in',
+            name: 'Innei',
+            image: images.shift(),
+          },
+        }),
+      );
+    }
+    return new Response(JSON.stringify([]));
+  });
+  assert.equal(
+    (await getAccount('token')).user.image,
+    'https://avatars.githubusercontent.com/u/1',
+  );
+  assert.equal((await getAccount('token')).user.image, undefined);
+  assert.equal((await getAccount('token')).user.image, undefined);
+  assert.equal((await getAccount('token')).user.image, undefined);
 });
 
 test('workspace grant accepts the device session bearer directly', async (t) => {

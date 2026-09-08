@@ -15,6 +15,7 @@ const record = (id, phase = 'waiting') => ({
   send: {
     id: `turn-${id}`,
     text: 'hello',
+    startedAt: 1_780_000_000_000,
     attachments: [
       { id: 'file', uri: 'file:///draft', name: 'draft.txt', kind: 'file' },
     ],

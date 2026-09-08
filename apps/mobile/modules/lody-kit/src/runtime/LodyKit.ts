@@ -24,6 +24,7 @@ export type DataRuntimeEvent = {
 type Events = {
   onAppActive: () => void;
   onDataRuntime: (event: DataRuntimeEvent) => void;
+  onDebugShake: () => void;
 };
 declare class LodyKitNativeModule extends NativeModule<Events> {
   readLocalStartup(): Promise<{
@@ -92,6 +93,9 @@ export function showToast(message: string, kind: ToastKind = 'error'): void {
 }
 export function addAppActiveListener(listener: () => void) {
   return native.addListener('onAppActive', listener);
+}
+export function addDebugShakeListener(listener: () => void) {
+  return native.addListener('onDebugShake', listener);
 }
 
 export const readAuthToken = () => native.readAuthToken();

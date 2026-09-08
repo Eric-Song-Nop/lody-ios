@@ -3,19 +3,24 @@
 From the repository root:
 
 ```sh
-swiftc apps/mobile/modules/lody-kit/ios/Chat/ChatTranscript.swift \
+swiftc apps/mobile/modules/lody-kit/ios/LodyStrings.swift \
+  apps/mobile/modules/lody-kit/ios/Chat/ChatTranscript.swift \
   apps/mobile/modules/lody-kit/ios/Chat/ChatStream.swift \
   apps/mobile/modules/lody-kit/ios/Chat/ChatTextFade.swift \
   apps/mobile/modules/lody-kit/verification/chat/main.swift \
   -o /tmp/lody-chat-test && /tmp/lody-chat-test
 ```
 
-Settings → Debug → 原生聊天预览 uses the production native view with 80 history
+Settings → Debug → Native Chat Preview (`原生聊天预览`) uses the production native view with 80 history
 entries and a simulated burst stream. Replay sends 48 characters every 700 ms;
 Swift spreads each burst over presentation frames; new graphemes fade in over
 220 ms. Fade ticks redraw glyphs without updating list layout. The preview sends no network
 writes. Sending preview input appends a local user message and starts a simulated
 reply. Tapping a tool in the process sheet simulates a failure.
+
+Each assistant turn starts with a static duration row. Local submission publishes
+it immediately; an authoritative assistant shell takes over the same stable row
+before server process and answer rows render below it.
 
 Verify: scroll history; replay at the bottom; open the process entry while text
 arrives inside the process sheet; completion folds intermediate rows into the process entry with a 220 ms transition;
@@ -41,9 +46,16 @@ Scroll drawing regression (with a booted iOS Simulator):
 ```sh
 xcrun --sdk iphonesimulator swiftc -target arm64-apple-ios18.0-simulator \
   -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
+  apps/mobile/modules/lody-kit/ios/LodyStrings.swift \
+  apps/mobile/modules/lody-kit/ios/LodyTint.swift \
+  apps/mobile/modules/lody-kit/ios/UIFont+Dynamic.swift \
+  apps/mobile/modules/lody-kit/ios/Chat/ChatTranscript.swift \
   apps/mobile/modules/lody-kit/ios/Chat/ChatTextFade.swift \
   apps/mobile/modules/lody-kit/ios/Chat/ChatTextView.swift \
-  apps/mobile/modules/lody-kit/ios/UIFont+Dynamic.swift \
+  apps/mobile/modules/lody-kit/ios/Chat/ChatThrowCurve.swift \
+  apps/mobile/modules/lody-kit/ios/Chat/ChatAttachments.swift \
+  apps/mobile/modules/lody-kit/ios/Chat/ChatSendHandoff.swift \
+  apps/mobile/modules/lody-kit/ios/Chat/ChatCell.swift \
   apps/mobile/modules/lody-kit/verification/chat-render/main.swift \
   -o /tmp/lody-chat-render-test
 xcrun simctl spawn booted /tmp/lody-chat-render-test
@@ -102,3 +114,11 @@ See [the shared runner](../../../../verification/ui/README.md) for clean Simulat
 setup, individual cases, artifacts and CI. No baseline requires a live session.
 The standalone chat-render executable covers the production status label;
 Markdown and selection no longer use the retired ChatMarkdown implementation.
+
+## Send throw tuner
+
+`throw-tuner.html` is a standalone page for the user-message send animation.
+Open it in a browser, adjust the position curve, arc, landing spring and squash,
+then copy the exported values into `ios/Chat/ChatThrowCurve.swift`. The page
+models the same tracks Swift samples into the position keyframes; `arcHeight`
+in the page is absolute, Swift scales it by path length (`arcRatio`).

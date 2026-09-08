@@ -64,6 +64,7 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
   var rows: [String: ChatRow] = [:]
   var update: DispatchWorkItem?
   var pendingEntries: String?
+  var workDurationTimer: Timer?
   let preparation = DispatchQueue(label: "app.innei.lody.chat", qos: .userInitiated)
   var decoding = false
   var displayError: String? { didSet { composer.displayError = displayError } }
@@ -87,6 +88,7 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
   private var laidOutHeight: CGFloat = 0
   private var hasInitialDraft = false
   var pendingSend: ChatPendingSend?
+  var turnStartedAt: [String: Double] = [:]
   var publishedPendingID: String?
   var handoffID: String?
   var sendScroll: (started: CFTimeInterval, offset: CGFloat)?
@@ -391,6 +393,7 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
       liveEntryID = nil
       update?.cancel(); update = nil
       frameTimer?.invalidate(); frameTimer = nil
+      workDurationTimer?.invalidate(); workDurationTimer = nil
       stream.finish()
       if scrollOwner?.navigationItem.titleView === titleButton {
         scrollOwner?.navigationItem.titleView = nil
@@ -448,13 +451,24 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
     if value.failed == true {
       ChatSendHandoff.cancel(id: value.id)
       if pendingSend?.id == value.id { pendingSend = nil }
+      turnStartedAt[value.id] = nil
       applyRows()
       return
     }
     setPendingSend(value)
   }
 
-  func setPendingSend(_ value: ChatPendingSend) {
+  func setPendingSend(_ pending: ChatPendingSend) {
+    var value = pending
+    var start = turnStartedAt[value.id]
+    if start == nil, let supplied = value.startedAt, supplied.isFinite {
+      start = supplied
+    }
+    if start == nil {
+      start = Date().timeIntervalSince1970 * 1000
+    }
+    value.startedAt = start
+    turnStartedAt[value.id] = start
     let changed = pendingSend?.id != value.id
     pendingSend = value
     if changed {
@@ -486,6 +500,7 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
     lastRestoredDraftToken = token
     if let pendingSend {
       ChatSendHandoff.cancel(id: pendingSend.id)
+      turnStartedAt[pendingSend.id] = nil
       self.pendingSend = nil
       applyRows()
     }

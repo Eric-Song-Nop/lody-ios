@@ -1,4 +1,3 @@
-import { Stack } from 'expo-router';
 import { NativeGroupedList } from '@lody-ios/kit';
 import { definePage } from '@/lib/presentation';
 import { useCatalog } from '@/cloud/catalog/CatalogProvider';
@@ -18,12 +17,6 @@ function View() {
     .map((s) => sessionRow(s, colors.accent, names.get(s.projectId)));
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: t('settings.archived.title'),
-          headerLargeTitle: false,
-        }}
-      />
       <NativeGroupedList
         style={{ flex: 1 }}
         accent={colors.accent}

@@ -22,6 +22,7 @@ export type NativeListRow = {
   unread?: boolean;
   badge?: string;
   diff?: { add: number; del: number };
+  /** SF Symbol name, or an https/file/data image URL for a circular photo. */
   image?: string;
   /** File rows use bundled Material Icon Theme artwork. */
   filePath?: string;
@@ -31,6 +32,10 @@ export type NativeListRow = {
   disclosure?: boolean;
   navigates?: boolean;
   destructive?: boolean;
+  /** First row of a section: the section's outline header; `navigates` rows disclose instead of collapsing. */
+  parent?: boolean;
+  monogram?: string;
+  pinned?: boolean;
   /** Trailing swipe actions. */
   actions?: NativeListAction[];
   leadingActions?: NativeListAction[];
@@ -65,7 +70,10 @@ export const NativeGroupedList: ComponentType<
     placeholder?: string;
     refreshing?: boolean;
     onRefresh?: () => void;
-    onRowPress: (event: NativeSyntheticEvent<{ id: string }>) => void;
+    /** `expanded` accompanies a parent row when UIKit toggles its outline. */
+    onRowPress: (
+      event: NativeSyntheticEvent<{ id: string; expanded?: boolean }>,
+    ) => void;
     onRowAction?: (
       event: NativeSyntheticEvent<{ id: string; actionId: string }>,
     ) => void;

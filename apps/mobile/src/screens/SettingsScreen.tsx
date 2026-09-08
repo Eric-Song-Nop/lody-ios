@@ -1,4 +1,8 @@
 import { useRouter } from 'expo-router';
+import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
+import { AccountScreen } from './AccountScreen';
+import { ArchivedSessionsScreen } from './ArchivedSessionsScreen';
+import { RemoteSettingsScreen, settingsTitle } from './RemoteSettingsScreen';
 import { Linking } from 'react-native';
 import Constants from 'expo-constants';
 import { NativeGroupedList, type NativeListSection } from '@lody-ios/kit';
@@ -9,6 +13,7 @@ import { usePalette } from '@/lib/theme/palette';
 import { relativeTime } from '@/ui/time';
 import { showToast } from '@/ui/toast';
 import { definePage } from '@/lib/presentation';
+import type { RemoteSetting } from '@/models/settings';
 import { t, tp } from '../lib/i18n/index.ts';
 
 const connectionRow = {
@@ -23,6 +28,7 @@ const connectionRow = {
 function View() {
   const auth = useAuth();
   const router = useRouter();
+  const { push, cancel } = usePageRuntime();
   const colors = usePalette();
   const connection = useConnection();
   const { refresh } = useCatalog();
@@ -41,7 +47,7 @@ function View() {
           title: auth.account?.user.name ?? t('settings.account.welcome'),
           subtitle:
             auth.account?.user.email ?? t('settings.account.signInHint'),
-          image: 'person.crop.circle',
+          image: auth.account?.user.image ?? 'person.crop.circle',
           action: !!auth.account,
           disclosure: !!auth.account,
           navigates: !!auth.account,
@@ -162,15 +168,21 @@ function View() {
       sections={sections}
       placeholder=""
       onRowPress={({ nativeEvent }) => {
-        if (nativeEvent.id.startsWith('remote-'))
-          router.push({
-            pathname: '/settings/remote',
-            params: { kind: nativeEvent.id.slice(7) },
-          });
-        if (nativeEvent.id === 'archived') router.push('/settings/archived');
-        if (nativeEvent.id === 'debug-open') router.push('/debug');
+        if (nativeEvent.id.startsWith('remote-')) {
+          const kind = nativeEvent.id.slice(7) as RemoteSetting['kind'];
+          void push(
+            RemoteSettingsScreen,
+            { kind },
+            { title: settingsTitle(kind) },
+          );
+        }
+        if (nativeEvent.id === 'archived') void push(ArchivedSessionsScreen);
+        if (nativeEvent.id === 'debug-open') {
+          cancel();
+          router.push('/debug');
+        }
         if (nativeEvent.id === 'account' && auth.account)
-          router.push('/settings/account');
+          void push(AccountScreen);
         if (nativeEvent.id === 'connection') refresh();
         if (nativeEvent.id === 'credit-flowdown')
           void Linking.openURL('https://github.com/Lakr233/FlowDown').catch(
@@ -185,5 +197,9 @@ export const SettingsScreen = definePage({
   id: 'settings',
   title: t('tabs.settings'),
   Component: View,
-  presentation: { style: 'push', headerVariant: 'transparent' },
+  presentation: {
+    style: 'formSheet',
+    headerVariant: 'transparent',
+    sheetAllowedDetents: [1],
+  },
 });

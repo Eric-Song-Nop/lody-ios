@@ -34,6 +34,7 @@ export type CreationOptions = {
 export type PendingSend = {
   id: string;
   text: string;
+  startedAt: number;
   attachments: ChatDraftAttachment[];
   phase:
     | 'waiting'

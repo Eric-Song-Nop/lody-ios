@@ -6,6 +6,7 @@ final class ChatCell: UICollectionViewCell, UIContextMenuInteractionDelegate {
   var bubble: UIView { messageContent.bubble }
   let icon = UIImageView()
   let spinner = UIActivityIndicatorView(style: .medium)
+  let separator = UIView()
   var row: ChatRow?
   var onInteraction: (() -> Void)?
   override init(frame: CGRect) {
@@ -16,7 +17,11 @@ final class ChatCell: UICollectionViewCell, UIContextMenuInteractionDelegate {
     contentView.addSubview(messageContent)
     contentView.addSubview(icon)
     contentView.addSubview(spinner)
+    contentView.addSubview(separator)
     icon.contentMode = .center
+    separator.backgroundColor = .separator
+    separator.isHidden = true
+    separator.isUserInteractionEnabled = false
     isAccessibilityElement = true
     contentView.addInteraction(UIContextMenuInteraction(delegate: self))
   }
@@ -29,12 +34,15 @@ final class ChatCell: UICollectionViewCell, UIContextMenuInteractionDelegate {
     bubble.isHidden = row.kind != "user"
     icon.image = row.symbol.isEmpty ? nil : UIImage(systemName: row.symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 13))
     icon.tintColor = chromeColor(for: row)
-    row.running && row.kind != "summary" ? spinner.startAnimating() : spinner.stopAnimating()
+    row.running && row.kind != "summary" && row.kind != "duration"
+      ? spinner.startAnimating()
+      : spinner.stopAnimating()
+    separator.isHidden = row.kind != "duration"
     accessibilityIdentifier = row.id
     accessibilityLabel = text.string
     accessibilityTraits = row.actionable ? .button : .staticText
     accessibilityHint = hint(for: row)
-    label.setShine(row.kind == "summary" && row.running && !row.attention)
+    label.setShine(row.shines)
     setNeedsLayout()
   }
   override func prepareForReuse() {
@@ -72,11 +80,14 @@ final class ChatCell: UICollectionViewCell, UIContextMenuInteractionDelegate {
   }
 
   static func leading(_ row: ChatRow) -> CGFloat {
-    row.kind == "text" || row.kind == "user" ? 0 : 24
+    row.kind == "text" || row.kind == "user" || row.kind == "duration" ? 0 : 24
   }
   static func textWidth(_ row: ChatRow, width: CGFloat) -> CGFloat {
     // Reserve the status slot even after completion: status cannot rewrap text.
-    let reserved: CGFloat = row.kind == "text" || row.kind == "thought" || row.kind == "summary" ? 0 : 28
+    let reserved: CGFloat =
+      row.kind == "text" || row.kind == "thought" || row.kind == "summary" || row.kind == "duration"
+        ? 0
+        : 28
     if row.kind == "user" { return max(1, width * 0.84 - 26) }
     return max(1, width - leading(row) - reserved)
   }
@@ -100,6 +111,8 @@ final class ChatCell: UICollectionViewCell, UIContextMenuInteractionDelegate {
       icon.frame = CGRect(x: 0, y: y, width: 16, height: min(height, 20))
     }
     spinner.frame = CGRect(x: width - 24, y: (bounds.height - 20) / 2, width: 20, height: 20)
+    let pixel = 1 / max(1, traitCollection.displayScale)
+    separator.frame = CGRect(x: 0, y: contentView.bounds.height - pixel, width: width, height: pixel)
   }
 
   override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {

@@ -59,6 +59,81 @@ assert(transcript.rows(processEntryID: "steps").map(\.itemID) == ["first", "thin
 assert(transcript.rows(processEntryID: "steps", processStartID: "think1").map(\.itemID) == ["think1", "read"], "An open segment must not change scope on completion")
 print("Chat folding: live text boundaries, scoped process, and conclusion-only completion passed")
 
+let liveDurationJSON = """
+[{"id":"timed-live","role":"assistant","status":"running","finished":false,
+"timestamp":"1970-01-01T00:00:00.000Z",
+"items":[{"itemId":"tool","type":"tool_call","status":"in_progress"}]}]
+"""
+let liveDurationEntries = try JSONDecoder().decode([ChatEntry].self, from: Data(liveDurationJSON.utf8))
+let liveDurationRows = ChatTranscript(entries: liveDurationEntries).rows(now: 65_999)
+assert(liveDurationRows.map(\.kind) == ["duration", "summary"], "Duration must be the first assistant row")
+assert(liveDurationRows[0].running && liveDurationRows[0].workDurationMs == 65_999,
+  "A live turn must measure from timestamp to the injected clock")
+assert(liveDurationRows[1].workDurationMs == nil,
+  "The shiny process row must not own the static duration label")
+assert(!liveDurationRows[0].shines && liveDurationRows[1].shines,
+  "Only the process label may shine; the separate duration label must stay static")
+
+let emptyReplyJSON = """
+[{"id":"sent","role":"user","status":"completed","finished":true,
+"startedAt":1000,
+"items":[{"itemId":"prompt","type":"text","text":"hello"}]},
+{"id":"empty-reply","role":"assistant","status":"running","finished":false,
+"startedAt":3000,"items":[]}]
+"""
+let emptyReplyEntries = try JSONDecoder().decode([ChatEntry].self, from: Data(emptyReplyJSON.utf8))
+let emptyReplyRows = ChatTranscript(entries: emptyReplyEntries).rows(now: 3_500)
+assert(emptyReplyRows.map(\.kind) == ["user", "duration"],
+  "An empty authoritative assistant shell must already provide the uninterrupted status row")
+assert(emptyReplyRows.last?.id == "sent:duration" && emptyReplyRows.last?.entryID == "empty-reply",
+  "The server duration must retain the local turn's stable row identity")
+assert(emptyReplyRows.last?.workDurationMs == 2_500,
+  "Authoritative takeover must continue from the user submission instead of resetting at assistant start")
+let locallyTimedReplyRows = ChatTranscript(entries: emptyReplyEntries).rows(
+  now: 3_500,
+  turnStartedAt: ["sent": 500]
+)
+assert(locallyTimedReplyRows.last?.workDurationMs == 3_000,
+  "The locally published submission clock must survive authoritative takeover")
+
+let finishedDurationJSON = """
+[{"id":"timed-finished","role":"assistant","status":"completed","finished":true,
+"timestamp":"1970-01-01T00:00:00.000Z","endedAt":125000,
+"items":[{"itemId":"tool","type":"tool_call","status":"completed"},
+{"itemId":"answer","type":"text","text":"done"}]}]
+"""
+let finishedDurationEntries = try JSONDecoder().decode([ChatEntry].self, from: Data(finishedDurationJSON.utf8))
+let finishedDurationRows = ChatTranscript(entries: finishedDurationEntries).rows(now: 999_999)
+assert(finishedDurationRows.map(\.kind) == ["duration", "summary", "text"],
+  "Completed duration must remain a separate first row")
+let finishedDurationRow = finishedDurationRows.first
+assert(finishedDurationRow?.workDurationMs == 125_000, "A finished turn must freeze at endedAt")
+assert(
+  ChatWorkDuration.format(3_665_999, hour: "h", minute: "m", second: "s") == "1h 01m 05s",
+  "Duration formatting must match the OSS compact format"
+)
+assert(ChatWorkDuration.format(65_999, hour: "h", minute: "m", second: "s") == "1m 05s")
+assert(ChatWorkDuration.format(999, hour: "h", minute: "m", second: "s") == "0s")
+
+let fallbackDurationJSON = """
+[{"id":"timed-fallback","role":"assistant","status":"running","finished":false,
+"startedAt":1000,
+"items":[{"itemId":"tool","type":"tool_call","status":"in_progress"}]}]
+"""
+let fallbackDurationEntries = try JSONDecoder().decode([ChatEntry].self, from: Data(fallbackDurationJSON.utf8))
+assert(
+  ChatTranscript(entries: fallbackDurationEntries).rows(now: 3_500).first?.workDurationMs == 2_500,
+  "Legacy startedAt must remain a fallback when timestamp is absent"
+)
+
+let invalidDurationJSON = finishedDurationJSON.replacingOccurrences(of: "\"endedAt\":125000", with: "\"endedAt\":-1")
+let invalidDurationEntries = try JSONDecoder().decode([ChatEntry].self, from: Data(invalidDurationJSON.utf8))
+assert(
+  !ChatTranscript(entries: invalidDurationEntries).rows(now: 999_999).contains { $0.kind == "duration" },
+  "An end before the turn start must not show a duration"
+)
+print("Chat duration: live clock, frozen completion, legacy fallback, invalid range and compact formatting passed")
+
 let completedWithNotice = """
 [{"id":"done","role":"assistant","status":"pending","finished":true,
 "fileDiffs":[{"path":"docs/.diff-check.md","add":1,"del":1}],
@@ -198,12 +273,27 @@ precondition(shrink > 20 && shrink < 100)
 precondition(ChatScroll.advance(100, toward: 20, elapsed: 0, response: 0.06) == 100)
 print("Chat motion: continuous retargeting, contraction, convergence, and refresh-rate independence passed")
 
-let localPending = try! JSONDecoder().decode(ChatPendingSend.self, from: Data(#"{"id":"local-send","text":"hello","attachments":[{"id":"photo","name":"cat.png","uri":"file:///tmp/cat.png","kind":"image"}],"status":"正在上传…"}"#.utf8))
+let pendingStartedAt = Date().timeIntervalSince1970 * 1000 - 2_500
+let localPendingJSON = """
+{"id":"local-send","text":"hello","attachments":[
+{"id":"photo","name":"cat.png","uri":"file:///tmp/cat.png","kind":"image"}],
+"status":"正在上传…","startedAt":\(pendingStartedAt)}
+"""
+let localPending = try! JSONDecoder().decode(ChatPendingSend.self, from: Data(localPendingJSON.utf8))
 let pendingRows = localPending.rows(entries: [])
-precondition(pendingRows.map(\.kind) == ["image", "user", "summary"], "A send must show its attachment, text and processing immediately")
+precondition(pendingRows.map(\.kind) == ["image", "user", "duration"],
+  "A send must show its attachment, text and a separate static duration immediately")
 precondition(pendingRows.first?.localImageURI == "file:///tmp/cat.png" && pendingRows.last?.running == true)
-let authoritative = ChatEntry(id: "local-send", role: "user", status: "completed", finished: true, endedAt: nil, startedAt: nil, items: [], fileDiffs: nil)
-precondition(localPending.rows(entries: [authoritative]).map(\.kind) == ["summary"], "Authoritative history must replace the pending user row without duplicating it")
+precondition(pendingRows.last?.id == "local-send:duration")
+precondition((2_400...3_000).contains(pendingRows.last?.workDurationMs ?? -1),
+  "The local duration must start at submission time")
+precondition(ChatWorkDuration.needsTimer(pendingRows),
+  "A local duration row must keep advancing before the server replies")
+precondition(ChatWorkDuration.needsTimer(liveDurationRows))
+precondition(!ChatWorkDuration.needsTimer(finishedDurationRows))
+let authoritative = ChatEntry(id: "local-send", role: "user", status: "completed", finished: true, timestamp: nil, endedAt: nil, startedAt: nil, items: [], fileDiffs: nil)
+precondition(localPending.rows(entries: [authoritative]).map(\.kind) == ["duration"],
+  "Authoritative user history must replace the pending user row without interrupting duration")
 var failedPending = localPending
 failedPending.failed = true
 precondition(failedPending.rows(entries: []).isEmpty, "A failed draft must leave the transcript for restoration")
@@ -213,6 +303,7 @@ var disconnectedPending = localPending
 disconnectedPending.reconnect = true
 let reconnectRows = disconnectedPending.rows(entries: [])
 precondition(reconnectRows.count == pendingRows.count, "Reconnection must reuse the existing pending status row")
-precondition(reconnectRows.last?.actionable == true && reconnectRows.last?.running == true, "Disconnected pending state must offer reconnect while retaining its animated status")
+precondition(reconnectRows.last?.actionable == true && reconnectRows.last?.running == true,
+  "Disconnected pending state must offer reconnect through the same static duration row")
 precondition(pendingRows.last?.actionable == false, "Ordinary pending status must not open the execution process")
 print("Pending reconnect: one actionable status row while disconnected passed")
