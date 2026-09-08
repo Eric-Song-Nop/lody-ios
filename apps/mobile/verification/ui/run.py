@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from simulator import run_with_simulator, SimulatorPool
 
 CHAT = ROOT / 'apps/mobile/modules/lody-kit/verification/chat'
-CASES = ['send-queue', 'send-interrupt', 'send-rounds', 'file-preview', 'chat-performance', 'chat-stream-performance', 'settings', 'send', 'send-handoff', 'layout', 'tracking', 'smooth-scroll', 'model-options', 'image-preview', 'composer', 'composer-success', 'composer-failure', 'markdown', 'duration', 'changes', 'inline-diff', 'inbox', 'background', 'permission', 'home', 'licenses', 'model-memory', 'onboarding']
+CASES = ['send-queue', 'send-interrupt', 'send-rounds', 'file-preview', 'chat-performance', 'chat-stream-performance', 'settings', 'send', 'send-handoff', 'layout', 'tracking', 'smooth-scroll', 'model-options', 'image-preview', 'composer', 'composer-glass', 'composer-success', 'composer-failure', 'markdown', 'duration', 'changes', 'inline-diff', 'inbox', 'background', 'permission', 'home', 'licenses', 'model-memory', 'onboarding']
 # These run their own HomePreviewProviders bundle and start from the inbox, not Debug.
 STANDALONE = {'home', 'licenses'}
 PREVIEW = {
@@ -35,6 +35,7 @@ PREVIEW = {
     'send-handoff': 'send-handoff',
     'background': 'background-preview',
     'composer': 'composer-preview',
+    'composer-glass': 'composer-preview',
     'composer-success': 'composer-success',
     'composer-failure': 'composer-failure',
     'inbox': 'inbox-preview',
@@ -51,6 +52,7 @@ READY = {
     'send-handoff': 'create-session-input',
     'background': 'background-status',
     'composer': 'create-session-input',
+    'composer-glass': 'create-session-input',
     'composer-success': 'session-input',
     'composer-failure': 'session-input',
     'inbox': 'inbox-wait',
@@ -185,9 +187,9 @@ try:
                 else:
                     raise TimeoutError('Video recorder did not start')
                 ui.capture('before')
-                script = Path(__file__).with_name(f'{case}.py') if case in ['file-preview', 'chat-performance', 'chat-stream-performance', 'settings', 'send', 'send-handoff', 'send-rounds', 'send-queue', 'send-interrupt', 'smooth-scroll', 'composer', 'markdown', 'duration', 'changes', 'inline-diff', 'background', 'inbox', 'permission', 'home', 'licenses', 'model-memory', 'onboarding'] else CHAT / ('composer.py' if case.startswith('composer-') else f'{case}.py')
+                script = Path(__file__).with_name(f'{case}.py') if case in ['file-preview', 'chat-performance', 'chat-stream-performance', 'settings', 'send', 'send-handoff', 'send-rounds', 'send-queue', 'send-interrupt', 'smooth-scroll', 'composer', 'composer-glass', 'markdown', 'duration', 'changes', 'inline-diff', 'background', 'inbox', 'permission', 'home', 'licenses', 'model-memory', 'onboarding'] else CHAT / ('composer.py' if case.startswith('composer-') else f'{case}.py')
                 command = [sys.executable, str(script), args.udid]
-                if case.startswith('composer-'):
+                if case in ['composer-success', 'composer-failure']:
                     command += ['--expect', case.removeprefix('composer-'), '--output', str(output)]
                 elif case == 'layout':
                     command += ['--send']
