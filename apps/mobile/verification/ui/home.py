@@ -73,7 +73,8 @@ row = ui.element('archived')
 assert catalog.text('settings.archived.title') in (row.get('AXLabel') or '')
 ui.axe('tap', '--id', 'archived', '--post-delay', '.8')
 archived = ui.element('ui-search')
-assert '搜索历史会话 Search' in (archived.get('AXLabel') or '')
+spoken = ' '.join((i.get('AXLabel') or '') for i in [archived, *(archived.get('children') or [])])
+assert '搜索历史会话 Search' in spoken and catalog.text('inbox.badge.archived') in spoken, spoken
 assert archived['frame']['height'] >= 44
 assert not any(i.get('AXUniqueId') == 'ui-design' for i in ui.state())
 ui.capture('archived-sessions')
