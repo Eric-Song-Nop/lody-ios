@@ -12,7 +12,7 @@
   </p>
 </div>
 
-![Lody iOS Native Experience and Session Collaboration](https://github.com/user-attachments/assets/f5576efa-4ff1-44fe-ab66-9b2eddecb11e)
+![Lody iOS Native Experience and Session Collaboration](https://github.com/user-attachments/assets/16bc1389-6464-494b-95d2-82f8c3a6653c)
 
 ---
 
