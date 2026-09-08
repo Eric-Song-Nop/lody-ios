@@ -26,7 +26,7 @@ checks = {
     'strings': ['LodyStrings.swift'],
     'chat': ['LodyStrings.swift', 'Chat/ChatTranscript.swift', 'Chat/ChatStream.swift', 'Chat/ChatTextFade.swift'],
     'watchdog': ['Cloud/RuntimeHealth.swift'],
-    'shake': ['LodyShakeUnlock.swift'],
+    'shake': ['LodyShakeUnlock.swift', 'LodyShakeMonitor.swift'],
     'local-store': ['Cloud/LocalStore.swift'],
     'content-store': ['Cloud/ContentStore.swift'],
     'chat-render': ['LodyStrings.swift', 'LodyTint.swift', 'UIFont+Dynamic.swift', 'Chat/ChatTranscript.swift', 'Chat/ChatTextView.swift', 'Chat/ChatTextFade.swift', 'Chat/ChatThrowCurve.swift', 'Chat/ChatAttachments.swift', 'Chat/ChatSendHandoff.swift', 'Chat/ChatCell.swift'],
@@ -38,7 +38,7 @@ checks = {
 with tempfile.TemporaryDirectory(prefix='lody-native-verify-') as output:
     for name, files in checks.items():
         binary = str(Path(output) / name)
-        simulator = name in ['chat-render', 'composer', 'attachments', 'diff-font', 'list']
+        simulator = name in ['shake', 'chat-render', 'composer', 'attachments', 'diff-font', 'list']
         command = ['xcrun', '--sdk', 'iphonesimulator', 'swiftc'] if simulator else ['xcrun', 'swiftc']
         if simulator:
             arch = 'arm64' if platform.machine() == 'arm64' else 'x86_64'
