@@ -15,7 +15,7 @@ function View() {
   const {
     params: { projectId },
   } = usePageRuntime<{ projectId: string }>();
-  const { catalog, selected, loading, connected, refresh } = useCatalog();
+  const { catalog, selected, loading, connected } = useCatalog();
   const { account } = useAuth();
   const colors = usePalette();
   const project = catalog.projects.find((p) => p.id === projectId);
@@ -59,8 +59,6 @@ function View() {
         accent={colors.accent}
         contentStyle
         sections={sections}
-        refreshing={loading}
-        onRefresh={refresh}
         placeholder={placeholder}
         previewUserId={account?.user.id}
         previewWorkspaceId={selected?.id}

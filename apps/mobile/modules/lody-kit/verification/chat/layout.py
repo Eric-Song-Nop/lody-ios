@@ -35,8 +35,23 @@ def two_line_title(items):
 ui.wait(two_line_title, 'Project subtitle must be visible when the chat first appears')
 ui.element('chat-navigation-title')
 axe('tap', '--id', 'chat-navigation-title', '--post-delay', '0.3')
-assert '原生 titleView 点击正常' in axe('describe-ui'), 'Native title must keep its tap action'
-axe('tap', '--label', catalog.system('ok'), '--post-delay', '0.3')
+tree = axe('describe-ui')
+assert catalog.text('session.debug.title') in tree, 'Title tap must open the debug alert'
+assert 'session.id: preview' in tree, 'Debug alert must include session identifiers'
+assert 'project.rootPath:' in tree, 'Debug alert must include project paths'
+assert catalog.text('common.copy') in tree, 'Debug alert must offer Copy'
+subprocess.run(['xcrun', 'simctl', 'pbcopy', udid], input='clipboard sentinel', text=True, check=True, timeout=10)
+axe('tap', '--label', catalog.text('common.copy'), '--element-type', 'Button', '--post-delay', '.3')
+copied = subprocess.check_output(['xcrun', 'simctl', 'pbpaste', udid], text=True, timeout=10)
+assert 'session.id: preview' in copied, repr(copied)
+assert 'machine.name: Studio' in copied, repr(copied)
+axe('tap', '--label', catalog.text('common.more'), '--element-type', 'Button', '--post-delay', '.4')
+menu = axe('describe-ui')
+assert catalog.text('session.action.projectFiles') in menu, 'More menu must include Project Files'
+assert catalog.text('session.action.newSession') in menu
+assert catalog.text('session.action.pin') in menu
+assert catalog.text('session.action.archive') in menu
+axe('tap', '-x', '200', '-y', '400', '--post-delay', '.4')
 axe('drag', '--start-x', '2', '--start-y', '400', '--end-x', '70', '--end-y', '400', '--duration', '1', '--post-delay', '.8')
 ui.wait(two_line_title, 'Project subtitle must survive a cancelled return')
 axe('tap', '--label', 'Retry')

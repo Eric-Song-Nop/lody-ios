@@ -69,6 +69,16 @@ assert_swipe_has_no_selection(pin_label)
 ui.capture('leading-action')
 ui.axe('swipe', '--start-x', str(middle), '--start-y', str(y),
        '--end-x', str(left), '--end-y', str(y), '--duration', '.4', '--post-delay', '.4')
+
+# Catalog updates arrive continuously through the CRDT runtime. Pulling the
+# inbox must only bounce; a refresh control would stay active because there is
+# no request lifecycle for React to finish.
+before_pull = ui.element('ui-design')['frame']['y']
+ui.axe('swipe', '--start-x', '200', '--start-y', str(before_pull + 20),
+       '--end-x', '200', '--end-y', str(before_pull + 240), '--duration', '.7', '--post-delay', '1')
+after_pull = ui.element('ui-design')['frame']['y']
+assert abs(after_pull - before_pull) <= 2, 'Pulling the CRDT inbox left a refresh control active'
+
 tap_create()
 ui.element('create-session-input')
 ui.capture('create')

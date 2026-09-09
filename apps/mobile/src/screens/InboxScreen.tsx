@@ -36,7 +36,7 @@ function View() {
   const router = useRouter();
   const { account, localReady } = useAuth();
   const colors = usePalette();
-  const { catalog, selected, setWorkspaceId, loading, connected, refresh } =
+  const { catalog, selected, setWorkspaceId, loading, connected } =
     useCatalog();
   const [mode, setMode] = useState(initialInboxView);
   const [expanded, setExpanded] = useState(readInboxExpansion);
@@ -139,13 +139,11 @@ function View() {
         sections={
           searching ? searchSections(catalog, query, colors.accent) : sections
         }
-        refreshing={false}
         placeholder={
           searching
             ? searchPlaceholder({ signedIn: true, query, loading, connected })
             : listPlaceholder({ loading, connected })
         }
-        onRefresh={refresh}
         contentStyle
         previewUserId={account.user.id}
         previewWorkspaceId={selected?.id}

@@ -3,6 +3,7 @@ export {
   runtimeInfo,
   selectionFeedback,
   showToast,
+  copyText,
   showSessionBanner,
   dismissSessionBanner,
   type ToastKind,

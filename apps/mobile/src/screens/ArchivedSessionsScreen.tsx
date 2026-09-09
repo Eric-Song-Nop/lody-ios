@@ -9,7 +9,7 @@ import { openCatalogRow } from '@/hooks/screens/openCatalogRow';
 import { t } from '../lib/i18n/index.ts';
 
 function View() {
-  const { catalog, selected, loading, refresh } = useCatalog();
+  const { catalog, selected, loading } = useCatalog();
   const { account } = useAuth();
   const colors = usePalette();
   const names = new Map(catalog.projects.map((p) => [p.id, p.name]));
@@ -24,8 +24,6 @@ function View() {
         accent={colors.accent}
         contentStyle
         sections={rows.length ? [{ id: 'archived', rows }] : []}
-        refreshing={loading}
-        onRefresh={refresh}
         placeholder={
           loading ? t('common.loading') : t('settings.archived.empty')
         }

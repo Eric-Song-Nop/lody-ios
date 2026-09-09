@@ -247,7 +247,6 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
       collection.bottomEdgeEffect.style = .soft
     }
     refreshControl.addTarget(self, action: #selector(refreshPulled), for: .valueChanged)
-    collection.refreshControl = refreshControl
     placeholder.textAlignment = .center
     placeholder.numberOfLines = 0
     placeholder.textColor = .secondaryLabel
@@ -564,6 +563,19 @@ final class LodyGroupedList: ExpoView, UICollectionViewDelegate, UISearchBarDele
       refreshControl.beginRefreshing()
     } else if !value, refreshControl.isRefreshing {
       refreshControl.endRefreshing()
+    }
+  }
+
+  func setRefreshEnabled(_ value: Bool) {
+    if value {
+      if collection.refreshControl !== refreshControl {
+        collection.refreshControl = refreshControl
+      }
+    } else {
+      if refreshControl.isRefreshing { refreshControl.endRefreshing() }
+      if collection.refreshControl === refreshControl {
+        collection.refreshControl = nil
+      }
     }
   }
 

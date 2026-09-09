@@ -11,8 +11,13 @@ const config: ExpoConfig = {
   icon: './assets/icon.png',
   ios: {
     bundleIdentifier: 'app.innei.lody',
+    appleTeamId: 'KAMM5N88X3',
     supportsTablet: false,
     config: { usesNonExemptEncryption: false },
+    entitlements: {
+      'aps-environment': 'production',
+      'com.apple.security.application-groups': ['group.app.innei.lody'],
+    },
     infoPlist: {
       BGTaskSchedulerPermittedIdentifiers: ['app.innei.lody.session-sync.*'],
       UIBackgroundModes: ['processing'],
@@ -24,6 +29,7 @@ const config: ExpoConfig = {
     './plugins/withMarkdownView',
     './plugins/withLocales',
     'expo-localization',
+    '@bacons/apple-targets',
   ],
   experiments: { typedRoutes: true, reactCompiler: true },
   runtimeVersion: { policy: 'fingerprint' },

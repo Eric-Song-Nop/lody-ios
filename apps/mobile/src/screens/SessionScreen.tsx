@@ -7,11 +7,16 @@ import { useCatalog } from '@/cloud/catalog/CatalogProvider';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View as RNView, Alert } from 'react-native';
 import { usePalette } from '@/lib/theme/palette';
-import { NativeChat, sessionCreationOptions } from '@lody-ios/kit';
+import {
+  NativeChat,
+  copyText,
+  localProjectIdOf,
+  sessionCreationOptions,
+} from '@lody-ios/kit';
 import { definePage, present } from '@/lib/presentation';
-import { localProjectIdOf } from '@lody-ios/kit';
 import { requestNewSession } from '@/features/sessions/sessionNav';
 import { setArchived, setPinned } from '@/features/sessions/sessionActions';
+import { sessionDebugText } from '@/features/sessions/sessionDebug';
 import { useAuth } from '@/cloud/auth/AuthProvider';
 import type { Session } from '@/models/catalog';
 import type { Capability, CreationOptions } from '@/models/send';
@@ -142,33 +147,6 @@ function View() {
     !currentSession.archived &&
     !!localProjectIdOf(session.projectId);
   const machineName = catalog.machineNames?.[currentSession.machineId] ?? '';
-  const showDetails = () =>
-    Alert.alert(
-      currentSession.title,
-      [
-        project?.name,
-        project?.rootPath,
-        machineName && t('session.detail.machine', { name: machineName }),
-      ]
-        .filter(Boolean)
-        .join('\n'),
-      browsable && account
-        ? [
-            {
-              text: t('session.action.projectFiles'),
-              onPress: () =>
-                void present(FilesScreen, {
-                  workspaceId: selected.id,
-                  sessionId: session.id,
-                  userId: account.user.id,
-                  path: '',
-                  title: project?.name ?? t('session.action.projectFiles'),
-                }),
-            },
-            { text: t('common.ok'), style: 'cancel' },
-          ]
-        : undefined,
-    );
   const onTurnChangesPress = (entryId: string, path: string) => {
     const entry = snapshot.entries.find((e) => e.id === entryId);
     if (!entry) return;
@@ -330,6 +308,36 @@ function View() {
     })),
     efforts: efforts.map((id) => ({ id, title: id })),
   });
+  const openProjectFiles = () => {
+    if (!browsable || !account || !selected) return;
+    void present(FilesScreen, {
+      workspaceId: selected.id,
+      sessionId: session.id,
+      userId: account.user.id,
+      path: '',
+      title: project?.name ?? t('session.action.projectFiles'),
+    });
+  };
+  const showDetails = () => {
+    const body = sessionDebugText({
+      session: currentSession,
+      project,
+      machineName,
+      workspace: selected,
+      userId: account?.user.id,
+      connection,
+      transcript: {
+        status: snapshot.status,
+        revision: snapshot.revision,
+        overflow,
+      },
+      choice: activeChoice,
+    });
+    Alert.alert(t('session.debug.title'), body, [
+      { text: t('common.copy'), onPress: () => copyText(body) },
+      { text: t('common.ok'), style: 'cancel' },
+    ]);
+  };
   return (
     <RNView style={{ flex: 1, backgroundColor: colors.reading }}>
       <Stack.Screen
@@ -391,6 +399,13 @@ function View() {
                 : 'session.action.archive',
             )}
           </Stack.Toolbar.MenuAction>
+          {browsable && account ? (
+            <Stack.Toolbar.Menu inline>
+              <Stack.Toolbar.MenuAction icon="folder" onPress={openProjectFiles}>
+                {t('session.action.projectFiles')}
+              </Stack.Toolbar.MenuAction>
+            </Stack.Toolbar.Menu>
+          ) : null}
         </Stack.Toolbar.Menu>
       </Stack.Toolbar>
       <NativeChat

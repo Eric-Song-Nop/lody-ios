@@ -2,7 +2,9 @@ import { uiVerify } from './uiVerify';
 import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert } from 'react-native';
-import { NativeChat } from '@lody-ios/kit';
+import { NativeChat, copyText } from '@lody-ios/kit';
+import { sessionDebugText } from '@/features/sessions/sessionDebug';
+import { t } from '@/lib/i18n/index.ts';
 import { definePage, present } from '@/lib/presentation';
 import { FileDiffScreen } from '@/screens/FileDiffScreen';
 import { ItemDetailScreen } from '@/screens/ItemDetailScreen';
@@ -36,6 +38,32 @@ const history = Array.from({ length: 80 }, (_, index) => ({
 }));
 
 const totalLength = answer.length + 240;
+const previewDebugBody = sessionDebugText({
+  session: {
+    id: 'preview',
+    machineId: 'studio',
+    title: '原生聊天预览',
+    status: 'idle',
+    archived: false,
+    pinned: false,
+    projectId: 'lody-ios',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    cliType: 'claude',
+    agentType: 'coder',
+    branchName: 'main',
+  },
+  project: {
+    id: 'lody-ios',
+    name: 'lody-ios',
+    rootPath: '/Users/innei/git/innei-repo/lody-ios',
+  },
+  machineName: 'Studio',
+  workspace: { id: 'preview-workspace', name: 'preview', slug: 'preview' },
+  userId: 'preview-user',
+  connection: { state: 'live', machines: 1 },
+  transcript: { status: 'live', revision: 1, overflow: false },
+  choice: { modelId: 'gpt-5.6-sol', effort: 'high' },
+});
 
 function editStatus(mode: 'normal' | 'attention', length: number) {
   if (mode === 'attention') return 'failed';
@@ -426,12 +454,39 @@ function View() {
             setLength(0);
           }}
         ></Stack.Toolbar.Button>
+        <Stack.Toolbar.Menu
+          icon="ellipsis"
+          accessibilityLabel={t('common.more')}
+        >
+          <Stack.Toolbar.MenuAction
+            icon="square.and.pencil"
+            onPress={() => {}}
+          >
+            {t('session.action.newSession')}
+          </Stack.Toolbar.MenuAction>
+          <Stack.Toolbar.MenuAction icon="pin" onPress={() => {}}>
+            {t('session.action.pin')}
+          </Stack.Toolbar.MenuAction>
+          <Stack.Toolbar.MenuAction icon="archivebox" onPress={() => {}}>
+            {t('session.action.archive')}
+          </Stack.Toolbar.MenuAction>
+          <Stack.Toolbar.Menu inline>
+            <Stack.Toolbar.MenuAction icon="folder" onPress={() => {}}>
+              {t('session.action.projectFiles')}
+            </Stack.Toolbar.MenuAction>
+          </Stack.Toolbar.Menu>
+        </Stack.Toolbar.Menu>
       </Stack.Toolbar>
       <NativeChat
         navigationTitle="原生聊天预览"
         navigationSubtitle="lody-ios"
         navigationMachine="Studio"
-        onTitlePress={() => Alert.alert('会话详情', '原生 titleView 点击正常')}
+        onTitlePress={() =>
+          Alert.alert(t('session.debug.title'), previewDebugBody, [
+            { text: t('common.copy'), onPress: () => copyText(previewDebugBody) },
+            { text: t('common.ok'), style: 'cancel' },
+          ])
+        }
         style={{ flex: 1 }}
         entriesJSON={displayedEntriesJSON}
         composerJSON={JSON.stringify({

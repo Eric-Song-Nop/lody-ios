@@ -176,6 +176,15 @@ public final class LodyKitModule: Module, @unchecked Sendable {
   }
 
   @JS
+  func copyText(text: String) {
+    if Thread.isMainThread {
+      UIPasteboard.general.string = text
+      return
+    }
+    DispatchQueue.main.sync { UIPasteboard.general.string = text }
+  }
+
+  @JS
   func showSessionBanner(title: String, kind: String) {
     Task { @MainActor in LodyToastOverlay.shared.showBanner(title: title, kind: kind) }
   }
@@ -431,6 +440,9 @@ public final class LodyKitModule: Module, @unchecked Sendable {
       }
       Prop("accent") { (view: LodyGroupedList, accent: String) in
         view.setAccent(accent)
+      }
+      Prop("refreshEnabled") { (view: LodyGroupedList, enabled: Bool) in
+        view.setRefreshEnabled(enabled)
       }
       Prop("refreshing") { (view: LodyGroupedList, refreshing: Bool) in
         view.setRefreshing(refreshing)

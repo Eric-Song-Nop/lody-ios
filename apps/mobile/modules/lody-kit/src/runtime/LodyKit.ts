@@ -66,6 +66,7 @@ declare class LodyKitNativeModule extends NativeModule<Events> {
   debugRestartDataRuntime(): Promise<void>;
   selectionFeedback(): Promise<void>;
   showToast(message: string, kind: string): void;
+  copyText(text: string): void;
   showSessionBanner(title: string, kind: string): void;
   dismissSessionBanner(): void;
   readAuthToken(): Promise<string | null>;
@@ -93,6 +94,10 @@ export type SessionBannerKind = 'completed' | 'attention';
 /** Rendered by a dedicated UIWindow above sheets, so it is never occluded. */
 export function showToast(message: string, kind: ToastKind = 'error'): void {
   native.showToast(message, kind);
+}
+
+export function copyText(text: string): void {
+  native.copyText(text);
 }
 
 export function showSessionBanner(

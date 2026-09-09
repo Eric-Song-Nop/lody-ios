@@ -77,7 +77,6 @@ function View() {
         accent={colors.accent}
         contentStyle
         sections={inboxSections(catalog, { accent: colors.accent, now: NOW })}
-        refreshing={false}
         previewUserId="ui-home"
         previewWorkspaceId="ui-home"
         onRowPress={() => {}}
