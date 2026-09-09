@@ -29,6 +29,7 @@ import { basename } from '@/features/sessions/path';
 import { FileDiffScreen } from '@/screens/FileDiffScreen';
 import { FilesScreen } from '@/screens/FilesScreen';
 import { changedFiles } from '@/features/sessions/transcript/changes';
+import { DiffWebViewWarmer } from '@/features/diff/DiffWebViewWarmer';
 import { PermissionScreen } from '@/screens/PermissionScreen';
 import {
   createPermissionGate,
@@ -423,6 +424,7 @@ function View() {
           ) : null}
         </Stack.Toolbar.Menu>
       </Stack.Toolbar>
+      <DiffWebViewWarmer />
       <NativeChat
         navigationTitle={currentSession.title}
         navigationSubtitle={project?.name ?? ''}

@@ -12,7 +12,6 @@ import { useColorScheme } from 'react-native';
 import { nativePresentationOptions } from '@/lib/presentation';
 import { navigationThemes } from '@/lib/theme/palette';
 import { softScrollEdgeEffects } from '@/ui/Screen';
-import { DiffWebViewWarmer } from '@/features/diff/DiffWebViewWarmer';
 import { useBindSessionNav } from '@/hooks/screens/useBindSessionNav';
 import { useOnboardingGate } from '@/hooks/screens/useOnboardingGate';
 import { assertVendoredDomWebView } from '@/lib/assert-vendored-dom-webview';
@@ -60,7 +59,7 @@ function Bindings() {
   useEffect(() => {
     if (__DEV__) assertVendoredDomWebView();
   }, []);
-  return <DiffWebViewWarmer />;
+  return null;
 }
 
 function Providers({ children }: PropsWithChildren) {

@@ -8,6 +8,14 @@ import {
 import { InteractionManager } from 'react-native';
 import { DiffView } from './DiffView';
 
+let warmupClaimed = false;
+
+export function claimDiffWebViewWarmup() {
+  if (warmupClaimed) return false;
+  warmupClaimed = true;
+  return true;
+}
+
 export function DiffWebViewWarmer() {
   const [live, setLive] = useState(false);
   const { height, width } = useWindowDimensions();
@@ -15,6 +23,7 @@ export function DiffWebViewWarmer() {
 
   useEffect(() => {
     const interaction = InteractionManager.runAfterInteractions(() => {
+      if (!claimDiffWebViewWarmup()) return;
       setLive(true);
     });
     return () => interaction.cancel();
