@@ -18,6 +18,7 @@ final class ChatMarkdownBlock {
 /// One view serves measurement and display. A growing tail never assigns a new
 /// attributed string to the completed blocks above it.
 final class ChatMarkdownView: UIView {
+  @MainActor
   private final class Block {
     let label = ChatFadeLabelView()
     let view: FileMarkdownView
@@ -134,6 +135,19 @@ final class ChatMarkdownView: UIView {
   override func layoutSubviews() {
     super.layoutSubviews()
     if bounds.width != measuredWidth { measure(width: bounds.width) }
+    ChatTableBleed.apply(to: self)
+  }
+
+  override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+    if super.point(inside: point, with: event) { return true }
+    return subviews.contains { $0.point(inside: $0.convert(point, from: self), with: event) }
+  }
+
+  override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+    for subview in subviews.reversed() {
+      if let hit = subview.hitTest(subview.convert(point, from: self), with: event) { return hit }
+    }
+    return super.hitTest(point, with: event)
   }
 
   var fileActions: [UIAccessibilityCustomAction] {

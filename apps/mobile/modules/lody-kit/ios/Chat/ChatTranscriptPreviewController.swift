@@ -94,7 +94,7 @@ final class ChatTranscriptPreviewController: UIViewController, UICollectionViewD
     let secondary = row.kind == "thought" || row.kind == "summary" || row.kind == "duration"
     var content = UIListContentConfiguration.cell()
     content.text = row.text
-    content.textProperties.font = .preferredFont(forTextStyle: row.kind == "summary" ? .footnote : .body)
+    content.textProperties.font = Self.messageFont(for: row)
     content.textProperties.color = secondary ? .secondaryLabel : .label
     content.textProperties.numberOfLines = 0
     if !row.symbol.isEmpty {
@@ -117,7 +117,7 @@ final class ChatTranscriptPreviewController: UIViewController, UICollectionViewD
     let width = collectionView.bounds.width
     let inset = (collectionViewLayout as? UICollectionViewFlowLayout)?.sectionInset ?? .zero
     let textWidth = max(1, width - inset.left - inset.right - 36)
-    let font = UIFont.preferredFont(forTextStyle: row.kind == "summary" ? .footnote : .body)
+    let font = Self.messageFont(for: row)
     let height = (row.text as NSString).boundingRect(
       with: CGSize(width: textWidth, height: .greatestFiniteMagnitude),
       options: [.usesLineFragmentOrigin, .usesFontLeading],
@@ -125,5 +125,13 @@ final class ChatTranscriptPreviewController: UIViewController, UICollectionViewD
       context: nil
     ).height
     return CGSize(width: max(1, width - inset.left - inset.right), height: max(36, ceil(height) + 16))
+  }
+
+  private static func messageFont(for row: ChatRow) -> UIFont {
+    let font = UIFont.preferredFont(forTextStyle: row.kind == "summary" ? .footnote : .body)
+    if row.kind == "summary" || row.kind == "duration" {
+      return font.withTabularNumbers()
+    }
+    return font
   }
 }

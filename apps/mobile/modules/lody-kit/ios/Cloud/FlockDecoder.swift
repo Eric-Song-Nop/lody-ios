@@ -2,6 +2,7 @@ import ExpoModulesCore
 import WebKit
 
 // One isolated, offline WebKit instance per decode. The WASM replica is released with it.
+@MainActor
 final class FlockDecoder: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
   private var webView: WKWebView?
   private var timeout: DispatchWorkItem?

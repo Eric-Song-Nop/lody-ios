@@ -1012,7 +1012,7 @@ export const bundledLicenses: LicensesData = {
     {
       name: 'MarkdownView',
       license: 'MIT',
-      url: 'https://github.com/Innei/MarkdownView',
+      url: 'https://github.com/Lakr233/MarkdownView',
       text: 72,
     },
     {

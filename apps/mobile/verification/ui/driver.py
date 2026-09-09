@@ -34,14 +34,20 @@ class UI:
         assert self.element(identifier).get('AXValue') == text, 'Typed text did not commit'
 
     def paste_file(self, identifier):
+        return self._paste_provider(identifier, 'file-pasteboard.swift', ['clipboard-fixture.txt'])
+
+    def paste_video(self, identifier):
+        return self._paste_provider(identifier, 'video-pasteboard.swift', ['IMG_3933.mov', 'IMG_3933.mp4'])
+
+    def _paste_provider(self, identifier, helper, names):
         import catalog
         with tempfile.TemporaryDirectory(prefix='lody-pasteboard-') as output:
-            binary = Path(output) / 'file-pasteboard'
+            binary = Path(output) / Path(helper).stem
             sdk = subprocess.check_output(['xcrun', '--sdk', 'iphonesimulator', '--show-sdk-path'], text=True).strip()
             subprocess.run([
                 'xcrun', '--sdk', 'iphonesimulator', 'swiftc', '-sdk', sdk,
                 '-target', 'arm64-apple-ios18.0-simulator',
-                str(Path(__file__).with_name('file-pasteboard.swift')), '-o', str(binary),
+                str(Path(__file__).with_name(helper)), '-o', str(binary),
             ], check=True, timeout=60)
             provider = subprocess.Popen(
                 ['xcrun', 'simctl', 'spawn', self.udid, str(binary)],
@@ -49,7 +55,7 @@ class UI:
             )
             try:
                 if not select.select([provider.stdout], [], [], 10)[0] or provider.stdout.readline().strip() != 'READY':
-                    raise RuntimeError('File pasteboard helper did not become ready')
+                    raise RuntimeError(f'{helper} did not become ready')
                 self.axe('tap', '--id', identifier, '--post-delay', '.3')
                 frame = self.element(identifier)['frame']
                 self.axe('touch', '-x', str(frame['x'] + frame['width'] / 2), '-y', str(frame['y'] + frame['height'] / 2), '--down', '--up', '--delay', '.8')
@@ -61,9 +67,12 @@ class UI:
                 )
                 frame = paste['frame']
                 self.axe('tap', '-x', str(frame['x'] + frame['width'] / 2), '-y', str(frame['y'] + frame['height'] / 2), '--post-delay', '.5')
-                label = catalog.text('native.chat.attachment.preview', name='clipboard-fixture.txt')
-                self.wait(lambda items: any(item.get('AXLabel') == label for item in items), 'Pasted file did not appear as an attachment')
-                return label
+                labels = [catalog.text('native.chat.attachment.preview', name=name) for name in names]
+                found = self.wait(
+                    lambda items: next((label for label in labels if any(item.get('AXLabel') == label for item in items)), None),
+                    'Pasted attachment did not appear',
+                )
+                return found
             finally:
                 provider.terminate()
                 try:

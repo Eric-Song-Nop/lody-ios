@@ -88,8 +88,9 @@ visual smoothness. The probe contains fixture IDs and geometry only.
 | image-preview    | ChatImageCell + ChatImagePreview                      | Synthetic bitmap, zoom/restore, button and gesture dismissal                                                                                                                                                                                                                                                                                      |
 | composer         | NativeComposer in a real form sheet                   | Floating list inset, half/full sheet contrast, last-row reachability, file paste, iOS 26 focus glass fusion with balanced Add/Send controls and trailing model selector, keyboard clearance, rejection restore, duplicate suppression                                                                                                             |
 | composer-glass   | NativeComposer in a real form sheet                   | Separate unfocused Add/input glass, focus merge animation and unified final surface, mirrored Add/Send centers, shared baseline, trailing model selector, light/dark screenshots and video                                                                                                                                                        |
+| composer-video   | NativeChat composer                                   | Paste a movie that also registers a PNG poster; the chip and sent user row keep the video filename and never open an image cell                                                                                                                                                                                                                   |
 | composer-success | NativeChat composer                                   | File paste, pending clear/lock, text and attachments stay cleared after acceptance                                                                                                                                                                                                                                                                |
-| markdown         | MarkdownView code block                               | Copy preserves complete code and indentation through the Simulator clipboard                                                                                                                                                                                                                                                                      |
+| markdown         | MarkdownView code block + table                       | Copy preserves complete code and indentation through the Simulator clipboard; a wide table bleeds to the screen edges and keeps that bleed after a horizontal swipe                                                                                                                                                                               |
 | background       | DataRuntime + BGContinuedProcessingTask               | Same WebView cross-background restoration, real system task requests, completion/expiration release; explicitly records unverified long-running execution when system denies request                                                                                                                                                              |
 | changes          | NativeChat + shared DOM file diff                     | Grouped file rows after completion, header totals, long paths, reused WebView instance, Unified/Split, hidden warnings                                                                                                                                                                                                                            |
 | inline-diff      | ItemDetail DiffBlock + NativeInlineDiff               | Native line content, full height, outer-sheet vertical scroll, selectable rows                                                                                                                                                                                                                                                                    |
@@ -155,7 +156,14 @@ pnpm verify:ui --app <Debug.app> \
   --case chat-performance --output .artifacts/chat-performance --port 8103
 ```
 
-The check repeats three times in each appearance. `performance-summary.json`
+The recording starts before navigation. `loading.json` records native prop receipt
+to first layout and complete history layout, the initial row count, and individual
+measurement slices. It excludes JS fixture generation. The check requires a partial
+first layout before all 10,000 rows, multiple history measurement slices, and a
+stable reading position when history arrives after scrolling during loading. A slice
+targets 4 ms; one indivisible message layout may exceed that budget.
+
+The scroll check repeats three times in each appearance. `performance-summary.json`
 contains FPS, p95/max frame interval, over-budget intervals, visited section range,
 and memory; `run-1.json` through `run-3.json` contain raw samples. Screenshots and
 `run.mp4` capture the UI. Assertions verify the full dataset, both scroll directions,

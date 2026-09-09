@@ -10,7 +10,7 @@ Pod::Spec.new do |s|
   s.license = { type: 'AGPL-3.0-only' }
   s.authors = 'Innei'
   s.platform = :ios, '16.4'
-  s.swift_version = '5.9'
+  s.swift_version = '6.0'
   s.source = { git: 'https://github.com/Innei/lody-ios.git', tag: s.version.to_s }
   s.static_framework = true
   s.libraries = 'sqlite3'

@@ -5,8 +5,13 @@ const path = require('path');
 const PACKAGES = [
   {
     name: 'MarkdownView',
-    url: 'https://github.com/Innei/MarkdownView.git',
-    branch: 'lody/inject-text-label-view',
+    url: 'https://github.com/Lakr233/MarkdownView.git',
+    version: '4.3.2',
+  },
+  {
+    name: 'Litext',
+    url: 'https://github.com/Lakr233/Litext',
+    version: '2.2.2',
   },
 ];
 
@@ -52,7 +57,7 @@ Pod::SPM::UpdateScript::Mixin.prepend(LodySPMFileLists)
 `;
 
 const spmPkg = (pkg) =>
-  `  spm_pkg "${pkg.name}", :url => "${pkg.url}", :branch => "${pkg.branch}"\n`;
+  `  spm_pkg "${pkg.name}", :url => "${pkg.url}", :version => "${pkg.version}"\n`;
 
 module.exports = function withMarkdownView(config) {
   return withDangerousMod(config, [
@@ -66,7 +71,11 @@ module.exports = function withMarkdownView(config) {
       if (!contents.includes('LodyUniqueProjectUUIDs'))
         contents = header + contents;
       for (const pkg of PACKAGES) {
-        if (contents.includes(`spm_pkg "${pkg.name}"`)) continue;
+        const existing = new RegExp(`^ *spm_pkg "${pkg.name}"[^\\n]*\\n`, 'm');
+        if (existing.test(contents)) {
+          contents = contents.replace(existing, spmPkg(pkg));
+          continue;
+        }
         contents = contents.replace(
           /^target '([^']+)' do\n/m,
           (line) => line + spmPkg(pkg),

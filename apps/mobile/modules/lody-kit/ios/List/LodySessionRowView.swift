@@ -99,15 +99,14 @@ final class LodySessionRowView: UIView, UIContentView {
       time.trailingAnchor.constraint(equalTo: margin.trailingAnchor),
       title.leadingAnchor.constraint(equalTo: margin.leadingAnchor),
       title.bottomAnchor.constraint(equalTo: margin.bottomAnchor),
+      ring.centerYAnchor.constraint(equalTo: title.firstBaselineAnchor, constant: -5),
     ])
     withMeta = [
-      ring.centerYAnchor.constraint(equalTo: meta.centerYAnchor),
       time.firstBaselineAnchor.constraint(equalTo: meta.firstBaselineAnchor),
       title.topAnchor.constraint(equalTo: meta.bottomAnchor, constant: 3),
       title.trailingAnchor.constraint(equalTo: margin.trailingAnchor),
     ]
     withoutMeta = [
-      ring.centerYAnchor.constraint(equalTo: title.firstBaselineAnchor, constant: -5),
       time.firstBaselineAnchor.constraint(equalTo: title.firstBaselineAnchor),
       title.topAnchor.constraint(equalTo: margin.topAnchor),
       title.trailingAnchor.constraint(lessThanOrEqualTo: time.leadingAnchor, constant: -10),

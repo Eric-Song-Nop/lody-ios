@@ -1,14 +1,15 @@
 import QuickLook
 import UIKit
 
-final class ContentPreview: NSObject, QLPreviewControllerDataSource, QLPreviewControllerDelegate {
+@MainActor
+final class ContentPreview: NSObject, QLPreviewControllerDataSource, @MainActor QLPreviewControllerDelegate {
   private static var current: ContentPreview?
-  private static var root: URL { FileManager.default.temporaryDirectory.appendingPathComponent("preview", isDirectory: true) }
+  private nonisolated static var root: URL { FileManager.default.temporaryDirectory.appendingPathComponent("preview", isDirectory: true) }
   private let url: URL
 
   private init(url: URL) { self.url = url }
 
-  static func clearAll() {
+  nonisolated static func clearAll() {
     try? FileManager.default.removeItem(at: root)
   }
 
@@ -44,6 +45,7 @@ final class ContentPreview: NSObject, QLPreviewControllerDataSource, QLPreviewCo
 #if DEBUG
 import UIKit
 
+@MainActor
 enum FilePreviewFixture {
   static func response(_ payload: String, listing: Bool = false) -> String? {
     guard ProcessInfo.processInfo.arguments.contains("--ui-verify"),

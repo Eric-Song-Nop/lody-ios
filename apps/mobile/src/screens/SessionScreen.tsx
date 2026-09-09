@@ -141,13 +141,14 @@ function View() {
     !pending?.send.creation &&
     !currentSession.archived &&
     !!localProjectIdOf(session.projectId);
+  const machineName = catalog.machineNames?.[currentSession.machineId] ?? '';
   const showDetails = () =>
     Alert.alert(
       currentSession.title,
       [
         project?.name,
         project?.rootPath,
-        t('session.detail.machine', { name: currentSession.machineId }),
+        machineName && t('session.detail.machine', { name: machineName }),
       ]
         .filter(Boolean)
         .join('\n'),
@@ -395,6 +396,7 @@ function View() {
       <NativeChat
         navigationTitle={currentSession.title}
         navigationSubtitle={project?.name ?? ''}
+        navigationMachine={machineName}
         onTitlePress={showDetails}
         style={{ flex: 1 }}
         attachmentContextJSON={JSON.stringify({

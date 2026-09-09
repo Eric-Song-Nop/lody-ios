@@ -1,5 +1,6 @@
 import UIKit
 
+@MainActor
 enum LodyMenuButtonStyle {
   static func apply(_ value: UIButton.Configuration, to button: UIButton) {
     var configuration = value

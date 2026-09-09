@@ -71,16 +71,12 @@ struct ChatRow: Equatable {
 }
 
 enum ChatWorkDuration {
-  private static let fractionalTimestamp: ISO8601DateFormatter = {
-    let formatter = ISO8601DateFormatter()
-    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    return formatter
-  }()
-  private static let timestamp = ISO8601DateFormatter()
+  private static let fractionalTimestamp = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
+  private static let timestamp = Date.ISO8601FormatStyle()
 
   static func startMilliseconds(for entry: ChatEntry) -> Double? {
     let parsedTimestamp = entry.timestamp.flatMap {
-      fractionalTimestamp.date(from: $0) ?? timestamp.date(from: $0)
+      (try? fractionalTimestamp.parse($0)) ?? (try? timestamp.parse($0))
     }
     return parsedTimestamp.map { $0.timeIntervalSince1970 * 1000 } ?? entry.startedAt
   }

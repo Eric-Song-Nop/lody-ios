@@ -1,11 +1,70 @@
-"""Production Markdown supports code copy and long-press text selection."""
+"""Production Markdown supports code copy, selection, and full-bleed tables."""
+import json
 import subprocess
 import sys
+from pathlib import Path
 from driver import UI
 import catalog
 
 ui = UI(*sys.argv[1:])
-# The rich answer is longer than one screen. Find its actual code button by scrolling.
+
+
+def table_bleed_path():
+    container = subprocess.check_output(
+        ['xcrun', 'simctl', 'get_app_container', ui.udid, 'app.innei.lody', 'data'],
+        text=True,
+        timeout=10,
+    ).strip()
+    return Path(container) / 'tmp' / 'lody-table-bleed.json'
+
+
+def table_bleed_rows():
+    path = table_bleed_path()
+    ui.wait(lambda _: path.exists() and path.stat().st_size > 2, 'Table bleed probe did not write')
+    return json.loads(path.read_text())
+
+
+def widest_table(rows):
+    wide = [row for row in rows if row['contentWidth'] > row['boundsWidth'] + 8]
+    assert wide, ('No horizontally scrollable table', rows)
+    return max(wide, key=lambda row: row['y'])
+
+
+def save_probe(name):
+    path = table_bleed_path()
+    if path.exists():
+        (ui.output / f'{name}.probe.json').write_text(path.read_text())
+
+
+rest = widest_table(table_bleed_rows())
+assert rest['x'] <= 1, rest
+assert rest['x'] + rest['width'] >= rest['boundsWidth'] - 1, rest
+assert rest['offsetX'] <= 1, rest
+save_probe('table-bleed')
+ui.capture('table-bleed')
+mid_y = rest['y'] + min(40, rest['height'] / 2)
+for _ in range(3):
+    if widest_table(table_bleed_rows())['offsetX'] > 20:
+        break
+    ui.axe(
+        'swipe',
+        '--start-x', str(rest['x'] + rest['width'] - 48),
+        '--start-y', str(mid_y),
+        '--end-x', str(rest['x'] + 48),
+        '--end-y', str(mid_y),
+        '--duration', '.35',
+        '--post-delay', '.5',
+    )
+ui.wait(
+    lambda _: widest_table(table_bleed_rows())['offsetX'] > 20,
+    'Wide table did not scroll horizontally',
+)
+scrolled = widest_table(table_bleed_rows())
+assert scrolled['x'] <= 1, scrolled
+assert scrolled['x'] + scrolled['width'] >= scrolled['boundsWidth'] - 1, scrolled
+save_probe('table-bleed-scrolled')
+ui.capture('table-bleed-scrolled')
+
 for _ in range(8):
     if any(i.get('AXLabel') == catalog.system('copy') and i.get('type') == 'Button' for i in ui.state()):
         break
@@ -38,4 +97,4 @@ ui.axe('tap', '-x', str(action_frame['x'] + action_frame['width'] / 2),
 selected = subprocess.check_output(['xcrun', 'simctl', 'pbpaste', ui.udid], text=True, timeout=10).strip()
 assert selected and selected != 'selection sentinel' and selected in answer['AXLabel'], repr(selected)
 ui.capture('markdown-code')
-print('PASS: production Markdown code copy and long-press selection')
+print('PASS: production Markdown code copy, long-press selection, and table gutter bleed')

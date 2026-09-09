@@ -4,6 +4,7 @@ import UIKit
 private final class ChatPhotoCell: UICollectionViewCell {
   let image = UIImageView()
   private let badge = UIImageView()
+  private let videoMark = UIImageView(image: UIImage(systemName: "video.fill"))
   var assetID: String?
   override init(frame: CGRect) {
     super.init(frame: frame)
@@ -15,13 +16,23 @@ private final class ChatPhotoCell: UICollectionViewCell {
     badge.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 20)
     badge.layer.shadowRadius = 2
     badge.layer.shadowOffset = .zero
+    videoMark.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 11, weight: .bold)
+    videoMark.tintColor = .white
+    videoMark.layer.shadowOpacity = 0.45
+    videoMark.layer.shadowRadius = 2
+    videoMark.layer.shadowOffset = .zero
+    videoMark.isHidden = true
     contentView.addSubview(image)
+    contentView.addSubview(videoMark)
     contentView.addSubview(badge)
     image.translatesAutoresizingMaskIntoConstraints = false
+    videoMark.translatesAutoresizingMaskIntoConstraints = false
     badge.translatesAutoresizingMaskIntoConstraints = false
     NSLayoutConstraint.activate([
       image.topAnchor.constraint(equalTo: contentView.topAnchor), image.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
       image.leadingAnchor.constraint(equalTo: contentView.leadingAnchor), image.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+      videoMark.leadingAnchor.constraint(equalTo: image.leadingAnchor, constant: 6),
+      videoMark.bottomAnchor.constraint(equalTo: image.bottomAnchor, constant: -6),
       badge.trailingAnchor.constraint(equalTo: image.trailingAnchor, constant: -5),
       badge.bottomAnchor.constraint(equalTo: image.bottomAnchor, constant: -5),
     ])
@@ -29,12 +40,13 @@ private final class ChatPhotoCell: UICollectionViewCell {
     accessibilityTraits = .image
   }
   required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-  func mark(selected: Bool) {
+  func mark(selected: Bool, video: Bool = false) {
     badge.image = UIImage(systemName: selected ? "checkmark.circle.fill" : "circle")
     badge.tintColor = selected ? .systemBlue : .white.withAlphaComponent(0.9)
     badge.layer.shadowOpacity = selected ? 0 : 0.3
     image.layer.borderWidth = selected ? 2 : 0
     image.layer.borderColor = UIColor.systemBlue.resolvedColor(with: traitCollection).cgColor
+    videoMark.isHidden = !video
     accessibilityValue = selected ? LodyStrings.text("native.chat.attachment.selected") : nil
   }
 }
@@ -121,7 +133,12 @@ final class ChatAttachmentSheet: UIViewController, UICollectionViewDataSource, U
       let options = PHFetchOptions()
       options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
       options.fetchLimit = 60
-      assets = PHAsset.fetchAssets(with: .image, options: options)
+      options.predicate = NSPredicate(
+        format: "mediaType == %d OR mediaType == %d",
+        PHAssetMediaType.image.rawValue,
+        PHAssetMediaType.video.rawValue
+      )
+      assets = PHAsset.fetchAssets(with: options)
       status.isHidden = true
     case .notDetermined:
       assets = nil
@@ -167,8 +184,9 @@ final class ChatAttachmentSheet: UIViewController, UICollectionViewDataSource, U
     let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "photo", for: indexPath) as! ChatPhotoCell
     guard let asset = assets?.object(at: indexPath.item) else { return cell }
     cell.assetID = asset.localIdentifier
-    cell.mark(selected: selection.contains(asset.localIdentifier))
-    cell.accessibilityLabel = LodyStrings.text("native.chat.attachment.photoIndex", ["index": indexPath.item + 1])
+    cell.mark(selected: selection.contains(asset.localIdentifier), video: asset.mediaType == .video)
+    let indexKey = asset.mediaType == .video ? "native.chat.attachment.videoIndex" : "native.chat.attachment.photoIndex"
+    cell.accessibilityLabel = LodyStrings.text(indexKey, ["index": indexPath.item + 1])
     let side = thumbnailSide(in: collectionView) * (view.window?.screen.scale ?? 2)
     let options = PHImageRequestOptions()
     options.isNetworkAccessAllowed = true
@@ -194,7 +212,10 @@ final class ChatAttachmentSheet: UIViewController, UICollectionViewDataSource, U
     if let index = selection.firstIndex(of: asset.localIdentifier) { selection.remove(at: index) }
     else if selection.count < 10 { selection.append(asset.localIdentifier) }
     else { return }
-    (collectionView.cellForItem(at: indexPath) as? ChatPhotoCell)?.mark(selected: selection.contains(asset.localIdentifier))
+    (collectionView.cellForItem(at: indexPath) as? ChatPhotoCell)?.mark(
+      selected: selection.contains(asset.localIdentifier),
+      video: asset.mediaType == .video
+    )
     UISelectionFeedbackGenerator().selectionChanged()
     updateConfirm()
   }
@@ -220,22 +241,35 @@ final class ChatAttachmentSheet: UIViewController, UICollectionViewDataSource, U
     confirm.isEnabled = false
     confirm.configuration?.showsActivityIndicator = true
     let group = DispatchGroup()
-    let lock = NSLock()
-    var attachments: [ChatAttachment] = []
+    let attachments = ChatAttachmentCollector()
     let options = PHImageRequestOptions()
     options.isNetworkAccessAllowed = true
     options.version = .current
-    picked.enumerateObjects { asset, _, _ in
+    picked.enumerateObjects { asset, index, _ in
       group.enter()
+      let id = asset.localIdentifier
+      if asset.mediaType == .video {
+        let resources = PHAssetResource.assetResources(for: asset)
+        let resource = resources.first { $0.type == .video || $0.type == .fullSizeVideo } ?? resources.first
+        guard let resource else { group.leave(); return }
+        let name = resource.originalFilename
+        let destination = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + "-" + name)
+        let request = PHAssetResourceRequestOptions()
+        request.isNetworkAccessAllowed = true
+        PHAssetResourceManager.default().writeData(for: resource, toFile: destination, options: request) { error in
+          defer { group.leave() }
+          guard error == nil else { return }
+          attachments.add(index, ChatAttachment(id: id, name: name, url: destination, isImage: false))
+        }
+        return
+      }
+      let name = PHAssetResource.assetResources(for: asset).first?.originalFilename ?? "\(UUID().uuidString).jpg"
       self.images.requestImageDataAndOrientation(for: asset, options: options) { data, _, _, _ in
         defer { group.leave() }
-        let name = PHAssetResource.assetResources(for: asset).first?.originalFilename ?? "\(UUID().uuidString).jpg"
         guard let data, let url = ChatAttachment.store(data, name: name) else { return }
-        lock.lock()
-        attachments.append(ChatAttachment(id: asset.localIdentifier, name: name, url: url, isImage: true))
-        lock.unlock()
+        attachments.add(index, ChatAttachment(id: id, name: name, url: url, isImage: true))
       }
     }
-    group.notify(queue: .main) { [weak self] in self?.finish(attachments) }
+    group.notify(queue: .main) { [weak self] in self?.finish(attachments.ordered) }
   }
 }

@@ -36,6 +36,7 @@ checks = {
         'Chrome/LodyMenuButtonStyle.swift',
         'List/LodyListCellBackground.swift',
         'List/LodyListPhoto.swift',
+        'List/LodySessionRowView.swift',
     ],
     'banner': [
         'LodyStrings.swift',
@@ -48,6 +49,7 @@ with tempfile.TemporaryDirectory(prefix='lody-native-verify-') as output:
         binary = str(Path(output) / name)
         simulator = name in ['chat-render', 'composer', 'attachments', 'inline-diff', 'list', 'banner', 'chat-title']
         command = ['xcrun', '--sdk', 'iphonesimulator', 'swiftc'] if simulator else ['xcrun', 'swiftc']
+        command += ['-swift-version', '6']
         if simulator:
             arch = 'arm64' if platform.machine() == 'arm64' else 'x86_64'
             ios = '26.0' if name == 'chat-title' else '18.0'

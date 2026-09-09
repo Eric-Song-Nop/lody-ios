@@ -289,6 +289,7 @@ extension LodyChatView {
   }
 }
 
+@MainActor
 private final class ChatMotionTarget: NSObject {
   weak var view: LodyChatView?
   init(_ view: LodyChatView) { self.view = view }
@@ -301,6 +302,7 @@ private final class ChatMotionTarget: NSObject {
 #if DEBUG
 // Opt-in, offline fixture geometry only. No message text or account data leaves
 // the view. The independent sampler observes UIKit, not the motion's targets.
+@MainActor
 final class ChatScrollProbe: NSObject {
   weak var view: LodyChatView?
   private var link: CADisplayLink?
@@ -346,6 +348,7 @@ final class ChatScrollProbe: NSObject {
 
 #if DEBUG
 // Measures main-run-loop delivery, not GPU presentation. No text is recorded.
+@MainActor
 final class ChatPerformanceProbe: NSObject {
   private weak var view: LodyChatView?
   private var link: CADisplayLink?
@@ -378,6 +381,7 @@ final class ChatPerformanceProbe: NSObject {
         stop(); return
       }
       guard view.transcript.entries.count == 10_000,
+            !view.preparingHistory,
             view.transcript.entries.first?.id == "perf-0",
             !view.applying, !view.rendering, !view.decoding,
             view.hasPositionedContent, view.motionLink == nil,

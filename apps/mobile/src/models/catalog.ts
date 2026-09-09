@@ -26,6 +26,7 @@ export type Catalog = {
   projects: Project[];
   sessions: Session[];
   machineIds: string[];
+  machineNames?: Record<string, string>;
 };
 export type SavedCatalog = { catalog: Catalog; syncedAt: number };
 export type Connection = {

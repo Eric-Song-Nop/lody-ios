@@ -12,7 +12,8 @@ final class ChatMarkdownCell: UICollectionViewCell {
     icon.contentMode = .center
     contentView.addSubview(icon)
     contentView.addSubview(spinner)
-    contentView.clipsToBounds = true
+    clipsToBounds = false
+    contentView.clipsToBounds = false
     isAccessibilityElement = true
   }
   required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -59,5 +60,23 @@ final class ChatMarkdownCell: UICollectionViewCell {
     var view: UIView? = superview
     while let current = view, !(current is UIScrollView) { view = current.superview }
     markdown.trackedScrollView = view as? UIScrollView
+    clipsToBounds = false
+    contentView.clipsToBounds = false
+    layer.masksToBounds = false
+    contentView.layer.masksToBounds = false
+    ChatTableBleed.apply(to: markdown)
+  }
+
+  override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+    if super.point(inside: point, with: event) { return true }
+    guard let markdown else { return false }
+    return markdown.point(inside: markdown.convert(point, from: self), with: event)
+  }
+
+  override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+    if let markdown, let hit = markdown.hitTest(markdown.convert(point, from: self), with: event) {
+      return hit
+    }
+    return super.hitTest(point, with: event)
   }
 }

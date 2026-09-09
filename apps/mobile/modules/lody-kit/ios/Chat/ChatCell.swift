@@ -79,6 +79,14 @@ final class ChatCell: UICollectionViewCell, UIContextMenuInteractionDelegate {
       target: UIPreviewTarget(container: contentView, center: CGPoint(x: rect.midX, y: rect.midY)))
   }
 
+  static func messageFont(for row: ChatRow, compatibleWith traits: UITraitCollection) -> UIFont {
+    let font = UIFont.dynamic(of: row.kind == "user" ? 17 : 13, compatibleWith: traits)
+    if row.kind == "duration" || row.kind == "summary" {
+      return font.withTabularNumbers()
+    }
+    return font
+  }
+
   static func leading(_ row: ChatRow) -> CGFloat {
     switch row.kind {
     case "text", "user", "duration": return 0
@@ -128,7 +136,10 @@ final class ChatCell: UICollectionViewCell, UIContextMenuInteractionDelegate {
       let height = label.sizeThatFits(CGSize(width: textWidth, height: .greatestFiniteMagnitude)).height
       let y = row.kind == "text" || row.kind == "thought" ? 6 : max(6, (bounds.height - height) / 2)
       label.frame = CGRect(x: inset, y: y, width: textWidth, height: height)
-      icon.frame = Self.iconFrame(for: row, textY: y, textHeight: height)
+      let markHeight = row.kind == "summary"
+        ? (label.lineAdvances(width: textWidth).first ?? height)
+        : height
+      icon.frame = Self.iconFrame(for: row, textY: y, textHeight: markHeight)
     }
     spinner.frame = CGRect(x: width - 24, y: (bounds.height - 20) / 2, width: 20, height: 20)
     let pixel = 1 / max(1, traitCollection.displayScale)

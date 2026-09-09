@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from simulator import run_with_simulator, SimulatorPool
 
 CHAT = ROOT / 'apps/mobile/modules/lody-kit/verification/chat'
-CASES = ['send-queue', 'send-interrupt', 'send-rounds', 'file-preview', 'chat-performance', 'chat-stream-performance', 'settings', 'send', 'send-handoff', 'layout', 'tracking', 'smooth-scroll', 'model-options', 'image-preview', 'composer', 'composer-glass', 'composer-success', 'composer-failure', 'markdown', 'duration', 'changes', 'inline-diff', 'inbox', 'background', 'permission', 'home', 'licenses', 'model-memory', 'onboarding']
+CASES = ['send-queue', 'send-interrupt', 'send-rounds', 'file-preview', 'chat-performance', 'chat-stream-performance', 'settings', 'send', 'send-handoff', 'layout', 'tracking', 'smooth-scroll', 'model-options', 'image-preview', 'composer', 'composer-glass', 'composer-video', 'composer-success', 'composer-failure', 'markdown', 'duration', 'changes', 'inline-diff', 'inbox', 'background', 'permission', 'home', 'licenses', 'model-memory', 'onboarding']
 # These run their own HomePreviewProviders bundle and start from the inbox, not Debug.
 STANDALONE = {'home', 'licenses'}
 PREVIEW = {
@@ -36,6 +36,7 @@ PREVIEW = {
     'background': 'background-preview',
     'composer': 'composer-preview',
     'composer-glass': 'composer-preview',
+    'composer-video': 'composer-success',
     'composer-success': 'composer-success',
     'composer-failure': 'composer-failure',
     'inbox': 'inbox-preview',
@@ -53,6 +54,7 @@ READY = {
     'background': 'background-status',
     'composer': 'create-session-input',
     'composer-glass': 'create-session-input',
+    'composer-video': 'session-input',
     'composer-success': 'session-input',
     'composer-failure': 'session-input',
     'inbox': 'inbox-wait',
@@ -150,9 +152,23 @@ try:
             result = {'case': case, 'appearance': appearance, 'language': args.language, 'status': 'failed'}
             try:
                 sim('terminate', args.udid, 'app.innei.lody', check=False)
+                if case == 'chat-performance':
+                    container = Path(sim('get_app_container', args.udid, 'app.innei.lody', 'data').stdout.strip())
+                    (container / 'tmp/lody-chat-loading.json').unlink(missing_ok=True)
                 sim('launch', args.udid, 'app.innei.lody', '--ui-verify', *(['--ui-verify-scroll'] if case == 'smooth-scroll' else []), *(['--ui-verify-throw'] if case in ['send', 'send-handoff', 'send-rounds', 'send-queue'] else []), '--initialUrl', f'http://localhost:{args.port}?disableOnboarding=1', '-expo.devlauncher.hasGrantedNetworkPermission', 'YES', '-EXDevMenuShowsAtLaunch', 'NO', '-EXDevMenuIsOnboardingFinished', 'YES', '-EXDevMenuShowFloatingActionButton', 'NO', '-AppleLanguages', f'({args.language})', '-AppleLocale', 'en_US' if args.language == 'en' else 'zh_CN',
                     '-AppleKeyboards', '(en_US@sw=QWERTY)')
                 ui.element('ui-verify-ready', timeout=90)
+                recording = subprocess.Popen(['xcrun', 'simctl', 'io', args.udid, 'recordVideo', '--codec=h264', str(output / 'run.mp4')], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                deadline = time.monotonic() + 20
+                while time.monotonic() < deadline:
+                    if select.select([recording.stderr], [], [], .5)[0]:
+                        line = recording.stderr.readline()
+                        if b'Recording started' in line:
+                            break
+                        if not line:
+                            raise RuntimeError('Video recorder exited before its first frame')
+                else:
+                    raise TimeoutError('Video recorder did not start')
                 preview = PREVIEW.get(case, 'chat-preview')
                 ready = 'ui-verify-ready' if case in STANDALONE else READY.get(case, 'session-input')
                 if case not in STANDALONE:
@@ -175,19 +191,8 @@ try:
                 if case == 'image-preview':
                     ui.axe('tap', '--label', 'Image Fixture')
                     ui.element('preview-image:user')
-                recording = subprocess.Popen(['xcrun', 'simctl', 'io', args.udid, 'recordVideo', '--codec=h264', str(output / 'run.mp4')], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-                deadline = time.monotonic() + 20
-                while time.monotonic() < deadline:
-                    if select.select([recording.stderr], [], [], .5)[0]:
-                        line = recording.stderr.readline()
-                        if b'Recording started' in line:
-                            break
-                        if not line:
-                            raise RuntimeError('Video recorder exited before its first frame')
-                else:
-                    raise TimeoutError('Video recorder did not start')
                 ui.capture('before')
-                script = Path(__file__).with_name(f'{case}.py') if case in ['file-preview', 'chat-performance', 'chat-stream-performance', 'settings', 'send', 'send-handoff', 'send-rounds', 'send-queue', 'send-interrupt', 'smooth-scroll', 'composer', 'composer-glass', 'markdown', 'duration', 'changes', 'inline-diff', 'background', 'inbox', 'permission', 'home', 'licenses', 'model-memory', 'onboarding'] else CHAT / ('composer.py' if case.startswith('composer-') else f'{case}.py')
+                script = Path(__file__).with_name(f'{case}.py') if case in ['file-preview', 'chat-performance', 'chat-stream-performance', 'settings', 'send', 'send-handoff', 'send-rounds', 'send-queue', 'send-interrupt', 'smooth-scroll', 'composer', 'composer-glass', 'composer-video', 'markdown', 'duration', 'changes', 'inline-diff', 'background', 'inbox', 'permission', 'home', 'licenses', 'model-memory', 'onboarding'] else CHAT / ('composer.py' if case.startswith('composer-') else f'{case}.py')
                 command = [sys.executable, str(script), args.udid]
                 if case in ['composer-success', 'composer-failure']:
                     command += ['--expect', case.removeprefix('composer-'), '--output', str(output)]

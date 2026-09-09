@@ -106,6 +106,7 @@ test('real Flock snapshot plus framed updates produces current catalog without d
     globalThis.decodeFlock(snapshot, [framed.toString('base64')], 'meta'),
   );
   assert.deepEqual(result.machineIds, ['m1']);
+  assert.equal(result.machineNames.m1, 'Test computer');
   assert.equal(result.sessions.length, 1);
   assert.equal(result.sessions[0].title, 'After');
   assert.equal(result.sessions[0].projectId, 'm1:local:p1');

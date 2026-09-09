@@ -3,6 +3,7 @@ import WebKit
 import UIKit
 
 // The owner lives in Swift, so a wedged JS event loop cannot disable its watchdog.
+@MainActor
 final class DataRuntime: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
   private var webView: WKWebView?
   private var sessionId: String?
@@ -24,7 +25,7 @@ final class DataRuntime: NSObject, WKScriptMessageHandler, WKNavigationDelegate 
   private var reason = ""
   private var lastStartReason = ""
   private var acknowledgements = 0
-  private var observers: [NSObjectProtocol] = []
+  private let observers = NotificationObservers()
   private let emit: ([String: Any]) -> Void
   private var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
 
@@ -32,21 +33,25 @@ final class DataRuntime: NSObject, WKScriptMessageHandler, WKNavigationDelegate 
     self.localStore = localStore
     self.emit = emit
     super.init()
-    observers.append(NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
-      guard let self, self.workspace != nil else { return }
-      self.backgrounded = true
-      self.health.suspend()
+    observers.add(NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
+      MainActor.assumeIsolated {
+        guard let self, self.workspace != nil else { return }
+        self.backgrounded = true
+        self.health.suspend()
+      }
     })
-    observers.append(NotificationCenter.default.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification, object: nil, queue: .main) { _ in
-      ContentStore.shared.clearAll()
+    observers.add(NotificationCenter.default.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification, object: nil, queue: .main) { _ in
+      MainActor.assumeIsolated { ContentStore.shared.clearAll() }
     })
-    observers.append(NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
-      guard let self, self.workspace != nil, self.backgrounded else { return }
-      self.backgrounded = false
-      self.health.resume(at: self.now)
-      self.pingPending = false
-      if self.webView == nil { self.build(reason: "foreground") }
-      else { self.tick() }
+    observers.add(NotificationCenter.default.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+      MainActor.assumeIsolated {
+        guard let self, self.workspace != nil, self.backgrounded else { return }
+        self.backgrounded = false
+        self.health.resume(at: self.now)
+        self.pingPending = false
+        if self.webView == nil { self.build(reason: "foreground") }
+        else { self.tick() }
+      }
     })
   }
   func start(workspace: String, owner: String, userId: String) {
@@ -62,8 +67,8 @@ final class DataRuntime: NSObject, WKScriptMessageHandler, WKNavigationDelegate 
     if let owner, self.owner != owner { return }
     workspace = nil; sessionId = nil; retainedSessions = []; userId = ""; disposeView(); publish("stopped", reason: "unsubscribe")
   }
-  func status() -> [String: Any] {
-    var value: [String: Any] = ["owner": owner, "generation": generation, "state": phase, "reason": reason, "acknowledgements": acknowledgements, "lastStartReason": lastStartReason]
+  func status() -> [String: any Sendable] {
+    var value: [String: any Sendable] = ["owner": owner, "generation": generation, "state": phase, "reason": reason, "acknowledgements": acknowledgements, "lastStartReason": lastStartReason]
     #if DEBUG
     if backgroundProbe {
       value["probeBackgroundUpdates"] = probeBackgroundUpdates
@@ -78,7 +83,10 @@ final class DataRuntime: NSObject, WKScriptMessageHandler, WKNavigationDelegate 
   }
   private func publish(_ state: String, reason: String, extra: [String: Any] = [:]) {
     self.phase = state; self.reason = reason
-    emit(status().merging(extra, uniquingKeysWith: { _, new in new }))
+    emitStatus(extra)
+  }
+  private func emitStatus(_ extra: [String: Any] = [:]) {
+    emit((status() as [String: Any]).merging(extra, uniquingKeysWith: { _, new in new }))
   }
   private func build(reason: String) {
     guard workspace != nil else { return }
@@ -88,12 +96,17 @@ final class DataRuntime: NSObject, WKScriptMessageHandler, WKNavigationDelegate 
     config.userContentController.add(self, name: "dataRuntime")
     let view = WKWebView(frame: .zero, configuration: config)
     #if DEBUG
-    if #available(iOS 16.4, *) { view.isInspectable = true }
+    view.isInspectable = true
     #endif
     view.navigationDelegate = self
+    // A signature drift silently drops the optional policy witness, and with it the navigation guard.
+    assert(responds(to: #selector(webView(_:decidePolicyFor:decisionHandler:) as (WKWebView, WKNavigationAction, @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void) -> Void)))
     webView = view
     publish("starting", reason: reason)
-    timer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in self?.tick() }
+    timer = Timer(timeInterval: 2, repeats: true) { [weak self] timer in
+      guard self != nil else { timer.invalidate(); return }
+      MainActor.assumeIsolated { self?.tick() }
+    }
     if let timer { RunLoop.main.add(timer, forMode: .common) }
     #if DEBUG
     if backgroundProbe {
@@ -156,7 +169,7 @@ final class DataRuntime: NSObject, WKScriptMessageHandler, WKNavigationDelegate 
       guard backgroundProbe else { return }
       probeUpdates += 1
       if UIApplication.shared.applicationState == .background { probeBackgroundUpdates += 1 }
-      emit(status())
+      emitStatus()
     #endif
     case "diagnostic":
       #if DEBUG
@@ -180,14 +193,14 @@ final class DataRuntime: NSObject, WKScriptMessageHandler, WKNavigationDelegate 
             DispatchQueue.main.async { [weak self] in
               guard let self, self.generation == generation, self.workspace != nil, !self.cacheErrorShown else { return }
               self.cacheErrorShown = true
-              self.emit(self.status().merging(["reason": "session_cache_failed"], uniquingKeysWith: { _, new in new }))
+              self.emitStatus(["reason": "session_cache_failed"])
             }
           }
         }
       }
       guard type == "session", id == sessionId else { return }
       let payload = fits ? session : #"{"v":1,"overflow":true}"#
-      emit(status().merging(["sessionId": id, "session": payload], uniquingKeysWith: { _, new in new }))
+      emitStatus(["sessionId": id, "session": payload])
     case "grant": fetchGrant(view: view)
     case "catalog":
       guard let catalog = body["catalog"] as? String, catalog.utf8.count <= 12 * 1024 * 1024 else { return }
@@ -416,7 +429,7 @@ final class DataRuntime: NSObject, WKScriptMessageHandler, WKNavigationDelegate 
   private func deliverGrant(_ grant: [String: Any]?, view: WKWebView) {
     view.callAsyncJavaScript("globalThis.dataRuntime.grant(value)", arguments: ["value": grant as Any? ?? NSNull()], in: nil, in: .page, completionHandler: nil)
   }
-  func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+  func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void) {
     let url = navigationAction.request.url
     let bundledLoad = navigationAction.navigationType == .other && (url?.absoluteString == "about:blank" || url?.absoluteString == "https://lody.ai/")
     decisionHandler(bundledLoad ? .allow : .cancel)
@@ -473,7 +486,12 @@ final class DataRuntime: NSObject, WKScriptMessageHandler, WKNavigationDelegate 
   func debugHang() { webView?.evaluateJavaScript("while (true) {}", completionHandler: nil) }
   func debugRestart() { recover("debug_process_loss") }
   #endif
-  deinit { for observer in observers { NotificationCenter.default.removeObserver(observer) }; timer?.invalidate() }
+}
+
+final class NotificationObservers {
+  private var tokens: [NSObjectProtocol] = []
+  func add(_ token: NSObjectProtocol) { tokens.append(token) }
+  deinit { for token in tokens { NotificationCenter.default.removeObserver(token) } }
 }
 
 private func notSentJSON(_ key: String) -> String {

@@ -1,7 +1,12 @@
 import UIKit
+import UniformTypeIdentifiers
 
-func descendants(_ view: UIView) -> [UIView] {
+@MainActor func descendants(_ view: UIView) -> [UIView] {
   [view] + view.subviews.flatMap(descendants)
+}
+
+@MainActor func onMain<T>(_ body: @MainActor () -> T) -> T {
+  body()
 }
 
 let composer = ChatComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 64))
@@ -10,7 +15,7 @@ var height: CGFloat = 0
 composer.onHeightChange = { height = $0 }
 let ready = #"{"editable":true,"canSend":true,"sending":false,"notice":"","reconnect":false,"placeholder":"任务"}"#
 
-func verifyCollapsedTypography(_ category: UIContentSizeCategory, expectedPointSize: CGFloat) {
+@MainActor func verifyCollapsedTypography(_ category: UIContentSizeCategory, expectedPointSize: CGFloat) {
   var scaledComposer: ChatComposerView!
   UITraitCollection(preferredContentSizeCategory: category).performAsCurrent {
     scaledComposer = ChatComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 64))
@@ -36,7 +41,7 @@ let input = descendants(composer).compactMap { $0 as? UITextView }.first!
 let send = descendants(composer).compactMap { $0 as? UIButton }.first { $0.accessibilityIdentifier == "session-send" }!
 // A standalone simulator executable has no UIApplication event loop. Invoke the
 // real button's registered target action directly.
-func tapSend() {
+@MainActor func tapSend() {
   for action in send.actions(forTarget: composer, forControlEvent: .touchUpInside) ?? [] {
     composer.perform(NSSelectorFromString(action))
   }
@@ -130,7 +135,7 @@ let attachmentSend = descendants(attachmentComposer).compactMap { $0 as? UIButto
 precondition(attachmentSend.isEnabled, "Attachment-only drafts must be sendable")
 var sentAttachments: [[String: String]] = []
 attachmentComposer.onSend = { sentAttachments = $0["attachments"] as! [[String: String]] }
-func sendAttachment() {
+@MainActor func sendAttachment() {
   for action in attachmentSend.actions(forTarget: attachmentComposer, forControlEvent: .touchUpInside) ?? [] {
     attachmentComposer.perform(NSSelectorFromString(action))
   }
@@ -175,6 +180,43 @@ while pasteInput.text.isEmpty && Date() < textDeadline { RunLoop.current.run(unt
 precondition(pasteInput.text == "normal text paste", "Ordinary text paste must keep UIKit behavior")
 UIPasteboard.general.items = []
 print("Composer paste: file attachment and ordinary text fallback passed")
+
+let movie = FileManager.default.temporaryDirectory.appendingPathComponent("IMG_3933.mov")
+try! Data("video-bytes".utf8).write(to: movie)
+let poster = FileManager.default.temporaryDirectory.appendingPathComponent("IMG_3933.png")
+try! UIGraphicsImageRenderer(size: CGSize(width: 4, height: 4)).pngData { context in
+  UIColor.red.setFill()
+  context.fill(CGRect(x: 0, y: 0, width: 4, height: 4))
+}.write(to: poster)
+let videoProvider = NSItemProvider()
+videoProvider.suggestedName = "IMG_3933"
+videoProvider.registerFileRepresentation(forTypeIdentifier: UTType.png.identifier, fileOptions: [], visibility: .all) { completion in
+  completion(poster, false, nil)
+  return nil
+}
+videoProvider.registerFileRepresentation(forTypeIdentifier: UTType.mpeg4Movie.identifier, fileOptions: [], visibility: .all) { completion in
+  completion(movie, false, nil)
+  return nil
+}
+let videoComposer = ChatComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 64))
+videoComposer.setComposerState(ready)
+let videoInput = descendants(videoComposer).compactMap { $0 as? UITextView }.first!
+let videoSend = descendants(videoComposer).compactMap { $0 as? UIButton }.first { $0.accessibilityIdentifier == "session-send" }!
+precondition(videoInput.canPaste([videoProvider]), "A copied video must enable Paste")
+videoInput.paste(itemProviders: [videoProvider])
+let videoDeadline = Date().addingTimeInterval(3)
+while !videoSend.isEnabled && Date() < videoDeadline { RunLoop.current.run(until: Date().addingTimeInterval(0.01)) }
+precondition(videoSend.isEnabled, "Pasting a video must add a sendable attachment")
+var videoAttachments: [[String: String]] = []
+videoComposer.onSend = { videoAttachments = $0["attachments"] as! [[String: String]] }
+for action in videoSend.actions(forTarget: videoComposer, forControlEvent: .touchUpInside) ?? [] {
+  videoComposer.perform(NSSelectorFromString(action))
+}
+precondition(videoAttachments.first?["kind"] == "file", "A video must stay a file attachment, not an extracted poster image")
+precondition(videoAttachments.first?["name"]?.hasSuffix(".mov") == true || videoAttachments.first?["name"]?.hasSuffix(".mp4") == true, "A pasted video must keep a video filename")
+let videoURL = URL(string: videoAttachments.first!["uri"]!)!
+precondition((try? Data(contentsOf: videoURL)) == Data("video-bytes".utf8), "A pasted video must keep the movie bytes, not a PNG poster")
+print("Composer paste: video with an image poster stays a file")
 
 let draftComposer = ChatComposerView(frame: CGRect(x: 0, y: 0, width: 390, height: 64))
 draftComposer.setComposerState(ready)
@@ -287,14 +329,14 @@ throwWindow.addSubview(throwInput)
 let throwTarget = ChatMessageContent(frame: CGRect(x: 200, y: 100, width: 170, height: 45))
 throwTarget.label.setText(NSAttributedString(string: throwInput.text))
 throwWindow.addSubview(throwTarget)
-ChatSendHandoff.begin(id: "cancel-throw", text: throwInput.text, source: throwInput)
-ChatSendHandoff.hold(id: "cancel-throw", target: throwTarget)
+onMain { ChatSendHandoff.begin(id: "cancel-throw", text: throwInput.text, source: throwInput) }
+onMain { ChatSendHandoff.hold(id: "cancel-throw", target: throwTarget) }
 precondition(throwTarget.isHidden, "The destination must not duplicate the flying message")
-ChatSendHandoff.deliver(id: "cancel-throw", to: throwTarget)
+onMain { ChatSendHandoff.deliver(id: "cancel-throw", to: throwTarget) }
 let flyingText = throwWindow.subviews.compactMap { $0 as? ChatMessageContent }.first { $0 !== throwTarget }
 precondition(flyingText != nil && flyingText!.label.bounds.width > 0 && flyingText!.label.bounds.height > 0,
   "The hidden background layer must not skip the flying text layout")
-ChatSendHandoff.cancel(id: "cancel-throw")
+onMain { ChatSendHandoff.cancel(id: "cancel-throw") }
 RunLoop.current.run(until: Date().addingTimeInterval(0.5))
 precondition(!throwTarget.isHidden, "Cancellation must reveal the destination")
 precondition(throwWindow.subviews.count == 2, "Cancellation must remove every flight overlay")
@@ -309,7 +351,7 @@ var stopCalls = 0
 var queuePayload: [String: Any] = [:]
 queueComposer.onStop = { stopCalls += 1 }
 queueComposer.onSend = { queuePayload = $0 }
-func tapQueueAction() {
+@MainActor func tapQueueAction() {
   for action in queueSend.actions(forTarget: queueComposer, forControlEvent: .touchUpInside) ?? [] {
     queueComposer.perform(NSSelectorFromString(action))
   }
@@ -359,17 +401,17 @@ steerComposer.setComposerState(runningState)
 steerComposer.setQueue([ChatQueuedDraft(id: "s1", text: "Steer me"), ChatQueuedDraft(id: "s2", text: "Stay queued")])
 steerComposer.layoutIfNeeded()
 steerComposer.setQueue([ChatQueuedDraft(id: "s2", text: "Stay queued")])
-precondition(ChatSendHandoff.isWaiting(id: "s1"), "A steered row must start its flight before leaving the queue")
-precondition(!ChatSendHandoff.isWaiting(id: "s2"), "A row that stays queued must not fly")
+precondition(onMain { ChatSendHandoff.isWaiting(id: "s1") }, "A steered row must start its flight before leaving the queue")
+precondition(onMain { !ChatSendHandoff.isWaiting(id: "s2") }, "A row that stays queued must not fly")
 let steerTarget = ChatMessageContent(frame: CGRect(x: 200, y: 120, width: 170, height: 45))
 steerTarget.label.setText(NSAttributedString(string: "Steer me"))
 steerWindow.addSubview(steerTarget)
-ChatSendHandoff.hold(id: "s1", target: steerTarget)
-ChatSendHandoff.deliver(id: "s1", to: steerTarget)
+onMain { ChatSendHandoff.hold(id: "s1", target: steerTarget) }
+onMain { ChatSendHandoff.deliver(id: "s1", to: steerTarget) }
 let steerFlight = steerWindow.subviews.compactMap { $0 as? ChatMessageContent }.first { $0 !== steerTarget }
 precondition(steerFlight?.layer.animation(forKey: "throw.scale") == nil, "A steered message slides straight, without the throw squash")
 precondition(steerFlight?.layer.animation(forKey: "throw.position") != nil, "A steered message must animate to its landed row")
-ChatSendHandoff.cancel(id: "s1")
+onMain { ChatSendHandoff.cancel(id: "s1") }
 RunLoop.current.run(until: Date().addingTimeInterval(0.4))
 precondition(!steerTarget.isHidden, "Cancelling a steer flight must reveal the landed row")
 print("Steer flight: departing queue rows slide straight into the transcript and clean up on cancellation")

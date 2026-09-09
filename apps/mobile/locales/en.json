@@ -319,6 +319,7 @@
   "native.chat.attachment.accessDenied": "Photo access is off. Turn it on in Settings.",
   "native.chat.attachment.openSettings": "Open Settings",
   "native.chat.attachment.photoIndex": "Photo {index}",
+  "native.chat.attachment.videoIndex": "Video {index}",
   "native.chat.attachment.addCount.one": "Add {count} item",
   "native.chat.attachment.addCount.other": "Add {count} items",
   "native.chat.attachment.preview": "Preview attachment {name}",

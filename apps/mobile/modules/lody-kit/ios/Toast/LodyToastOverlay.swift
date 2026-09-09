@@ -2,9 +2,11 @@ import UIKit
 
 /// Toasts live in their own window above every sheet. A React-tree overlay can
 /// never sit above a presented sheet, which is where most failures surface.
+@MainActor
 enum LodyToastOverlay {
   static let shared = Host()
 
+  @MainActor
   final class Host {
     fileprivate var window: PassThroughWindow?
     fileprivate let canvas = Canvas()
@@ -99,7 +101,7 @@ enum LodyToastOverlay {
       if !parsed.sticky {
         let duration: TimeInterval = UIAccessibility.isVoiceOverRunning ? 6 : 4
         bannerTimer = Timer.scheduledTimer(withTimeInterval: duration, repeats: false) { [weak self] _ in
-          self?.dismissBanner()
+          MainActor.assumeIsolated { self?.dismissBanner() }
         }
       }
       UIAccessibility.post(notification: .announcement, argument: view.accessibilityLabel)
@@ -182,7 +184,7 @@ enum LodyToastOverlay {
       // VoiceOver needs time to finish announcing before the element disappears.
       let duration: TimeInterval = UIAccessibility.isVoiceOverRunning ? 6 : 3.2
       timer = Timer.scheduledTimer(withTimeInterval: duration, repeats: false) { [weak self] _ in
-        self?.dismiss()
+        MainActor.assumeIsolated { self?.dismiss() }
       }
     }
 

@@ -3,7 +3,7 @@
 Run from the repository root with a booted iOS Simulator:
 
 ```sh
-xcrun --sdk iphonesimulator swiftc -target arm64-apple-ios18.0-simulator \
+xcrun --sdk iphonesimulator swiftc -swift-version 6 -target arm64-apple-ios18.0-simulator \
   -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
   apps/mobile/modules/lody-kit/ios/UIFont+Dynamic.swift \
   apps/mobile/modules/lody-kit/ios/Chat/ChatAttachments.swift \

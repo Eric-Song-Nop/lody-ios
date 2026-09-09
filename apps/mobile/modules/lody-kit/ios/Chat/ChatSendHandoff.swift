@@ -28,6 +28,7 @@ final class ChatMessageContent: UIView {
   }
 }
 
+@MainActor
 final class ChatSendHandoff {
   private static var active: [String: ChatSendHandoff] = [:]
   let content = ChatMessageContent(frame: .zero)
@@ -265,6 +266,7 @@ final class ChatSendHandoff {
 
 #if DEBUG
 // Offline-only presentation-layer samples. Records geometry, never message text.
+@MainActor
 private final class ChatThrowProbe: NSObject {
   private weak var content: UIView?
   private weak var target: UIView?

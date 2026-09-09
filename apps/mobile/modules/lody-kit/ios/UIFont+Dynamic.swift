@@ -31,4 +31,11 @@ extension UIFont {
     }
     return monospacedSystemFont(ofSize: size, weight: weight)
   }
+
+  func withTabularNumbers() -> UIFont {
+    let weight = (fontDescriptor.object(forKey: .traits) as? [UIFontDescriptor.TraitKey: Any])
+      .flatMap { $0[.weight] as? CGFloat }
+      .map(UIFont.Weight.init(rawValue:)) ?? .regular
+    return .monospacedDigitSystemFont(ofSize: pointSize, weight: weight)
+  }
 }

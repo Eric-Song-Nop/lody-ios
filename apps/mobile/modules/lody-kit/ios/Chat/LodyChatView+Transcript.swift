@@ -16,6 +16,9 @@ extension LodyChatView {
   }
 
   func setEntries(_ json: String) {
+    #if DEBUG
+    if historyLoadStarted == 0 { historyLoadStarted = CACurrentMediaTime() }
+    #endif
     pendingEntries = json
     scheduleUpdate()
   }
@@ -76,10 +79,12 @@ extension LodyChatView {
     let interval = ChatStream.commitInterval(tailLength: renderTailLength)
     let delay = max(0.001, lastRenderTime + interval - CACurrentMediaTime())
     let timer = Timer(timeInterval: delay, repeats: false) { [weak self] _ in
-      guard let self else { return }
-      self.frameTimer = nil
-      if UIAccessibility.isReduceMotionEnabled { self.stream.finish() }
-      self.renderFrame()
+      MainActor.assumeIsolated {
+        guard let self else { return }
+        self.frameTimer = nil
+        if UIAccessibility.isReduceMotionEnabled { self.stream.finish() }
+        self.renderFrame()
+      }
     }
     frameTimer = timer
     RunLoop.main.add(timer, forMode: .common)
@@ -117,7 +122,7 @@ extension LodyChatView {
     let lineHeight = (row.kind == "user" ? 25 : 18) * scale
     paragraph.minimumLineHeight = lineHeight
     paragraph.maximumLineHeight = lineHeight
-    let font = UIFont.dynamic(of: row.kind == "user" ? 17 : 13, compatibleWith: traitCollection)
+    let font = ChatCell.messageFont(for: row, compatibleWith: traitCollection)
     return NSAttributedString(string: row.text, attributes: [
       .font: font,
       .foregroundColor: textColor(for: row),
@@ -165,6 +170,8 @@ extension LodyChatView {
     )
     if processEntryID.isEmpty, let pendingSend { projected += pendingSend.rows(entries: transcript.entries) }
     updateWorkDurationTimer(rows: projected)
+    let retainedIDs = Set(projected.map(\.id))
+    projected = prepareHistory(projected)
     let liveEntryID = transcript.entries.last { $0.isRunning && (processEntryID.isEmpty || $0.id == processEntryID) }?.id
     let previousLive = self.liveEntryID
     let starting = previousLive == nil && liveEntryID != nil
@@ -202,8 +209,8 @@ extension LodyChatView {
     let previous = rows
     prepareRowHeights(projected, previous: previous, animate: !folding)
     rows = Dictionary(projected.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
-    measurements = measurements.filter { rows[$0.key] != nil }
-    store.retain(Set(rows.keys))
+    measurements = measurements.filter { retainedIDs.contains($0.key) }
+    store.retain(retainedIDs)
     var snapshot = NSDiffableDataSourceSnapshot<String, String>()
     let grouped = Dictionary(grouping: projected, by: \.entryID)
     var entryIDs = transcript.entries.map(\.id)
@@ -231,6 +238,7 @@ extension LodyChatView {
     let finish = { [weak self] in
       guard let self else { return }
       #if DEBUG
+      self.recordHistoryCommit()
       self.streamPerformanceProbe?.commit(milliseconds: (CACurrentMediaTime() - commitStart) * 1000)
       #endif
       self.applying = false
@@ -266,7 +274,7 @@ extension LodyChatView {
     }
     guard workDurationTimer == nil else { return }
     let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
-      self?.applyRows()
+      MainActor.assumeIsolated { self?.applyRows() }
     }
     workDurationTimer = timer
     RunLoop.main.add(timer, forMode: .common)
@@ -278,4 +286,86 @@ private func textColor(for row: ChatRow) -> UIColor {
   if row.kind == "changes" || (row.kind == "summary" && row.running) { return .systemBlue }
   if row.kind == "user" { return .label }
   return .secondaryLabel
+}
+
+extension LodyChatView {
+  /// Flow layout measures every item, including offscreen Markdown. Commit the
+  /// recent tail first, then warm the same sizing cache in bounded main-run-loop
+  /// slices before inserting history. UIKit text measurement stays on main.
+  func prepareHistory(_ projected: [ChatRow]) -> [ChatRow] {
+    historyPreparation?.cancel()
+    historyPreparation = nil
+    guard preparingHistory || (!hasPositionedContent && projected.count > 80) else { return projected }
+    let width = max(1, collection.bounds.width - 40)
+    if width != historyWidth {
+      preparedHistory.removeAll()
+      historyWidth = width
+    }
+    let historical = projected.dropLast(40)
+    let remaining = historical.reversed().filter { preparedHistory[$0.id] != $0 }
+    guard !remaining.isEmpty else {
+      preparingHistory = false
+      preparedHistory.removeAll()
+      return projected
+    }
+    preparingHistory = true
+    if window != nil {
+      prepareHistorySlice(remaining, index: 0, width: width)
+    }
+    return Array(projected.suffix(40))
+  }
+
+  private func prepareHistorySlice(_ rows: [ChatRow], index: Int, width: CGFloat) {
+    let work = DispatchWorkItem { [weak self] in
+      guard let self, self.window != nil else { return }
+      self.historyPreparation = nil
+      guard max(1, self.collection.bounds.width - 40) == width else {
+        self.applyRows()
+        return
+      }
+      let started = CACurrentMediaTime()
+      let deadline = started + 0.004
+      var next = index
+      // ponytail: one row can exceed the budget; block-level measurement is the
+      // next step if individual huge messages dominate, rather than history size.
+      repeat {
+        let row = rows[next]
+        _ = self.rowHeight(row, width: width)
+        self.preparedHistory[row.id] = row
+        next += 1
+      } while next < rows.count && CACurrentMediaTime() < deadline
+      #if DEBUG
+      self.historySliceTimes.append((CACurrentMediaTime() - started) * 1000)
+      #endif
+      if next == rows.count {
+        self.applyRows()
+      } else {
+        self.prepareHistorySlice(rows, index: next, width: width)
+      }
+    }
+    historyPreparation = work
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.008, execute: work)
+  }
+
+  #if DEBUG
+  func recordHistoryCommit() {
+    guard transcript.entries.first?.id == "perf-0", historyLoadStarted > 0 else { return }
+    let elapsed = (CACurrentMediaTime() - historyLoadStarted) * 1000
+    if historyFirstContent == 0, !rows.isEmpty {
+      historyFirstContent = elapsed
+      historyFirstRows = rows.count
+    }
+    guard !preparingHistory, rows.count == 10_000 else { return }
+    let report: [String: Any] = [
+      "firstContentMs": historyFirstContent, "firstRows": historyFirstRows,
+      "completeMs": elapsed, "rows": rows.count,
+      "sliceMs": historySliceTimes,
+      "metric": "Native entries prop to layout completion; excludes JS fixture creation",
+    ]
+    if let data = try? JSONSerialization.data(withJSONObject: report, options: .sortedKeys) {
+      try? data.write(to: FileManager.default.temporaryDirectory.appendingPathComponent("lody-chat-loading.json"), options: .atomic)
+    }
+    historyLoadStarted = 0
+  }
+  #endif
 }

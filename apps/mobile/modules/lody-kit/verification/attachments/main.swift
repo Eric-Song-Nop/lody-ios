@@ -3,9 +3,30 @@ import UIKit
 
 enum AuthKeychain { static func read() throws -> String? { "synthetic-test-token" } }
 
+final class UploadRecorder: @unchecked Sendable {
+  private let lock = NSLock()
+  private var storedRequests: [URLRequest] = []
+  private var storedFailPart = false
+  var requests: [URLRequest] {
+    get { lock.lock(); defer { lock.unlock() }; return storedRequests }
+    set { lock.lock(); storedRequests = newValue; lock.unlock() }
+  }
+  var failPart: Bool {
+    get { lock.lock(); defer { lock.unlock() }; return storedFailPart }
+    set { lock.lock(); storedFailPart = newValue; lock.unlock() }
+  }
+}
+
 final class UploadProtocol: URLProtocol {
-  static var requests: [URLRequest] = []
-  static var failPart = false
+  private static let recorder = UploadRecorder()
+  static var requests: [URLRequest] {
+    get { recorder.requests }
+    set { recorder.requests = newValue }
+  }
+  static var failPart: Bool {
+    get { recorder.failPart }
+    set { recorder.failPart = newValue }
+  }
   override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "api.lody.ai" }
   override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
   override func startLoading() {
@@ -76,6 +97,13 @@ final class UploadProtocol: URLProtocol {
     try renderer.pngData { context in UIColor.blue.setFill(); context.fill(CGRect(x: 0, y: 0, width: 10, height: 10)) }.write(to: image)
     let images = try await SessionAttachments.upload([attachment(image, "image")], workspace: "w1", session: "s1")
     assert(images[0]["imageId"] as? String == "image1")
+    let video = root.appendingPathComponent("IMG_3933.mov")
+    try Data("hi!".utf8).write(to: video)
+    UploadProtocol.requests = []
+    let videos = try await SessionAttachments.upload([attachment(video, "image")], workspace: "w1", session: "s1")
+    assert(videos[0]["fileId"] as? String == "file1")
+    assert(UploadProtocol.requests.contains { $0.url!.path.contains("session-files") })
+    assert(!UploadProtocol.requests.contains { $0.url!.path.contains("session-images") })
     try Data(repeating: 65, count: 16 * 1024 * 1024 + 1).write(to: file)
     UploadProtocol.requests = []
     _ = try await SessionAttachments.upload([attachment(file)], workspace: "w1", session: "s1")

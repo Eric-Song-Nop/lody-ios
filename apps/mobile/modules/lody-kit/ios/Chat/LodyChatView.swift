@@ -10,6 +10,17 @@ private final class ChatCollectionView: UICollectionView {
     lastSize = contentSize
     contentDidLayout?()
   }
+
+  override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+    if gestureRecognizer === panGestureRecognizer, let pan = gestureRecognizer as? UIPanGestureRecognizer {
+      let velocity = pan.velocity(in: self)
+      if abs(velocity.x) > abs(velocity.y) {
+        let hit = hitTest(pan.location(in: self), with: nil)
+        if hit is UIScrollView && hit !== self { return false }
+      }
+    }
+    return super.gestureRecognizerShouldBegin(gestureRecognizer)
+  }
 }
 
 private final class ChatNavigationController: UIViewController {
@@ -50,6 +61,7 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
   private let titleButton = UIButton(type: .system)
   private var navigationTitle = ""
   private var navigationSubtitle = ""
+  private var navigationMachine = ""
   private var titleDisappearing = false
   private let navigation = ChatNavigationController()
   let collection: UICollectionView
@@ -81,6 +93,10 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
   var displayError: String? { didSet { composer.displayError = displayError } }
   var applying = false
   var needsApply = false
+  var historyPreparation: DispatchWorkItem?
+  var preparingHistory = false
+  var preparedHistory: [String: ChatRow] = [:]
+  var historyWidth: CGFloat = 0
   var followsBottom = true
   var trackingPausedByGesture = false
   var liveEntryID: String?
@@ -94,6 +110,10 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
   var hasPositionedContent = false
   var rowHeights: [String: (current: CGFloat, target: CGFloat, width: CGFloat)] = [:]
   #if DEBUG
+  var historyLoadStarted = 0.0
+  var historyFirstContent = 0.0
+  var historyFirstRows = 0
+  var historySliceTimes: [Double] = []
   var scrollProbe: ChatScrollProbe?
   var performanceProbe: ChatPerformanceProbe?
   var streamPerformanceProbe: ChatStreamPerformanceProbe?
@@ -328,8 +348,23 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
     updateTitleButton()
   }
 
+  func setNavigationMachine(_ name: String) {
+    guard navigationMachine != name else { return }
+    navigationMachine = name
+    updateTitleButton()
+  }
+
+  private func titleSubtitle() -> String {
+    ChatNavigationTitle.plainSubtitle(project: navigationSubtitle, machine: navigationMachine)
+  }
+
   private func updateTitleButton() {
-    ChatNavigationTitle.configureButton(titleButton, title: navigationTitle, subtitle: navigationSubtitle)
+    ChatNavigationTitle.configureButton(
+      titleButton,
+      title: navigationTitle,
+      subtitle: navigationSubtitle,
+      machine: navigationMachine
+    )
     attachTitle()
   }
 
@@ -355,14 +390,14 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
   private func attachTitle() {
     bindScrollOwnerIfNeeded()
     guard window != nil, let owner = scrollOwner else { return }
-    guard !navigationTitle.isEmpty || !navigationSubtitle.isEmpty else { return }
+    guard !navigationTitle.isEmpty || !navigationSubtitle.isEmpty || !navigationMachine.isEmpty else { return }
     if titleDisappearing {
-      ChatNavigationTitle.preserveSubtitle(navigationSubtitle, on: owner.navigationItem)
+      ChatNavigationTitle.preserveSubtitle(titleSubtitle(), on: owner.navigationItem)
       return
     }
     ChatNavigationTitle.apply(
       title: navigationTitle,
-      subtitle: navigationSubtitle,
+      subtitle: titleSubtitle(),
       button: titleButton,
       to: owner.navigationItem
     )
@@ -370,7 +405,7 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
 
   private func preserveTitleSubtitle() {
     guard let owner = scrollOwner else { return }
-    ChatNavigationTitle.preserveSubtitle(navigationSubtitle, on: owner.navigationItem)
+    ChatNavigationTitle.preserveSubtitle(titleSubtitle(), on: owner.navigationItem)
   }
 
   override func willMove(toSuperview newSuperview: UIView?) {
@@ -390,6 +425,7 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
 
   private func applyDynamicType() {
     store.apply(traits: traitCollection)
+    preparedHistory.removeAll()
     measurements.removeAll()
     empty.font = .dynamic(of: 16, compatibleWith: traitCollection)
     guard dataSource != nil else { return }
@@ -406,6 +442,7 @@ final class LodyChatView: ExpoView, UICollectionViewDelegateFlowLayout, UIGestur
   override func didMoveToWindow() {
     super.didMoveToWindow()
     if window == nil {
+      historyPreparation?.cancel(); historyPreparation = nil
       if let handoffID { ChatSendHandoff.cancel(id: handoffID) }
       motionLink?.invalidate(); motionLink = nil
       rowHeights.removeAll()

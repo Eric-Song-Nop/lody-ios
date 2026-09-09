@@ -79,3 +79,86 @@ assert(LodyListCellBackground.outlineConfiguration(for: restingState).background
 assert(LodyListCellBackground.outlineConfiguration(for: tappedState).backgroundColor != .clear, "Outline rows must still paint their highlight")
 assert(LodyListCellBackground.outlineConfiguration(for: swipedState).backgroundColor != .clear, "A swiped outline row must carry an opaque background with it")
 assert(LodySectionCardView(frame: .zero).layer.cornerRadius > 0, "The section card must be rounded")
+
+struct LodyListRow {
+  var title = ""
+  var subtitle = ""
+  var value = ""
+  var unread = false
+  var destructive = false
+  var badge = ""
+  var subtitleMono = false
+  var pinned = false
+  var diff: [String: Int] = [:]
+}
+
+func laidOutSessionRow(_ content: LodySessionRowContent) -> LodySessionRowView {
+  let view = LodySessionRowView(content)
+  let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+  window.makeKeyAndVisible()
+  let host = UIView(frame: window.bounds)
+  window.addSubview(host)
+  host.addSubview(view)
+  view.translatesAutoresizingMaskIntoConstraints = false
+  NSLayoutConstraint.activate([
+    view.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+    view.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+    view.topAnchor.constraint(equalTo: host.topAnchor),
+  ])
+  host.layoutIfNeeded()
+  withExtendedLifetime(window) {}
+  return view
+}
+
+func sessionMark(in view: UIView) -> UIView {
+  view.subviews.first { $0.layer.cornerRadius == 7 }!
+}
+
+func sessionLabel(_ view: UIView, _ text: String) -> UILabel {
+  view.subviews.compactMap { $0 as? UILabel }.first {
+    ($0.text ?? $0.attributedText?.string) == text
+  }!
+}
+
+func midY(_ inner: UIView, in outer: UIView) -> CGFloat {
+  inner.convert(CGPoint(x: 0, y: inner.bounds.midY), to: outer).y
+}
+
+let live = laidOutSessionRow(
+  LodySessionRowContent(
+    row: LodyListRow(title: "正在运行的任务", subtitle: "lody-ios", value: "刚刚"),
+    dot: .systemBlue,
+    live: true
+  )
+)
+let liveMark = sessionMark(in: live)
+let liveTitle = sessionLabel(live, "正在运行的任务")
+let liveMeta = sessionLabel(live, "lody-ios")
+let liveMarkY = midY(liveMark, in: live)
+let liveTitleY = liveTitle.convert(CGPoint(x: 0, y: liveTitle.font.ascender / 2), to: live).y
+let liveMetaY = midY(liveMeta, in: live)
+assert(
+  abs(liveMarkY - liveTitleY) < abs(liveMarkY - liveMetaY),
+  "Live mark must sit on the title, not the project name"
+)
+assert(
+  liveMark.convert(CGPoint(x: liveMark.bounds.maxX, y: 0), to: live).x
+    <= liveTitle.convert(.zero, to: live).x + 1,
+  "Live mark must sit in front of the title"
+)
+
+let solo = laidOutSessionRow(
+  LodySessionRowContent(
+    row: LodyListRow(title: "无项目会话", value: "刚刚"),
+    dot: .systemBlue,
+    live: true
+  )
+)
+let soloMark = sessionMark(in: solo)
+let soloTitle = sessionLabel(solo, "无项目会话")
+assert(
+  abs(midY(soloMark, in: solo) - soloTitle.convert(CGPoint(x: 0, y: soloTitle.font.ascender / 2), to: solo).y) < 6,
+  "A row without a project name still keeps the mark on the title"
+)
+
+print("PASS: session live mark sits in front of the title")

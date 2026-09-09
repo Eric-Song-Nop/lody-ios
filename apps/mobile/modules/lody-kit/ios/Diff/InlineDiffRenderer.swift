@@ -306,13 +306,8 @@ private final class InlineDiffRow: UIView {
 }
 
 extension InlineDiffMetrics {
-  static func makeGlyphView() -> UITextView {
-    let view: UITextView
-    if #available(iOS 16.0, *) {
-      view = UITextView(usingTextLayoutManager: false)
-    } else {
-      view = UITextView()
-    }
+  @MainActor static func makeGlyphView() -> UITextView {
+    let view = UITextView(usingTextLayoutManager: false)
     view.backgroundColor = .clear
     view.isEditable = false
     view.isScrollEnabled = false

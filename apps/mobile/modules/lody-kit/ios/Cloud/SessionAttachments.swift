@@ -25,8 +25,11 @@ enum SessionAttachments {
       guard let uri = attachment["uri"] as? String, let url = URL(string: uri), url.isFileURL,
             url.resolvingSymlinksInPath().path.hasPrefix(FileManager.default.temporaryDirectory.resolvingSymlinksInPath().path + "/"),
             let name = attachment["name"] as? String, !name.isEmpty,
-            let kind = attachment["kind"] as? String, ["image", "file"].contains(kind) else {
+            var kind = attachment["kind"] as? String, ["image", "file"].contains(kind) else {
         throw error(LodyStrings.text("native.attachment.error.invalid"))
+      }
+      if kind == "image", UTType(filenameExtension: url.pathExtension)?.conforms(to: .movie) == true {
+        kind = "file"
       }
       let size = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
       guard size.isRegularFile == true, let count = size.fileSize, count > 0, count <= 100 * 1024 * 1024 else {
@@ -93,7 +96,7 @@ enum SessionAttachments {
             result = try await request(path + "/complete", token: token, headers: identity.merging(["Content-Type": "application/json"], uniquingKeysWith: { _, new in new }), body: JSONSerialization.data(withJSONObject: ["parts": parts]))
           } catch {
             // Cleanup also runs after cancellation; never retry message dispatch.
-            _ = await Task.detached { try? await request(path + "/abort", token: token, method: "DELETE", headers: identity) }.value
+            await Task.detached { _ = try? await request(path + "/abort", token: token, method: "DELETE", headers: identity) }.value
             throw error
           }
         }

@@ -2,7 +2,9 @@ import MarkdownParser
 import MarkdownView
 import UIKit
 
-final class ChatParseCache {
+// NSCache is thread-safe and each parse builds its own parser, so the cache is shared
+// between the main actor and the preparation queue without a lock.
+final class ChatParseCache: @unchecked Sendable {
   private final class Box {
     let result: MarkdownParser.ParseResult
     init(_ result: MarkdownParser.ParseResult) { self.result = result }

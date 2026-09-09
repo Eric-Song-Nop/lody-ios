@@ -319,6 +319,7 @@
   "native.chat.attachment.accessDenied": "照片访问已关闭，可在「设置」中开启",
   "native.chat.attachment.openSettings": "打开设置",
   "native.chat.attachment.photoIndex": "照片 {index}",
+  "native.chat.attachment.videoIndex": "视频 {index}",
   "native.chat.attachment.addCount.one": "添加 {count} 项",
   "native.chat.attachment.addCount.other": "添加 {count} 项",
   "native.chat.attachment.preview": "预览附件 {name}",

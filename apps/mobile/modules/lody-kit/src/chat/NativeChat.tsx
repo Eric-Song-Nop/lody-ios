@@ -18,6 +18,7 @@ export const NativeChat: ComponentType<
     attachmentContextJSON?: string;
     navigationTitle?: string;
     navigationSubtitle?: string;
+    navigationMachine?: string;
     onTitlePress?: () => void;
     processEntryId?: string;
     processStartId?: string;

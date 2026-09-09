@@ -10,11 +10,11 @@ struct LodyRuntimeInfo {
 }
 
 @ExpoModule("LodyKit")
-public final class LodyKitModule: Module {
+public final class LodyKitModule: Module, @unchecked Sendable {
   private let localStore = LocalStore.shared
   private var authBrowser: SFSafariViewController?
 
-  private lazy var dataRuntime = DataRuntime(localStore: localStore) { [weak self] event in self?.sendEvent("onDataRuntime", event) }
+  @MainActor private lazy var dataRuntime = DataRuntime(localStore: localStore) { [weak self] event in self?.sendEvent("onDataRuntime", event) }
 
   @Event("onAppActive")
   var onAppActive: () -> Void
@@ -30,10 +30,12 @@ public final class LodyKitModule: Module {
     #if DEBUG
     offlineProbe = ProcessInfo.processInfo.arguments.contains("--lody-offline")
     #endif
+    let version = ProcessInfo.processInfo.operatingSystemVersion
+    let components = [version.majorVersion, version.minorVersion, version.patchVersion]
     return LodyRuntimeInfo(
       moduleName: "LodyKit",
       offlineProbe: offlineProbe,
-      systemVersion: UIDevice.current.systemVersion
+      systemVersion: components.prefix(version.patchVersion == 0 ? 2 : 3).map(String.init).joined(separator: ".")
     )
   }
 
@@ -47,7 +49,7 @@ public final class LodyKitModule: Module {
   }
 
   public override func willDestroy() {
-    DispatchQueue.main.async { self.dataRuntime.stop() }
+    Task { @MainActor in self.dataRuntime.stop() }
   }
 
   @JS
@@ -170,35 +172,17 @@ public final class LodyKitModule: Module {
 
   @JS
   func showToast(message: String, kind: String) {
-    if Thread.isMainThread {
-      LodyToastOverlay.shared.show(message: message, kind: kind)
-    } else {
-      DispatchQueue.main.async {
-        LodyToastOverlay.shared.show(message: message, kind: kind)
-      }
-    }
+    Task { @MainActor in LodyToastOverlay.shared.show(message: message, kind: kind) }
   }
 
   @JS
   func showSessionBanner(title: String, kind: String) {
-    if Thread.isMainThread {
-      LodyToastOverlay.shared.showBanner(title: title, kind: kind)
-    } else {
-      DispatchQueue.main.async {
-        LodyToastOverlay.shared.showBanner(title: title, kind: kind)
-      }
-    }
+    Task { @MainActor in LodyToastOverlay.shared.showBanner(title: title, kind: kind) }
   }
 
   @JS
   func dismissSessionBanner() {
-    if Thread.isMainThread {
-      LodyToastOverlay.shared.dismissBanner()
-    } else {
-      DispatchQueue.main.async {
-        LodyToastOverlay.shared.dismissBanner()
-      }
-    }
+    Task { @MainActor in LodyToastOverlay.shared.dismissBanner() }
   }
 
   @JS
@@ -221,122 +205,140 @@ public final class LodyKitModule: Module {
   public func definition() -> ModuleDefinition {
     Events("onDataRuntime")
 
-    AsyncFunction("sessionCreationOptions") { (payload: String, promise: Promise) in self.dataRuntime.command("creationOptions", payload: payload, promise: promise) }.runOnQueue(.main)
-    AsyncFunction("localProjects") { (payload: String, promise: Promise) in self.dataRuntime.command("localProjects", payload: payload, promise: promise) }.runOnQueue(.main)
-    AsyncFunction("remoteSettings") { (payload: String, promise: Promise) in self.dataRuntime.command("remoteSettings", payload: payload, promise: promise) }.runOnQueue(.main)
-    AsyncFunction("createSession") { (payload: String, promise: Promise) in self.dataRuntime.command("createSession", payload: payload, promise: promise) }.runOnQueue(.main)
-    AsyncFunction("archiveSession") { (payload: String, promise: Promise) in self.dataRuntime.command("archiveSession", payload: payload, promise: promise) }.runOnQueue(.main)
-    AsyncFunction("pinSession") { (payload: String, promise: Promise) in self.dataRuntime.command("pinSession", payload: payload, promise: promise) }.runOnQueue(.main)
-    AsyncFunction("controlSessionTurn") { (payload: String, promise: Promise) in self.dataRuntime.command("controlTurn", payload: payload, promise: promise) }.runOnQueue(.main)
-    AsyncFunction("sendSessionTurn") { (payload: String, promise: Promise) in self.dataRuntime.sendTurn(payload, promise: promise) }.runOnQueue(.main)
+    AsyncFunction("sessionCreationOptions") { (payload: String, promise: Promise) in MainActor.assumeIsolated { self.dataRuntime.command("creationOptions", payload: payload, promise: promise) } }.runOnQueue(.main)
+    AsyncFunction("localProjects") { (payload: String, promise: Promise) in MainActor.assumeIsolated { self.dataRuntime.command("localProjects", payload: payload, promise: promise) } }.runOnQueue(.main)
+    AsyncFunction("remoteSettings") { (payload: String, promise: Promise) in MainActor.assumeIsolated { self.dataRuntime.command("remoteSettings", payload: payload, promise: promise) } }.runOnQueue(.main)
+    AsyncFunction("createSession") { (payload: String, promise: Promise) in MainActor.assumeIsolated { self.dataRuntime.command("createSession", payload: payload, promise: promise) } }.runOnQueue(.main)
+    AsyncFunction("archiveSession") { (payload: String, promise: Promise) in MainActor.assumeIsolated { self.dataRuntime.command("archiveSession", payload: payload, promise: promise) } }.runOnQueue(.main)
+    AsyncFunction("pinSession") { (payload: String, promise: Promise) in MainActor.assumeIsolated { self.dataRuntime.command("pinSession", payload: payload, promise: promise) } }.runOnQueue(.main)
+    AsyncFunction("controlSessionTurn") { (payload: String, promise: Promise) in MainActor.assumeIsolated { self.dataRuntime.command("controlTurn", payload: payload, promise: promise) } }.runOnQueue(.main)
+    AsyncFunction("sendSessionTurn") { (payload: String, promise: Promise) in MainActor.assumeIsolated { self.dataRuntime.sendTurn(payload, promise: promise) } }.runOnQueue(.main)
     AsyncFunction("sessionItemDetail") { (payload: String, promise: Promise) in
-      #if DEBUG
-      if ProcessInfo.processInfo.arguments.contains("--ui-verify"),
-        let data = payload.data(using: .utf8),
-        let params = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-        params["sessionId"] as? String == "ui-verify-diff",
-        params["entryId"] as? String == "diff-preview",
-        params["itemId"] as? String == "edit"
-      {
-        let result = try JSONSerialization.data(withJSONObject: [
-          "itemId": "edit",
-          "rev": 1,
-          "truncated": false,
-          "blocks": [[
-            "type": "diff",
-            "path": "src/inline.ts",
-            "oldText": "export const greeting = 'hi'\n",
-            "newText": "export const greeting = 'hello'\n",
-          ]],
-        ])
-        promise.resolve(String(decoding: result, as: UTF8.self))
-        return
+      try MainActor.assumeIsolated {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--ui-verify"),
+          let data = payload.data(using: .utf8),
+          let params = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+          params["sessionId"] as? String == "ui-verify-diff",
+          params["entryId"] as? String == "diff-preview",
+          params["itemId"] as? String == "edit"
+        {
+          let result = try JSONSerialization.data(withJSONObject: [
+            "itemId": "edit",
+            "rev": 1,
+            "truncated": false,
+            "blocks": [[
+              "type": "diff",
+              "path": "src/inline.ts",
+              "oldText": "export const greeting = 'hi'\n",
+              "newText": "export const greeting = 'hello'\n",
+            ]],
+          ])
+          promise.resolve(String(decoding: result, as: UTF8.self))
+          return
+        }
+        #endif
+        self.dataRuntime.command("itemDetail", payload: payload, promise: promise)
       }
-      #endif
-      self.dataRuntime.command("itemDetail", payload: payload, promise: promise)
     }.runOnQueue(.main)
-    AsyncFunction("respondSessionPermission") { (payload: String, promise: Promise) in self.dataRuntime.command("respondPermission", payload: payload, promise: promise) }.runOnQueue(.main)
+    AsyncFunction("respondSessionPermission") { (payload: String, promise: Promise) in MainActor.assumeIsolated { self.dataRuntime.command("respondPermission", payload: payload, promise: promise) } }.runOnQueue(.main)
     AsyncFunction("turnDiff") { (payload: String, promise: Promise) in
-      #if DEBUG
-      if ProcessInfo.processInfo.arguments.contains("--ui-verify"),
-        let data = payload.data(using: .utf8),
-        let params = try? JSONSerialization.jsonObject(with: data) as? [String: String],
-        params["sessionId"] == "ui-verify-diff", params["entryId"] == "diff-preview",
-        let path = params["path"], ["docs/superpowers/.diff-check.md", "src/very-long-directory-name/nested/components/another-long-file-name.ts"].contains(path) {
-        let added = path.hasSuffix(".ts")
-          ? """
-            import { readFileSync } from 'node:fs';
-            import { hashPassword } from './auth/password.mjs';
-            import pg from 'pg';
+      try MainActor.assumeIsolated {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--ui-verify"),
+          let data = payload.data(using: .utf8),
+          let params = try? JSONSerialization.jsonObject(with: data) as? [String: String],
+          params["sessionId"] == "ui-verify-diff", params["entryId"] == "diff-preview",
+          let path = params["path"], ["docs/superpowers/.diff-check.md", "src/very-long-directory-name/nested/components/another-long-file-name.ts"].contains(path) {
+          let added = path.hasSuffix(".ts")
+            ? """
+              import { readFileSync } from 'node:fs';
+              import { hashPassword } from './auth/password.mjs';
+              import pg from 'pg';
 
-            const password = readFileSync(new URL('./.tmp-alice.secret', import.meta.url), 'utf8').trim();
-            const hash = await hashPassword(password);
-            const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
-            await client.connect();
-            const r = await client.query(
-              `UPDATE auth_account SET password_hash = $1 WHERE email = $2 AND deleted_at IS NULL RETURNING id`,
-              [hash, 'alice@test.dev'],
-            );
-            console.log(r.rowCount, r.rows[0]?.id);
-            await client.end();
-            """
-          : "a\nhello\nc\n"
-        let contents = try JSONSerialization.data(withJSONObject: [
-          "old": path.hasSuffix(".ts") ? "" : "a\nb\nc\n",
-          "new": added,
-        ])
-        let handle = ContentStore.shared.put(StoredContent(data: contents, kind: "diff", path: path, session: "ui-verify-diff", mimeType: nil))
-        let result = try JSONSerialization.data(withJSONObject: ["status": "ok", "handle": handle, "base": "turn", "oldKind": "text", "newKind": "text", "add": 1, "del": 1])
-        promise.resolve(String(decoding: result, as: UTF8.self))
-        return
+              const password = readFileSync(new URL('./.tmp-alice.secret', import.meta.url), 'utf8').trim();
+              const hash = await hashPassword(password);
+              const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+              await client.connect();
+              const r = await client.query(
+                `UPDATE auth_account SET password_hash = $1 WHERE email = $2 AND deleted_at IS NULL RETURNING id`,
+                [hash, 'alice@test.dev'],
+              );
+              console.log(r.rowCount, r.rows[0]?.id);
+              await client.end();
+              """
+            : "a\nhello\nc\n"
+          let contents = try JSONSerialization.data(withJSONObject: [
+            "old": path.hasSuffix(".ts") ? "" : "a\nb\nc\n",
+            "new": added,
+          ])
+          let handle = ContentStore.shared.put(StoredContent(data: contents, kind: "diff", path: path, session: "ui-verify-diff", mimeType: nil))
+          let result = try JSONSerialization.data(withJSONObject: ["status": "ok", "handle": handle, "base": "turn", "oldKind": "text", "newKind": "text", "add": 1, "del": 1])
+          promise.resolve(String(decoding: result, as: UTF8.self))
+          return
+        }
+        #endif
+        self.dataRuntime.command("turnDiff", payload: payload, promise: promise)
       }
-      #endif
-      self.dataRuntime.command("turnDiff", payload: payload, promise: promise)
     }.runOnQueue(.main)
-    AsyncFunction("fileDiff") { (payload: String, promise: Promise) in self.dataRuntime.command("fileDiff", payload: payload, promise: promise) }.runOnQueue(.main)
+    AsyncFunction("fileDiff") { (payload: String, promise: Promise) in MainActor.assumeIsolated { self.dataRuntime.command("fileDiff", payload: payload, promise: promise) } }.runOnQueue(.main)
     AsyncFunction("readFile") { (payload: String, promise: Promise) in
-      #if DEBUG
-      if let response = FilePreviewFixture.response(payload) { promise.resolve(response); return }
-      #endif
-      self.dataRuntime.command("readFile", payload: payload, promise: promise)
+      MainActor.assumeIsolated {
+        #if DEBUG
+        if let response = FilePreviewFixture.response(payload) { promise.resolve(response); return }
+        #endif
+        self.dataRuntime.command("readFile", payload: payload, promise: promise)
+      }
     }.runOnQueue(.main)
     AsyncFunction("listDir") { (payload: String, promise: Promise) in
-      #if DEBUG
-      if let response = FilePreviewFixture.response(payload, listing: true) { promise.resolve(response); return }
-      #endif
-      self.dataRuntime.command("listDir", payload: payload, promise: promise)
+      MainActor.assumeIsolated {
+        #if DEBUG
+        if let response = FilePreviewFixture.response(payload, listing: true) { promise.resolve(response); return }
+        #endif
+        self.dataRuntime.command("listDir", payload: payload, promise: promise)
+      }
     }.runOnQueue(.main)
-    AsyncFunction("dataRuntimeStatus") { self.dataRuntime.status() }.runOnQueue(.main)
+    AsyncFunction("dataRuntimeStatus") { (promise: Promise) in
+      promise.resolve(MainActor.assumeIsolated { self.dataRuntime.status() })
+    }.runOnQueue(.main)
     AsyncFunction("debugProbeSchema") { (promise: Promise) in
-      #if DEBUG
-      self.dataRuntime.debugProbeSchema(promise: promise)
-      #else
-      promise.resolve("{}")
-      #endif
+      MainActor.assumeIsolated {
+        #if DEBUG
+        self.dataRuntime.debugProbeSchema(promise: promise)
+        #else
+        promise.resolve("{}")
+        #endif
+      }
     }.runOnQueue(.main)
     AsyncFunction("debugBackgroundDataRuntime") { (action: String, promise: Promise) in
-      #if DEBUG
-      self.dataRuntime.debugBackground(action, promise: promise)
-      #else
-      promise.resolve("{}")
-      #endif
+      MainActor.assumeIsolated {
+        #if DEBUG
+        self.dataRuntime.debugBackground(action, promise: promise)
+        #else
+        promise.resolve("{}")
+        #endif
+      }
     }.runOnQueue(.main)
     AsyncFunction("clearLocalValues") { (promise: Promise) in
-      // Stop producers before clearing their queued writes, including background Sessions.
-      self.dataRuntime.stop()
-      LocalStore.queue.async {
-        do { try self.localStore.clear(); promise.resolve(nil) }
-        catch { promise.reject(error) }
+      MainActor.assumeIsolated {
+        // Stop producers before clearing their queued writes, including background Sessions.
+        self.dataRuntime.stop()
+        LocalStore.queue.async {
+          do { try self.localStore.clear(); promise.resolve(nil) }
+          catch { promise.reject(error) }
+        }
       }
     }.runOnQueue(.main)
     AsyncFunction("decodeFlock") { (snapshot: String, updates: [String], mode: String, promise: Promise) in
-      guard snapshot.utf8.count + updates.reduce(0, { $0 + $1.utf8.count }) <= 12 * 1024 * 1024 else {
-        promise.reject("DECODE_LIMIT", "workspace snapshot exceeds the decode limit"); return
-      }
-      _ = FlockDecoder(snapshot: snapshot, updates: updates, mode: mode) { result in
-        switch result {
-        case .success(let value): promise.resolve(value)
-        case .failure: promise.reject("DECODE_FAILED", "workspace snapshot decode failed")
+      MainActor.assumeIsolated {
+        guard snapshot.utf8.count + updates.reduce(0, { $0 + $1.utf8.count }) <= 12 * 1024 * 1024 else {
+          promise.reject("DECODE_LIMIT", "workspace snapshot exceeds the decode limit"); return
+        }
+        _ = FlockDecoder(snapshot: snapshot, updates: updates, mode: mode) { result in
+          switch result {
+          case .success(let value): promise.resolve(value)
+          case .failure: promise.reject("DECODE_FAILED", "workspace snapshot decode failed")
+          }
         }
       }
     }.runOnQueue(.main)
@@ -369,6 +371,7 @@ public final class LodyKitModule: Module {
       Events("onStop", "onSteer", "onSend", "onActivityPress", "onFilePress", "onTurnChangesPress", "onReconnect", "onTitlePress", "onComposerOptionChange")
       Prop("navigationTitle") { (view: LodyChatView, value: String) in view.setNavigationTitle(value) }
       Prop("navigationSubtitle") { (view: LodyChatView, value: String) in view.setNavigationSubtitle(value) }
+      Prop("navigationMachine") { (view: LodyChatView, value: String) in view.setNavigationMachine(value) }
       Prop("attachmentContextJSON") { (view: LodyChatView, value: String) in view.setAttachmentContext(value) }
       Prop("entriesJSON") { (view: LodyChatView, value: String) in view.setEntries(value) }
       Prop("pendingSendJSON") { (view: LodyChatView, value: String) in view.setPendingSendJSON(value) }
@@ -529,24 +532,11 @@ public final class LodyKitModule: Module {
     }
   }
 
-  private func runOnMain<T>(_ work: @escaping () throws -> T) async throws -> T {
-    try await withCheckedThrowingContinuation { continuation in
-      DispatchQueue.main.async {
-        do { continuation.resume(returning: try work()) }
-        catch { continuation.resume(throwing: error) }
-      }
-    }
+  private func runOnMain<T: Sendable>(_ work: @MainActor @Sendable () throws -> T) async rethrows -> T {
+    try await MainActor.run { try work() }
   }
 
-  private func runOnMain<T>(_ work: @escaping () -> T) async -> T {
-    await withCheckedContinuation { continuation in
-      DispatchQueue.main.async {
-        continuation.resume(returning: work())
-      }
-    }
-  }
-
-  private func runOnStore<T>(_ work: @escaping () throws -> T) async throws -> T {
+  private func runOnStore<T>(_ work: @escaping @Sendable () throws -> T) async throws -> T {
     try await withCheckedThrowingContinuation { continuation in
       LocalStore.queue.async {
         do { continuation.resume(returning: try work()) }

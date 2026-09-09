@@ -9,7 +9,8 @@ struct StoredContent {
 }
 
 // File bodies never cross the RN bridge: the runtime parks them here and hands
-// RN a handle that native views resolve on the main queue.
+// RN a handle that native views resolve on the main actor.
+@MainActor
 final class ContentStore {
   static let shared = ContentStore(limit: 32 * 1024 * 1024)
   private let limit: Int

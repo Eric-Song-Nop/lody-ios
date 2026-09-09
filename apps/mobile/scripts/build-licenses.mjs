@@ -46,6 +46,8 @@ const buildTooling = [
   /^@expo\/osascript$/,
   /^@expo\/plist$/,
   /^@expo\/prebuild-config$/,
+  /^@bacons\/apple-targets$/,
+  /^@bacons\/xcode$/,
   /^@expo\/env$/,
   /^@expo\/scheme$/,
   /^@expo\/xml$/,
@@ -96,7 +98,7 @@ const nativeComponents = [
   {
     name: 'MarkdownView',
     license: 'MIT',
-    url: 'https://github.com/Innei/MarkdownView',
+    url: 'https://github.com/Lakr233/MarkdownView',
     file: 'modules/lody-kit/licenses/MarkdownView-LICENSE.txt',
   },
   {

@@ -1,9 +1,10 @@
 import BackgroundTasks
 import UIKit
 
-/// Main-queue ownership. Expiration releases the background allowance without
-/// cancelling the remote agent; only a new user send requests another task.
+/// Expiration releases the background allowance without cancelling the remote
+/// agent; only a new user send requests another task.
 @available(iOS 26.0, *)
+@MainActor
 final class ContinuedSessionTasks {
   static let shared = ContinuedSessionTasks()
   private let prefix = "app.innei.lody.session-sync."
@@ -25,29 +26,32 @@ final class ContinuedSessionTasks {
     guard UIApplication.shared.applicationState == .active else { return nil }
     let id = prefix + UUID().uuidString
     let registered = BGTaskScheduler.shared.register(forTaskWithIdentifier: id, using: .main) { [weak self] task in
-      guard let self, let task = task as? BGContinuedProcessingTask,
-            var current = self.work[task.identifier] else {
-        task.setTaskCompleted(success: false)
-        return
-      }
-      #if DEBUG
-      self.debugState = "running"
-      #endif
-      current.task = task
-      self.work[task.identifier] = current
-      task.expirationHandler = { [weak self, weak task] in
-        DispatchQueue.main.async {
-          guard let self, let task, self.work[task.identifier]?.task === task else { return }
-          self.finish(task.identifier, success: false)
-          #if DEBUG
-          self.debugState = "expired"
-          #endif
+      MainActor.assumeIsolated {
+        guard let self, let task = task as? BGContinuedProcessingTask,
+              var current = self.work[task.identifier] else {
+          task.setTaskCompleted(success: false)
+          return
         }
+        #if DEBUG
+        self.debugState = "running"
+        #endif
+        current.task = task
+        self.work[task.identifier] = current
+        let taskID = task.identifier
+        task.expirationHandler = { [weak self] in
+          Task { @MainActor in
+            guard let self, self.work[taskID]?.task?.identifier == taskID else { return }
+            self.finish(taskID, success: false)
+            #if DEBUG
+            self.debugState = "expired"
+            #endif
+          }
+        }
+        // Three observed milestones, never a made-up percentage of agent work.
+        task.progress.totalUnitCount = 3
+        task.progress.completedUnitCount = current.completed
+        self.updateTitle(task, completed: current.completed)
       }
-      // Three observed milestones, never a made-up percentage of agent work.
-      task.progress.totalUnitCount = 3
-      task.progress.completedUnitCount = current.completed
-      self.updateTitle(task, completed: current.completed)
     }
     guard registered else {
       #if DEBUG

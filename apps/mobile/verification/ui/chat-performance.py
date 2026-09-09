@@ -10,6 +10,36 @@ from driver import UI
 
 ui = UI(sys.argv[1], sys.argv[2])
 container = Path(subprocess.check_output(['xcrun', 'simctl', 'get_app_container', ui.udid, 'app.innei.lody', 'data'], text=True).strip())
+loading_path = container / 'tmp/lody-chat-loading.json'
+ui.capture('loading-state')
+ui.element('perf-9998:user')
+ui.axe('swipe', '--start-x', '200', '--start-y', '400', '--end-x', '200', '--end-y', '550', '--duration', '.4', '--post-delay', '.5')
+anchor_y = ui.element('perf-9998:user')['frame']['y']
+stable = 0
+deadline = time.monotonic() + 10
+while stable < 3:
+    assert time.monotonic() < deadline, 'Scroll did not settle during loading'
+    time.sleep(.2)
+    current_y = ui.element('perf-9998:user')['frame']['y']
+    stable = stable + 1 if abs(current_y - anchor_y) < .5 else 0
+    anchor_y = current_y
+assert not loading_path.exists(), 'Reading-position check missed history preparation'
+ui.capture('loading-scrolled')
+deadline = time.monotonic() + 90
+while not loading_path.exists():
+    assert time.monotonic() < deadline, 'History preparation did not finish'
+    time.sleep(.2)
+loading = json.loads(loading_path.read_text())
+shutil.copy2(loading_path, ui.output / 'loading.json')
+loading_path.unlink()
+assert loading['rows'] == 10_000, 'History is incomplete'
+assert 0 < loading['firstRows'] < loading['rows'], 'First paint waited for all history'
+assert 0 < loading['firstContentMs'] < loading['completeMs'], 'Missing staged first paint'
+assert len(loading['sliceMs']) > 1, 'History did not yield between measurement batches'
+ui.element('perf-9999:text')
+assert abs(ui.element('perf-9998:user')['frame']['y'] - anchor_y) < 3, 'History insertion moved the reading position'
+ui.capture('history-ready')
+ui.axe('tap', '--id', 'chat-scroll-to-bottom', '--post-delay', '1')
 reports = []
 for run in range(3):
     existing = set((container / 'tmp').glob('lody-chat-performance-*.json'))

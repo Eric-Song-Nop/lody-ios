@@ -1,7 +1,8 @@
 import UIKit
 
+@MainActor
 enum LodyListPhoto {
-  static let size = CGSize(width: 36, height: 36)
+  nonisolated static let size = CGSize(width: 36, height: 36)
   private static let cache = NSCache<NSURL, UIImage>()
   private static var waiters: [URL: [(UIImage?) -> Void]] = [:]
   private static var tasks: [URL: URLSessionDataTask] = [:]
@@ -68,7 +69,7 @@ enum LodyListPhoto {
     content.imageProperties.tintColor = placeholder ? .tertiaryLabel : nil
   }
 
-  static func circular(_ image: UIImage) -> UIImage {
+  nonisolated static func circular(_ image: UIImage) -> UIImage {
     let format = UIGraphicsImageRendererFormat()
     format.opaque = false
     format.scale = image.scale
@@ -84,7 +85,7 @@ enum LodyListPhoto {
     }.withRenderingMode(.alwaysOriginal)
   }
 
-  private static func decode(_ data: Data) -> UIImage? {
+  private nonisolated static func decode(_ data: Data) -> UIImage? {
     guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
     let options: [CFString: Any] = [
       kCGImageSourceCreateThumbnailFromImageAlways: true,

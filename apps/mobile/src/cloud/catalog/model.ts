@@ -20,7 +20,8 @@ const diffOf = (value: unknown) => {
 export function projectRows(rows: Row[], mode: string): Catalog {
   const projects: Project[] = [],
     sessions: Session[] = [],
-    machineIds = new Set<string>();
+    machineIds = new Set<string>(),
+    machineNames: Record<string, string> = {};
   if (mode !== 'meta') {
     for (const row of rows) {
       if (row.key[0] !== 'localProject' || row.value === undefined) continue;
@@ -34,7 +35,7 @@ export function projectRows(rows: Row[], mode: string): Catalog {
           rootPath: text(value.rootPath),
         });
     }
-    return { projects, sessions, machineIds: [] };
+    return { projects, sessions, machineIds: [], machineNames };
   }
   const active = new Set<string>();
   const metadata = new Map<string, Record<string, unknown>>();
@@ -56,6 +57,8 @@ export function projectRows(rows: Row[], mode: string): Catalog {
     if (id.startsWith('machine-')) {
       const machineId = id.slice(8);
       machineIds.add(machineId);
+      const name = text(value.name);
+      if (name) machineNames[machineId] = name;
       // Match the CLI's legacy metadata + machine Flock project merge.
       for (const [localId, item] of Object.entries(
         object(value.localProjects),
@@ -113,5 +116,6 @@ export function projectRows(rows: Row[], mode: string): Catalog {
     projects: [...new Map(projects.reverse().map((p) => [p.id, p])).values()],
     sessions,
     machineIds: [...machineIds],
+    machineNames,
   };
 }

@@ -3,7 +3,7 @@
 From the repository root:
 
 ```sh
-swiftc apps/mobile/modules/lody-kit/ios/LodyStrings.swift \
+swiftc -swift-version 6 apps/mobile/modules/lody-kit/ios/LodyStrings.swift \
   apps/mobile/modules/lody-kit/ios/Chat/ChatTranscript.swift \
   apps/mobile/modules/lody-kit/ios/Chat/ChatStream.swift \
   apps/mobile/modules/lody-kit/ios/Chat/ChatTextFade.swift \
@@ -44,7 +44,7 @@ drawn by `ChatFadeLabelView`, a `TextLabelView` subclass injected into
 Scroll drawing regression (with a booted iOS Simulator):
 
 ```sh
-xcrun --sdk iphonesimulator swiftc -target arm64-apple-ios18.0-simulator \
+xcrun --sdk iphonesimulator swiftc -swift-version 6 -target arm64-apple-ios18.0-simulator \
   -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
   apps/mobile/modules/lody-kit/ios/LodyStrings.swift \
   apps/mobile/modules/lody-kit/ios/LodyTint.swift \

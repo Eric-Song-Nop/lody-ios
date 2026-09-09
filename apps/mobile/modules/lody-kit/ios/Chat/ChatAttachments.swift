@@ -36,7 +36,22 @@ struct ChatAttachment: Equatable {
     return (try? data.write(to: destination)) == nil ? nil : destination
   }
 
-  private static func pastedType(for provider: NSItemProvider) -> UTType? {
+  static func isImage(type: UTType?, name: String) -> Bool {
+    if let type, type.conforms(to: .movie) { return false }
+    if let type, type.conforms(to: .image) { return true }
+    guard let fileType = UTType(filenameExtension: (name as NSString).pathExtension) else { return false }
+    return fileType.conforms(to: .image) && !fileType.conforms(to: .movie)
+  }
+
+  static func transferType(for provider: NSItemProvider) -> UTType? {
+    if !provider.hasItemConformingToTypeIdentifier(UTType.livePhoto.identifier) {
+      if let movie = provider.registeredContentTypes.first(where: { $0.conforms(to: .movie) }) { return movie }
+      if provider.hasItemConformingToTypeIdentifier(UTType.movie.identifier) { return .movie }
+    }
+    if let image = provider.registeredContentTypes.first(where: { $0.conforms(to: .image) && !$0.conforms(to: .movie) }) {
+      return image
+    }
+    if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) { return .image }
     if provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) { return .fileURL }
     if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) { return nil }
     return provider.registeredContentTypes.first { type in
@@ -46,52 +61,69 @@ struct ChatAttachment: Equatable {
     }
   }
 
+  static func make(suggestedName: String?, type: UTType, source: URL, id: String? = nil) -> ChatAttachment? {
+    guard source.isFileURL, let copy = store(source) else { return nil }
+    var name = suggestedName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    if name.isEmpty { name = source.lastPathComponent }
+    if URL(fileURLWithPath: name).pathExtension.isEmpty {
+      let suffix = source.pathExtension.isEmpty ? (type.preferredFilenameExtension ?? "") : source.pathExtension
+      if !suffix.isEmpty { name += "." + suffix }
+    }
+    return ChatAttachment(id: id ?? UUID().uuidString, name: name, url: copy, isImage: isImage(type: type, name: name))
+  }
+
   static func canPaste(_ providers: [NSItemProvider]) -> Bool {
-    providers.contains { pastedType(for: $0) != nil }
+    providers.contains { transferType(for: $0) != nil }
   }
 
   @discardableResult
   static func paste(_ providers: [NSItemProvider], completion: @escaping ([ChatAttachment]) -> Void) -> Bool {
     let items = providers.enumerated().compactMap { index, provider in
-      pastedType(for: provider).map { (index, provider, $0) }
+      transferType(for: provider).map { (index, provider, $0) }
     }
     guard !items.isEmpty else { return false }
     let group = DispatchGroup()
-    let lock = NSLock()
-    var pasted: [(Int, ChatAttachment)] = []
-    func append(_ index: Int, _ provider: NSItemProvider, _ type: UTType, _ source: URL) {
-      guard source.isFileURL, let copy = store(source) else { return }
-      var name = provider.suggestedName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-      if name.isEmpty { name = source.lastPathComponent }
-      if URL(fileURLWithPath: name).pathExtension.isEmpty, let suffix = type.preferredFilenameExtension {
-        name += "." + suffix
-      }
-      let isImage = type.conforms(to: .image) || UTType(filenameExtension: URL(fileURLWithPath: name).pathExtension)?.conforms(to: .image) == true
-      lock.lock()
-      pasted.append((index, ChatAttachment(id: UUID().uuidString, name: name, url: copy, isImage: isImage)))
-      lock.unlock()
-    }
+    let pasted = ChatAttachmentCollector()
     for (index, provider, type) in items {
       group.enter()
+      let suggestedName = provider.suggestedName
       if type == .fileURL {
         provider.loadObject(ofClass: NSURL.self) { object, _ in
           defer { group.leave() }
-          guard let source = object as? URL, source.isFileURL else { return }
-          append(index, provider, UTType(filenameExtension: source.pathExtension) ?? .item, source)
+          guard let source = object as? URL, source.isFileURL,
+                let item = make(suggestedName: suggestedName, type: UTType(filenameExtension: source.pathExtension) ?? .item, source: source) else { return }
+          pasted.add(index, item)
         }
       } else {
         provider.loadFileRepresentation(forTypeIdentifier: type.identifier) { source, _ in
           defer { group.leave() }
-          guard let source else { return }
-          append(index, provider, type, source)
+          guard let source, let item = make(suggestedName: suggestedName, type: type, source: source) else { return }
+          pasted.add(index, item)
         }
       }
     }
     group.notify(queue: .main) {
-      let ordered = pasted.sorted { $0.0 < $1.0 }.map(\.1)
+      let ordered = pasted.ordered
       if !ordered.isEmpty { completion(ordered) }
     }
     return true
+  }
+}
+
+final class ChatAttachmentCollector: @unchecked Sendable {
+  private let lock = NSLock()
+  private var items: [(Int, ChatAttachment)] = []
+
+  func add(_ index: Int, _ item: ChatAttachment) {
+    lock.lock()
+    items.append((index, item))
+    lock.unlock()
+  }
+
+  var ordered: [ChatAttachment] {
+    lock.lock()
+    defer { lock.unlock() }
+    return items.sorted { $0.0 < $1.0 }.map(\.1)
   }
 }
 
@@ -108,7 +140,13 @@ final class ChatAttachmentPicker: NSObject, UIDocumentPickerDelegate {
   func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
     let picked = urls.compactMap { url -> ChatAttachment? in
       guard let copy = ChatAttachment.store(url) else { return nil }
-      return ChatAttachment(id: UUID().uuidString, name: url.lastPathComponent, url: copy, isImage: false)
+      let name = url.lastPathComponent
+      return ChatAttachment(
+        id: UUID().uuidString,
+        name: name,
+        url: copy,
+        isImage: ChatAttachment.isImage(type: UTType(filenameExtension: url.pathExtension), name: name)
+      )
     }
     guard !picked.isEmpty else { return }
     onPick?(picked)
@@ -120,7 +158,8 @@ final class ChatPhotoLibraryPicker: NSObject, PHPickerViewControllerDelegate {
 
   func present(from controller: UIViewController) {
     var config = PHPickerConfiguration(photoLibrary: .shared())
-    config.filter = .images
+    config.filter = .any(of: [.images, .videos])
+    config.preferredAssetRepresentationMode = .current
     config.selectionLimit = 10
     config.selection = .ordered
     let picker = PHPickerViewController(configuration: config)
@@ -131,21 +170,22 @@ final class ChatPhotoLibraryPicker: NSObject, PHPickerViewControllerDelegate {
   func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
     guard !results.isEmpty else { picker.dismiss(animated: true); return }
     let group = DispatchGroup()
-    let lock = NSLock()
-    var picked: [(Int, ChatAttachment)] = []
+    let picked = ChatAttachmentCollector()
     for (index, result) in results.enumerated() {
+      let provider = result.itemProvider
+      guard let type = ChatAttachment.transferType(for: provider) else { continue }
       group.enter()
-      result.itemProvider.loadFileRepresentation(forTypeIdentifier: UTType.image.identifier) { url, _ in
+      let suggestedName = provider.suggestedName
+      let assetIdentifier = result.assetIdentifier
+      provider.loadFileRepresentation(forTypeIdentifier: type.identifier) { url, _ in
         defer { group.leave() }
-        guard let url, let copy = ChatAttachment.store(url) else { return }
-        let id = result.assetIdentifier ?? UUID().uuidString
-        lock.lock()
-        picked.append((index, ChatAttachment(id: id, name: url.lastPathComponent, url: copy, isImage: true)))
-        lock.unlock()
+        guard let url,
+          let item = ChatAttachment.make(suggestedName: suggestedName, type: type, source: url, id: assetIdentifier) else { return }
+        picked.add(index, item)
       }
     }
     group.notify(queue: .main) { [weak self] in
-      let ordered = picked.sorted { $0.0 < $1.0 }.map(\.1)
+      let ordered = picked.ordered
       picker.dismiss(animated: true) { [weak self] in
         guard !ordered.isEmpty else { return }
         self?.onPick?(ordered)
@@ -208,7 +248,12 @@ final class ChatAttachmentBar: UIScrollView {
 
   private func pill(_ item: ChatAttachment) -> UIView {
     var config = UIButton.Configuration.plain()
-    config.image = UIImage(systemName: item.isImage ? "photo" : "doc")
+    let fileType = UTType(filenameExtension: (item.name as NSString).pathExtension)
+    let symbol: String
+    if item.isImage { symbol = "photo" }
+    else if fileType?.conforms(to: .movie) == true { symbol = "video" }
+    else { symbol = "doc" }
+    config.image = UIImage(systemName: symbol)
     config.imagePadding = 5
     config.baseForegroundColor = .label
     config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 12)

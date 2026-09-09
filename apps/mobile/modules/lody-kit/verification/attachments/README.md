@@ -3,7 +3,7 @@
 With a booted iOS Simulator, from the repository root:
 
 ```sh
-xcrun --sdk iphonesimulator swiftc -parse-as-library \
+xcrun --sdk iphonesimulator swiftc -swift-version 6 -parse-as-library \
   -target arm64-apple-ios18.0-simulator \
   -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
   apps/mobile/modules/lody-kit/ios/Cloud/SessionAttachments.swift \
@@ -20,7 +20,9 @@ survive a lost append acknowledgement. These checks do not send a live cloud tur
 
 Cloud limits: eight images (5 MiB each after conversion) and eight files
 (100 MiB each) per message. HEIC and oversized photos convert to JPEG at up to
-2048 pixels. Upload failure retains the draft; no message dispatch is retried
+2048 pixels. Videos and other non-image types upload as files; a movie marked
+as an image is coerced onto the file route instead of extracting a still.
+Upload failure retains the draft; no message dispatch is retried
 automatically. History displays image thumbnails above their text bubbles; files retain their names.
 
 Attachment routes are hosted on `https://api.lody.ai`, separately from the

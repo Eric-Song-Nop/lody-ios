@@ -160,4 +160,46 @@ precondition(doneSummary.icon.frame.width == 8, "The process pip slot must match
 precondition(abs(doneSummary.icon.frame.midY - doneSummary.label.frame.midY) <= 0.5,
   "The process pip must sit on the text baseline")
 precondition(doneSummary.label.frame.minX == 12, "Process text must follow the pip without extra padding")
+
+let wrappedSummary = ChatCell(frame: CGRect(x: 0, y: 0, width: 320, height: 80))
+window.addSubview(wrappedSummary)
+wrappedSummary.configure(
+  summaryRow(running: false, attention: false),
+  text: NSAttributedString(
+    string: "思考过程 · 调用了 2 个命令 · 阅读了 2 个文件 · 编辑了 2 个文件 · 进行了 1 次搜索",
+    attributes: [.font: UIFont.systemFont(ofSize: 13)]
+  )
+)
+wrappedSummary.layoutIfNeeded()
+let wrappedLines = wrappedSummary.label.lineAdvances(width: wrappedSummary.label.bounds.width)
+precondition(wrappedLines.count > 1, "The wrapped process title fixture must occupy more than one line")
+let firstLineCenter = wrappedSummary.label.frame.minY + wrappedLines[0] / 2
+precondition(
+  abs(wrappedSummary.icon.frame.midY - firstLineCenter) <= 0.5,
+  "The process pip must sit on the first line of wrapped text"
+)
+precondition(
+  abs(wrappedSummary.icon.frame.midY - wrappedSummary.label.frame.midY) > 0.5,
+  "The process pip must not center on the whole wrapped block"
+)
 print("Chat render: process status pip uses running, done and attention colors")
+
+func glyphWidth(_ font: UIFont, _ text: String) -> CGFloat {
+  (text as NSString).size(withAttributes: [.font: font]).width
+}
+
+let durationFont = ChatCell.messageFont(for: durationRow, compatibleWith: traits)
+let summaryFont = ChatCell.messageFont(for: doneSummary.row!, compatibleWith: traits)
+let userFont = ChatCell.messageFont(
+  for: ChatRow(id: "user", entryID: "user", kind: "user", text: "hi"),
+  compatibleWith: traits
+)
+precondition(glyphWidth(durationFont, "1") == glyphWidth(durationFont, "8"),
+  "Duration digits must keep a fixed width")
+precondition(glyphWidth(durationFont, "0") == glyphWidth(durationFont, "8"),
+  "Duration digits must keep a fixed width")
+precondition(glyphWidth(summaryFont, "1") == glyphWidth(summaryFont, "8"),
+  "Process-count digits must keep a fixed width")
+precondition(glyphWidth(userFont, "1") < glyphWidth(userFont, "8"),
+  "User messages keep proportional digits")
+print("Chat render: duration and process counts use tabular digits")

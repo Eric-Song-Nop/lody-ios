@@ -71,12 +71,15 @@ final class ChatTextView: UIView {
     if keep {
       guard timer == nil else { return }
       let ticker = Timer(timeInterval: 1.0 / 60, repeats: true) { [weak self] timer in
-        guard let self else { timer.invalidate(); return }
-        self.setNeedsDisplay()
-        if self.window == nil || UIAccessibility.isReduceMotionEnabled
-          || !(self.shineEnabled || self.fade.isAnimating(at: CACurrentMediaTime())) {
-          timer.invalidate()
-          self.timer = nil
+        guard self != nil else { timer.invalidate(); return }
+        MainActor.assumeIsolated {
+          guard let self else { return }
+          self.setNeedsDisplay()
+          if self.window == nil || UIAccessibility.isReduceMotionEnabled
+            || !(self.shineEnabled || self.fade.isAnimating(at: CACurrentMediaTime())) {
+            self.timer?.invalidate()
+            self.timer = nil
+          }
         }
       }
       timer = ticker
