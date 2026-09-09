@@ -16,7 +16,6 @@
     "licenses:check": "node scripts/build-licenses.mjs --check"
   },
   "dependencies": {
-    "@bacons/apple-targets": "5.0.0",
     "@expo/dom-webview": "workspace:*",
     "@loro-dev/flock-wasm": "0.4.3",
     "@loro-dev/streams-client": "0.7.0",

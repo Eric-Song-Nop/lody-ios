@@ -458,10 +458,7 @@ function View() {
           icon="ellipsis"
           accessibilityLabel={t('common.more')}
         >
-          <Stack.Toolbar.MenuAction
-            icon="square.and.pencil"
-            onPress={() => {}}
-          >
+          <Stack.Toolbar.MenuAction icon="square.and.pencil" onPress={() => {}}>
             {t('session.action.newSession')}
           </Stack.Toolbar.MenuAction>
           <Stack.Toolbar.MenuAction icon="pin" onPress={() => {}}>
@@ -483,7 +480,10 @@ function View() {
         navigationMachine="Studio"
         onTitlePress={() =>
           Alert.alert(t('session.debug.title'), previewDebugBody, [
-            { text: t('common.copy'), onPress: () => copyText(previewDebugBody) },
+            {
+              text: t('common.copy'),
+              onPress: () => copyText(previewDebugBody),
+            },
             { text: t('common.ok'), style: 'cancel' },
           ])
         }

@@ -46,8 +46,6 @@ const buildTooling = [
   /^@expo\/osascript$/,
   /^@expo\/plist$/,
   /^@expo\/prebuild-config$/,
-  /^@bacons\/apple-targets$/,
-  /^@bacons\/xcode$/,
   /^@expo\/env$/,
   /^@expo\/scheme$/,
   /^@expo\/xml$/,

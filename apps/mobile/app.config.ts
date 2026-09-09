@@ -14,10 +14,6 @@ const config: ExpoConfig = {
     appleTeamId: 'KAMM5N88X3',
     supportsTablet: false,
     config: { usesNonExemptEncryption: false },
-    entitlements: {
-      'aps-environment': 'production',
-      'com.apple.security.application-groups': ['group.app.innei.lody'],
-    },
     infoPlist: {
       BGTaskSchedulerPermittedIdentifiers: ['app.innei.lody.session-sync.*'],
       UIBackgroundModes: ['processing'],
@@ -29,7 +25,14 @@ const config: ExpoConfig = {
     './plugins/withMarkdownView',
     './plugins/withLocales',
     'expo-localization',
-    '@bacons/apple-targets',
+    [
+      './plugins/withPushNotifications',
+      {
+        appId:
+          process.env.LODY_ONESIGNAL_APP_ID ??
+          'e383bf31-7c8e-4641-b3f6-3486e77b9a82',
+      },
+    ],
   ],
   experiments: { typedRoutes: true, reactCompiler: true },
   runtimeVersion: { policy: 'fingerprint' },

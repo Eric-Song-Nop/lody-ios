@@ -40,6 +40,9 @@ public final class LodyKitModule: Module, @unchecked Sendable {
   }
 
   public override func didCreate() {
+    Task { @MainActor in
+      PushNotifications.shared.onClickAvailable = { [weak self] in self?.sendEvent("onPushClick", [:]) }
+    }
     ContentPreview.clearAll()
     #if DEBUG
     if ProcessInfo.processInfo.arguments.contains("--lody-offline") {
@@ -49,7 +52,10 @@ public final class LodyKitModule: Module, @unchecked Sendable {
   }
 
   public override func willDestroy() {
-    Task { @MainActor in self.dataRuntime.stop() }
+    Task { @MainActor in
+      self.dataRuntime.stop()
+      PushNotifications.shared.onClickAvailable = nil
+    }
   }
 
   @JS
@@ -139,6 +145,7 @@ public final class LodyKitModule: Module, @unchecked Sendable {
   func clearAuthToken() async throws {
     try await runOnMain {
       self.dataRuntime.stop()
+      PushNotifications.shared.identify(nil)
       try AuthKeychain.clear()
     }
   }
@@ -212,7 +219,24 @@ public final class LodyKitModule: Module, @unchecked Sendable {
   }
 
   public func definition() -> ModuleDefinition {
-    Events("onDataRuntime")
+    Events("onDataRuntime", "onPushClick")
+    AsyncFunction("verifyPushSubscription") {
+      #if DEBUG
+      MainActor.assumeIsolated {
+        guard let controller = self.appContext?.utilities?.currentViewController() else { return }
+        PushNotifications.shared.onRegistered = { [weak controller] in
+          if let controller { PushNotifications.shared.verify(from: controller) }
+        }
+        PushNotifications.shared.verify(from: controller)
+      }
+      #endif
+    }.runOnQueue(.main)
+    AsyncFunction("setPushUser") { (userId: String?) in MainActor.assumeIsolated { PushNotifications.shared.identify(userId) } }.runOnQueue(.main)
+    AsyncFunction("pushStatus") { (promise: Promise) in MainActor.assumeIsolated { PushNotifications.shared.status { promise.resolve($0) } } }.runOnQueue(.main)
+    AsyncFunction("requestPushPermission") { (promise: Promise) in MainActor.assumeIsolated { PushNotifications.shared.request { promise.resolve($0) } } }.runOnQueue(.main)
+    AsyncFunction("pendingPushClick") { MainActor.assumeIsolated { PushNotifications.shared.readPending() } }.runOnQueue(.main)
+    AsyncFunction("acknowledgePushClick") { (id: String) in MainActor.assumeIsolated { PushNotifications.shared.acknowledge(id) } }.runOnQueue(.main)
+    AsyncFunction("setPushVisibleRoute") { (route: String) in MainActor.assumeIsolated { PushNotifications.shared.visibleRoute = route } }.runOnQueue(.main)
 
     AsyncFunction("sessionCreationOptions") { (payload: String, promise: Promise) in MainActor.assumeIsolated { self.dataRuntime.command("creationOptions", payload: payload, promise: promise) } }.runOnQueue(.main)
     AsyncFunction("localProjects") { (payload: String, promise: Promise) in MainActor.assumeIsolated { self.dataRuntime.command("localProjects", payload: payload, promise: promise) } }.runOnQueue(.main)
