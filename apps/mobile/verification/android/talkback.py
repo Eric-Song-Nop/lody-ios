@@ -19,19 +19,35 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
     tap_button(wait_text(root), f'Open {target} {host}')
     wait_text(headings[target])
 
+    def wait_bound():
+        deadline = time.monotonic() + 20
+        while True:
+            state = shell('dumpsys', 'accessibility')
+            bound = re.search(r'Bound services:\{(.*?)\n\s*Enabled services:', state, re.S)
+            if bound and 'TalkBackService' in bound.group(1) and 'touchExplorationEnabled=true' in state:
+                return state
+            if time.monotonic() >= deadline:
+                raise AssertionError('Real TalkBack did not bind with touch exploration enabled')
+            time.sleep(0.5)
+
     def activate(tree, title, hold=False):
         node = next(node for node in tree.iter('node')
                     if title in (node.get('text'), node.get('content-desc')))
         left, top, right, bottom = map(int, re.findall(r'\d+', node.get('bounds')))
         x, y = str((left + right) // 2), str((top + bottom) // 2)
+        # A hierarchy dump may temporarily suppress other accessibility services.
+        # Recheck after the dump; never count ordinary touch as a TalkBack action.
+        before = wait_bound()
         # Explore this location first, then send a real touchscreen double tap.
         shell('input', 'touchscreen', 'swipe', x, y, x, y, '100')
         time.sleep(0.5)
         shell('input', 'tap', x, y)
         shell('input', 'touchscreen', 'swipe', x, y, x, y, '800' if hold else '60')
+        after = wait_bound()
         result.setdefault('talkBackInputs', []).append({
             'title': title, 'bounds': node.get('bounds'),
             'gesture': 'explore then double-tap-and-hold' if hold else 'explore then double-tap',
+            'accessibilityBefore': before, 'accessibilityAfter': after,
         })
 
     try:
@@ -41,16 +57,7 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
             services.append(SERVICE)
         shell('settings', 'put', 'secure', 'enabled_accessibility_services', ':'.join(services))
         shell('settings', 'put', 'secure', 'accessibility_enabled', '1')
-        deadline = time.monotonic() + 20
-        while True:
-            state = shell('dumpsys', 'accessibility')
-            bound = re.search(r'Bound services:\{(.*?)\n\s*Enabled services:', state, re.S)
-            if bound and 'TalkBackService' in bound.group(1) and 'touchExplorationEnabled=true' in state:
-                break
-            if time.monotonic() >= deadline:
-                raise AssertionError('Real TalkBack did not bind with touch exploration enabled')
-            time.sleep(0.5)
-        result['activeAccessibilityState'] = state
+        result['activeAccessibilityState'] = wait_bound()
         result['talkBackPackage'] = shell('dumpsys', 'package', 'com.google.android.marvin.talkback')
         capture('talkback-enabled')
         tree = wait_text(headings[target])
