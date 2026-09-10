@@ -55,3 +55,20 @@ Both hosts retain keyboard focus while the action value changes from 0 to 1 to 2
 ### Same-APK light font regression
 
 The `c7760795…` focus-repair APK also passes `list-fonts-v1` in both light hosts with clean runner `6236c65`. Native title height again changes 122 → 216 → 122 pixels through real system scale 1.0 → 1.3 → 1.0; counter/process and Back are retained. Font scale 1.0 and night mode `no` are restored. All nine screenshots and 5-second samples spanning the 139.087700-second recording under `list-focus-repair-list-fonts-light` were reviewed: long titles wrap without clipping. This is the newer-APK light font result; dark and remaining cases are pending.
+
+### Same-APK light mutation and dark focus results
+
+On `c7760795…`, light `list-mutations-v1` passes with clean runner `b902e3a`: the page preserves `row-8` at 75 pixels and the sheet `row-10` at 29 pixels while inserting/removing 20 preceding rows. Current-ID action counts reach 1 then 2, and Back removes both hosts. All nine screenshots and full-duration 5-second samples of the 122.793911-second recording in `list-focus-repair-list-mutations-light` were reviewed; positions and content remain stable.
+
+The dark `list-focus-v1` run passes both hosts on the same APK, runner `b902e3a` with pending symbol/verification/documentation changes outside the tested APK. All nine screenshots and full-duration 5-second samples of the 135.727444-second recording in `list-focus-repair-list-focus-dark` were reviewed. Native action updates retain focus, detail return restores the navigation row, and labels/highlights remain readable in dark mode. The runner also confirms Back removes each host. Both runs restore original night mode `no`. This completes the planned page/sheet × light/dark keyboard-return subset, not TalkBack or competing/deleted-target focus checks. The newer symbol changes remain unbuilt and are not covered by this APK.
+
+### Completed focus-repair matrix and additional visual review
+
+The eight-case `list-focus-repair` matrix exited successfully and shut down its owned emulator. All four cases (`list-focus`, `list-fonts`, `list-mutations`, `lists`) passed behavior assertions in light and dark on APK `c776079536156daaf1f9798481abc346d2639a158a751df489cccaae4d85d9c8`. This APK predates the 39-symbol catalog and provides no evidence for that addition.
+
+Additional completed visual review:
+
+- Light `lists-v2`: all 13 screenshots and the full 165.727633-second recording sampled every five seconds. Page and sheet show the expected action updates, detail return, refresh, scrolling and empty/restore states; both hosts close. Runner checkout was `b902e3a` with later unbuilt source/documentation changes.
+- Dark `list-fonts-v1`: all nine screenshots and the full 91.291522-second recording sampled every five seconds. In both hosts the long title grows from 122 to 216 pixels at system font scale 1.3 and returns to 122 at 1.0; text remains readable without clipping. The action count and app process survive; Back removes the host. The runner records its exact checkout and restored system settings in `result.json`.
+
+Evidence directories are `.artifacts/android/list-focus-repair-lists-light` and `.artifacts/android/list-focus-repair-list-fonts-dark`, including `visual-review.json`. Dark mutation and dark basic-list behavior assertions passed, but their screenshots and recordings still require visual review. TalkBack and deleted/competing focus targets remain outside this result. The PR-05b completion gate stays open.
