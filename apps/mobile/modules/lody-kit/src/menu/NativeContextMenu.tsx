@@ -10,6 +10,7 @@ export type NativeContextMenuAction = {
 };
 
 export type NativeContextMenuProps = {
+  accessibilityLabel?: string;
   actions: NativeContextMenuAction[];
   onAction: (event: { nativeEvent: { id: string } }) => void;
   children: ReactNode;

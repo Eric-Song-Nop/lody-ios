@@ -80,6 +80,17 @@ class LodyKitModule : Module() {
       Prop("radius") { view: app.innei.lody.kit.press.LodyGlassSurface, value: Float -> view.setRadius(value) }
       Prop("tint") { view: app.innei.lody.kit.press.LodyGlassSurface, value: String? -> view.setTint(value) }
     }
+    View(app.innei.lody.kit.chrome.LodyMenuButton::class) {
+      Events("onSelect", "onSize")
+      Prop("label") { view: app.innei.lody.kit.chrome.LodyMenuButton, value: String -> view.setLabel(value) }
+      Prop("accessibilityName") { view: app.innei.lody.kit.chrome.LodyMenuButton, value: String -> view.setAccessibilityName(value) }
+      Prop("avatar") { view: app.innei.lody.kit.chrome.LodyMenuButton, value: app.innei.lody.kit.chrome.LodyMenuAvatar -> view.setAvatar(value) }
+      Prop("items") { view: app.innei.lody.kit.chrome.LodyMenuButton, value: List<app.innei.lody.kit.menu.LodyMenuEntry> -> view.setItems(value) }
+    }
+    View(app.innei.lody.kit.menu.LodyContextMenu::class) {
+      Events("onAction")
+      Prop("actions") { view: app.innei.lody.kit.menu.LodyContextMenu, value: List<app.innei.lody.kit.menu.LodyMenuEntry> -> view.setActions(value) }
+    }
     View(app.innei.lody.kit.chrome.LodyCloseButton::class) {
       Events("onClose")
       Prop("label") { view: app.innei.lody.kit.chrome.LodyCloseButton, label: String? -> view.setLabel(label) }

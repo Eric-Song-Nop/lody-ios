@@ -19,3 +19,11 @@ export {
   clearLocalValues,
   runStorageVerification,
 } from './runtime/Storage.android';
+export {
+  NativeMenuButton,
+  type NativeMenuItem,
+} from './chrome/NativeMenuButton';
+export {
+  NativeContextMenu,
+  type NativeContextMenuAction,
+} from './menu/NativeContextMenu';
