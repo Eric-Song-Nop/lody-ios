@@ -119,3 +119,10 @@ catalogs in English, Simplified Chinese and a fallback locale. It exercises
 plural quantities 0/1/2, literal named interpolation and invalid inputs, and
 captures rendered examples. Locale-specific Context resources are used; this
 case does not establish whole-app language switching or TalkBack behavior.
+
+### Clipboard and display preferences
+
+`--case system` exercises the real LodyKit clipboard and inbox preference APIs.
+It force-stops only the verification app to check persisted launch values, then
+uses the Android EditText Paste action to compare the complete clipboard fixture.
+It also calls native selection feedback; this is not physical-haptic evidence.

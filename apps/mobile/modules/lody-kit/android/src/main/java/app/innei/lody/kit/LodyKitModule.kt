@@ -15,6 +15,9 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 class LodyKitModule : Module() {
+  private val inboxPreferences by lazy {
+    app.innei.lody.kit.preferences.InboxPreferences(requireNotNull(appContext.reactContext))
+  }
   private val storageWorker = Executors.newSingleThreadExecutor { task -> Thread(task, "LodyStorage") }
   @Volatile private var localStore: LocalStore? = null
   private var authCredentials: AuthCredentials? = null
@@ -109,8 +112,21 @@ class LodyKitModule : Module() {
       val context = requireNotNull(appContext.reactContext) { "Locale context unavailable" }
       app.innei.lody.kit.locale.LocaleVerification.run(context)
     }
+    Function("saveInboxView") { index: Int -> inboxPreferences.saveView(index) }
+    Function("readInboxExpansion") { inboxPreferences.readExpansion() }
+    Function("saveInboxExpansion") { projectId: String, expanded: Boolean -> inboxPreferences.saveExpansion(projectId, expanded) }
+    Function("copyText") { text: String ->
+      val context = requireNotNull(appContext.reactContext) { "Clipboard context unavailable" }
+      val clipboard = requireNotNull(context.getSystemService(android.content.ClipboardManager::class.java))
+      clipboard.setPrimaryClip(android.content.ClipData.newPlainText("", text))
+    }
+    AsyncFunction("selectionFeedback") {
+      val activity = requireNotNull(appContext.currentActivity) { "Haptic activity unavailable" }
+      activity.window.decorView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+      Unit
+    }.runOnQueue(expo.modules.kotlin.functions.Queues.MAIN)
     Constants {
-      mapOf("runtimeInfo" to mapOf(
+      mapOf("initialInboxView" to inboxPreferences.initialView(), "runtimeInfo" to mapOf(
         "moduleName" to "LodyKit",
         "systemVersion" to "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
       ))

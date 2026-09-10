@@ -14,6 +14,7 @@ import {
   subscribeSessionNav,
 } from '@/features/sessions/sessionNav';
 import type { Session } from '@/models/catalog';
+import { androidSystemPage } from './AndroidSystemScreen.android';
 import { androidLocalesPage } from './AndroidLocalesScreen.android';
 import { androidListsPage } from './AndroidListsScreen.android';
 import { androidControlsPage } from './AndroidControlsScreen.android';
@@ -97,6 +98,12 @@ function ProjectsScreen() {
       <Action
         title="Return to runtime verification"
         onPress={() => router.back()}
+      />
+      <Action
+        title="Open system APIs"
+        onPress={() => {
+          void present(androidSystemPage, undefined, { style: 'push' });
+        }}
       />
       <Action
         title="Open native languages"
