@@ -1,0 +1,360 @@
+# Android 支持：阶段与 PR 实施计划
+
+日期：2026-09-10。状态：待实施。本文是分 PR 的交付计划，不表示候选库已通过 Android 验证，也不表示已创建远端 PR。
+
+依据：[组件研究](../research/android-native-alternatives.md)、[源码与发布包证据](../research/android-native-alternatives-evidence.json)、[项目 README](../../README.md)及本轮讨论。版本观察截至研究日期；实际引入依赖时重新核验并锁定。PR 编号是本文内部编号，未来在进度表中补真实链接。
+
+**1. 已确定的方向与待定事项**
+
+已确定的要求：
+
+- Android 必须运行当前 Loro/Flock WASM 数据核心及必要的配套 JS，维持与官方 Cloud 的协议兼容。
+- 保留 Expo Router、React Native、pnpm workspace 和现有 LodyKit 边界；第一方 Android 原生能力集中于同一个 LodyKit，通过 `LodyKitModule` 注册。
+- iOS 继续使用现有 Swift 实现。共享模型、协议、页面流程、语言源和行为样例，平台分别实现原生交互。
+- Android 数据运行时先以离屏 WebView 建立兼容基线；JavaScriptSandbox 是可选优化，需要完整资产验证。
+- 聊天优先验证 Enriched 的 RN Android 实现。它支持流式；独立 Kotlin SDK 尚不能按同等能力规划。
+- 不在 RN 新建第二份 live CRDT replica，不自动重放发送，不将长期凭据交给运行时。
+- 保留 Pierre 全屏 Diff；数据运行时 WebView 与 Diff WebView 独立管理。
+
+待 PR 决策记录定案的项目：
+
+| 问题                                          | 默认推进方向                                                                          | 最迟定案点         |
+| --------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------ |
+| Android 最低版本、applicationId、发行设备范围 | 以固定 Expo/RN 工具链的实际最低要求为基础；Sandbox 的 API 26 门槛不能代替整个应用要求 | PR-00 / PR-01      |
+| 聊天列表与渲染边界                            | Enriched RN + FlashList v2 原型；由行为和性能决定是否生产采用                         | PR-06 / PR-07      |
+| Enriched 缺口处理                             | 优先小范围扩展；缺口影响核心质量时再比较 mikepenz                                     | PR-07              |
+| Sandbox 是否成为默认宿主                      | 首版 WebView；只有收益与兼容性成立才替换                                              | 可选 PR-X1 / PR-X2 |
+| 完整代码文件预览                              | Sora 只读模式候选；核验包体、ABI、只读行为与维护成本                                  | PR-13              |
+| 推送设备覆盖                                  | 明确 GMS、无 GMS 和对应发行渠道，不静默承诺全部设备                                   | PR-00 / PR-14      |
+
+本计划不要求先完成应用或 workspace 的全面重命名。现有 `@lody-ios/kit` 导入名和 URL scheme 可先维持兼容，命名迁移单独评估。
+
+**2. 交付规则与统一验证**
+
+每个 PR 只交付一个可以独立审查的能力，描述须包括：用户可观察的结果、代码范围、输入输出契约、证据、已知限制和依赖 PR。以下清单初始均未完成；只有合并后才更新状态。
+
+前期 Android 入口限定为开发或内部构建的明确验证入口。不得为未实现接口注册返回空值或虚假成功的桥接 stub。当前 `NativeChat.tsx` 使用 `requireNativeView('LodyKit', 'LodyChatView')`，平台拆分要确保 Android 模块图不会提前加载未实现的 iOS 视图；只把已实现能力接入对应入口。完整产品入口在 PR-09 开始开放，发布由 PR-17 控制。
+
+生成的 `apps/mobile/android` 与 `apps/mobile/ios` 都不作为唯一配置来源。改动持久化在模块、app config、config plugin 和资产构建脚本中；prebuild 后可以再现。任何停用、回退都通过后续提交或发行开关实现，不覆盖用户工作树，不回滚已经提交到 Cloud 的操作。
+
+工程检查与产品验收分别记录：
+
+| 检查类别           | 执行方式与边界                                                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 文档 PR            | 格式、相对链接、编号和依赖一致性；不声称通过产品验收                                                                                  |
+| 共享代码           | `pnpm check`、`pnpm test`、`pnpm bundle`；`pnpm bundle` 当前只检查 iOS                                                                |
+| Android 构建       | PR-01 新增并实现 `pnpm prebuild:android`、`pnpm android`、`pnpm bundle:android`、`pnpm build:android`；不得把尚未存在的命令写成已通过 |
+| Android 行为       | PR-01 建立 `pnpm verify:android` 入口，按显式 case 运行；缺少 case、设备或超时必须失败，不自动跳过                                    |
+| 原生及共享原生依赖 | Android 构建加 iOS simulator build；iOS 使用现有 simulator lease 流程，保持正常签名                                                   |
+| UI 变更            | 生产组件的离线 Debug 场景；截图确认视觉，视频确认时间行为，断言确认最终状态；共享控件覆盖各宿主                                       |
+| 性能               | release/benchmark 构建记录设备、刷新率、系统、WebView provider、依赖版本与 commit；禁止用 Debug 帧率宣称性能                          |
+
+PR-01 将 Android 命令的参数、设备选择、安装、输出路径和清理规则写入 `apps/mobile/verification/android/README.md`（计划新增）。构建命令先负责可复现的内部 APK，AAB、发行签名与渠道在 PR-17 完成。
+
+每份证据至少注明 commit、case ID、fixture 版本、设备与构建类型。大视频和 trace 使用 CI artifact 或证据存储，仓库保留索引和复现说明。离线用例不需要用户凭据、真实 Cloud 或已连接机器；协议真实联调是额外的内部验收，不能取代离线基线。
+
+**3. 阶段、PR 与依赖总览**
+
+| 阶段                  | PR    | 交付结果                                     | 直接依赖     | 状态   |
+| --------------------- | ----- | -------------------------------------------- | ------------ | ------ |
+| A：边界与验证基础     | PR-00 | 双平台约束、能力清单与范围决策               | 无           | 待开始 |
+| A                     | PR-01 | Android 原生壳、模块隔离、构建与离线验证入口 | PR-00        | 待开始 |
+| B：WASM 数据能力      | PR-02 | 真实 bundled JS/WASM 的离线数据链路          | PR-01        | 待开始 |
+| B                     | PR-03 | 生命周期、watchdog 与受控恢复                | PR-02        | 待开始 |
+| B                     | PR-04 | Keystore、SQLite 与账号上下文恢复            | PR-03        | 待开始 |
+| C：平台 UI 与聊天选型 | PR-05 | 导航、系统控件、主题和本地化                 | PR-01        | 待开始 |
+| C                     | PR-06 | Enriched 在真实虚拟列表中的离线原型          | PR-02、PR-05 | 待开始 |
+| C                     | PR-07 | 流式调度、选择与滚动达标，渲染方案定案       | PR-06        | 待开始 |
+| C                     | PR-08 | 原生输入与草稿/附件交接                      | PR-07        | 待开始 |
+| D：真实产品闭环       | PR-09 | Device Flow、目录、会话历史的只读闭环        | PR-04、PR-07 | 待开始 |
+| D                     | PR-10 | 文本发送、回执与回复同步闭环                 | PR-08、PR-09 | 待开始 |
+| D                     | PR-11 | 新会话与附件发送的可靠闭环                   | PR-10        | 待开始 |
+| E：功能补齐           | PR-12 | 全屏 Pierre 与工具内嵌 Diff                  | PR-09        | 待开始 |
+| E                     | PR-13 | 远端文件树与分类预览                         | PR-09        | 待开始 |
+| E                     | PR-14 | 推送初始化、冷启动点击与账号隔离             | PR-09        | 待开始 |
+| E                     | PR-15 | 用户任务后台续行与恢复策略                   | PR-10、PR-14 | 待开始 |
+| F：发行质量           | PR-16 | 全场景回归与性能收敛                         | PR-11～PR-15 | 待开始 |
+| F                     | PR-17 | Android 内部发行、CI、OTA 隔离和文档         | PR-16        | 待开始 |
+
+依赖表决定执行顺序，编号不要求严格串行。例如 PR-05 可以与阶段 B 独立推进；PR-12、PR-13、PR-14 在只读闭环之后互不依赖。这里是工作依赖，不是自动启用多 agent 的指令。
+
+阶段门槛：B 完成才能接真实账号数据；C 完成才能确定生产聊天宿主；D 完成才能称为可用会话客户端；E、F 完成后才能声明覆盖本计划的 Android 功能与发行质量。可选 Sandbox 优化不阻塞 WebView 路线的完整交付。
+
+**4. 阶段 A：先建立可以持续合并的边界**
+
+**PR-00 — docs: define Android scope and platform contracts**
+
+目标：后续实现遵循一致的双平台规则，并且 README 的每项原生能力都有交付归属。
+
+- [ ] 更新根 `AGENTS.md`：将 iOS-only 禁令替换为双平台职责；保留禁止空实现、单 LodyKit、凭据隔离、生成配置可复现等要求；iOS HIG 与 UIKit 规则明确限定平台。
+- [ ] 增补平台能力清单，逐项登记 typed facade 的方法、事件、View、平台实现、消费位置、验收 case 和负责 PR。
+- [ ] 记录 Android 最低版本候选、applicationId、scheme 兼容策略、手机优先范围、GMS/无 GMS 发行意向；工具链约束在 PR-01 验证后定案。
+- [ ] 将 README 标记为 Android 开发计划，只有对应里程碑完成后才宣称功能可用。
+
+范围：`AGENTS.md`、`README.md`、本文和计划新增的 `docs/architecture/android-platform-contracts.md`。能力清单至少覆盖 `src/runtime`、`chat`、`diff`、`list`、`chrome`、`menu`、`press`、`notifications` 的现有导出，避免只迁移首页依赖。
+
+验收：维护者可以从任一现有 API 找到 Android 实施 PR 与证明方式；已确定要求与候选方案有明确标记。此 PR 不修改运行行为，不添加 Android stub 或依赖。
+
+**PR-01 — build: bootstrap Android LodyKit and offline verification**
+
+目标：内部 Android 构建能打开独立验证入口，执行一个真实 Kotlin 模块调用，并保留 iOS 正常运行。
+
+- [ ] 在 `modules/lody-kit/android/` 建立模块与 `LodyKitModule` 注册；实现最小的真实诊断/生命周期能力。
+- [ ] 修改 `app.config.ts`、`expo-module.config.json` 和 package scripts；核验固定 Expo 57 / RN 0.86 工具链、SDK/JDK/Gradle 配套要求后记录版本。
+- [ ] 处理 app bootstrap、`src/index.ts`、native View wrapper 的 eager import；需要拆分时用平台文件和共享类型文件，不重命名所有业务 API。
+- [ ] 对现有 iOS config plugins 做平台边界检查，确保 Android prebuild 不尝试执行 SPM、Ruby NSE 或 xcstrings 操作。
+- [ ] 新增 Android 验证 runner，具备显式设备选择、安装、case 重置、日志、截图/视频产物和超时失败；说明 AVD 获取与释放规则。
+- [ ] 建立内部构建 CI smoke，生成目录可以删除后由 prebuild 重建；这里的删除仅指验证环境中的生成目录。
+
+范围：`apps/mobile/package.json`、根 scripts、app config、LodyKit 模块注册及平台入口、`verification/android/`、必要的 CI 配置。
+
+验收：`A-BOOT-01` 冷启动进入内部验证页；`A-BOOT-02` Kotlin 调用产生真实结果且卸载后无残留监听。工程门槛：Android production bundle 和内部 APK 可复现；iOS bundle/build 无回归。尚未实现的产品页不挂到内部 Android 入口中。
+
+**5. 阶段 B：WASM 与恢复优先**
+
+**PR-02 — feat(android): run bundled Loro and Flock in the data host**
+
+目标：同一份确定性输入在 Android 和现有运行时中得到等价的数据投影。
+
+- [ ] 扩展 `scripts/build-decoder.mjs`，从同一构建流程产出 Android 所需 JS/WASM/许可证资源，禁止手工复制不同版本资产。
+- [ ] Kotlin 管理离屏 WebView，加载本地打包脚本，建立明确的本地来源、消息桥和异步响应关联；不加载远程脚本。
+- [ ] 明确宿主提供的授权/持久化请求与 JS 内网络职责，复用已有协议；先盘点实际 Web API 使用，不以随意 polyfill 掩盖缺失能力。
+- [ ] 运行真实 bootstrap、uint32 big-endian 长度帧、Loro/Flock apply 与投影输出；覆盖分片、无效长度、截断、压缩数据及现有 8 MiB per-replica 输入边界。
+- [ ] 对大输入和大投影定义分批/分块与背压策略、失败结果和有界队列；8 MiB replica 上限不等于单次桥接消息安全上限。
+- [ ] 建立跨平台 fixture 与语义投影比较；时间戳等非确定字段显式规范化，错误状态不标记为 live。
+
+范围：`modules/lody-kit/data-runtime/`、`decoder/`、新增 Android 数据宿主、资产脚本及 `verification/android/`；共享 JS 只做必要的宿主适配。
+
+验收：`A-WASM-01` 真实资产加载与 bootstrap；`A-WASM-02` 分片增量产生期望投影；`A-WASM-03` 超限/损坏输入显示明确失败而非半成品成功；`A-WASM-04` 大数据传输不截断、不无限积压。证据为 fixture 哈希、投影差异与桥接统计。此 PR 不接用户账号，不发真实写请求。
+
+**PR-03 — feat(android): own runtime lifecycle and bounded recovery**
+
+目标：切后台、运行时失效和旧回调不会导致重启风暴、错误状态或重复写入。
+
+- [ ] 在 Kotlin 实现明确的 starting / ready / suspended / failed / stopped 状态与 generation 标识。
+- [ ] 启动/心跳期限保留在原生；后台暂停不算失败，回前台重置期限，只有缺失或失败实例才重建。
+- [ ] 每个回调、待完成请求与事件校验 generation；停止实例时结算挂起请求，释放订阅。
+- [ ] 限制自动重启次数和退避，耗尽后提供可操作的恢复状态。
+- [ ] 运行时恢复只重建读取和订阅；用命令日志证明没有重新发送历史写操作。
+
+范围：Android runtime host/watchdog、现有 runtime facade 的必要状态映射、确定性时间/故障注入与 Debug 场景。
+
+验收：`A-REC-01` 启动超时；`A-REC-02` 前后台切换不误重启；`A-REC-03` renderer 失效后有限恢复；`A-REC-04` 旧实例回调被丢弃；`A-REC-05` 停止后不再事件推送且无写重放。记录状态轨迹和重启计数。此 PR 不实现长期后台服务。
+
+**PR-04 — feat(android): restore account projections and protect credentials**
+
+目标：无网络冷启动可以恢复已保存的显示内容；账号边界和凭据清理可靠。
+
+- [ ] Keystore 管理加密密钥，长期 token 加密存入应用私有存储；保留 LodyKit credential facade，诊断不输出敏感值。
+- [ ] 按账号/工作区隔离 SQLite 上下文与显示投影，保留已有投影语义；无需先引入完整关系型数据层。
+- [ ] 初始化按“安全存储与上下文 → 完整本地投影 → 后台认证/同步”执行，过期内容标识为恢复内容而非 live。
+- [ ] 处理密钥失效、备份恢复、存储损坏、退出和账号切换；无法解密时进入重新授权状态，不循环崩溃。
+- [ ] 规定退出清理顺序，阻止旧 runtime 在清理后写回旧账号数据。
+
+范围：Android Auth/LocalStore、`src/cloud/auth` 与 `src/cloud/catalog` 的适配点、备份配置及离线样例。
+
+验收：`A-STORE-01` 进程重启后离线投影恢复；`A-STORE-02` A/B 账号不混用数据；`A-STORE-03` 密钥失效可重新授权；`A-STORE-04` logout 后旧回调不能复活内容。真实凭据不进入 fixture。阶段 B 的验收通过后才开放真实授权联调。
+
+**6. 阶段 C：选定聊天实现并达到交互基线**
+
+**PR-05 — feat(android): adapt navigation and native system controls**
+
+目标：Android 用户能按系统习惯导航并完成临时流程，共享 presentation 会话正确结算。
+
+- [ ] 保留 NativeTabs、每 tab Stack、`definePage / usePageRuntime / present` 与 `sessionNav`；覆盖系统返回、手势返回、sheet 关闭和 unmount。
+- [ ] 实现能力清单中的基础分组行、菜单、按钮、按压反馈、语义图标和必要提示控件；颜色采用蓝色动作与中性系统背景。
+- [ ] 保持导航行与普通动作行的正确选择/返回反馈；用 Android 合适的行为实现，不机械复制 UIKit 绘制。
+- [ ] 从 `apps/mobile/locales` 生成 Android strings/plurals，核验占位符和转义；保留 iOS xcstrings 流程。
+- [ ] Debug 场景使用生产组件，包含深浅色、中文/英文、TalkBack、系统字体与至少 48 dp 的 Android 触摸目标。
+
+范围：LodyKit `chrome/list/menu/press` 对应平台实现、`src/lib/presentation` 必要平台配置、locales plugin、Debug screens 与验证 runner。
+
+验收：`A-NAV-01` 项目→会话→返回；`A-NAV-02` sheet 各退出路径只结算一次；`A-NAV-03` 返回中断或快速切页不泄漏 session；`A-UI-01` 基础控件和双语可访问。此时用 fixture 驱动导航，不依赖 Cloud。
+
+**PR-06 — feat(android): evaluate Enriched in a virtualized chat**
+
+目标：用可审查的原型证明 Enriched 与真实列表结合的能力和缺口。
+
+- [ ] 锁定并记录 Enriched RN 发布包版本、原生传递依赖及许可证，验证与当前 New Architecture/Metro 的兼容性。
+- [ ] 在 LodyKit 的 TS 平台入口内封装 Enriched 和列表依赖，业务 screen 继续只消费 kit facade；保留 iOS 实现的默认导出行为。
+- [ ] 将 `NativeChat` props 抽为共享类型；Android 适配现有 entries/composer/event 契约，不把 RN 回调伪装为不存在的 Kotlin 事件。
+- [ ] 以 FlashList v2 作为候选宿主构造真实长历史；正文、代码、表格、列表、任务列表、LaTeX、图片与工具块共同参与测量。
+- [ ] 用固定输入序列记录首次显示、持续追加、解析/布局工作量、内存与列表复用行为；没有稳定公开探针时用 Debug instrumentation 并记录方式。
+- [ ] 明确 Streamdown wrapper 是否必要；只有其修补能力解决真实失败案例时才加入，避免重复节流或默认叠加 Worklets 配置。
+
+范围：kit `src/chat` 平台封装、Android Debug 场景、测试数据与依赖锁文件。此 PR 的 Android 组件只进入内部原型场景，不宣称生产宿主已定案。
+
+验收：`A-MD-01` 复杂 Markdown 静态显示；`A-MD-02` 未闭合标记持续输入；`A-MD-03` RaTeX 公式基线；`A-LIST-01` 长历史真实回收与重新绑定。附固定样例截图、流式视频和测量报告；逐项列出需 PR-07 解决的差距。
+
+**PR-07 — feat(android): preserve streaming, selection and scroll behavior**
+
+目标：最终显示与服务端文本一致，用户阅读和选择不被流式更新破坏，并据此确定生产聊天路线。
+
+- [ ] 将权威文本、显示进度和服务端完成状态分开；实现批量调度、过时任务淘汰、突发输出追赶和最终尾部完成。
+- [ ] 处理 emoji/组合字符、全文替换、等长修正、回退、后置引用定义以及未闭合公式/代码；旧内容不因标记补全重复渐入。
+- [ ] 验证并修复稳定块复用、尺寸缓存失效与字体/宽度/主题变化；动画帧不能重新解析全文。
+- [ ] 保留用户上翻状态，顶部补页锚点稳定，迟到图片不夺回滚动；在底部时按实际内容变化跟随。
+- [ ] 逐项验收完成态跨段落选择、跨代码/表格的预期复制语义、动画中选择、复用后的选择清理；产品可见差异必须写入决策，不静默降级。
+- [ ] 写选型记录：直接 Enriched RN、必要的小范围上游扩展，或触发 PR-X3 的条件。避免长期维护多个 Markdown 生产引擎。
+
+范围：Android chat adapter/调度/探针和必要依赖扩展；影响 Swift 的共享调度抽取须单独证明无回归，不为了代码复用重写其绘制层。
+
+验收：`A-STREAM-01` 最终文本与权威文本一致；`A-STREAM-02` 持续/突发输出无持续队列增长；`A-SELECT-01` 所有约定选择场景；`A-SCROLL-01` 上翻、补页、动态高度；`A-STREAM-03` 完成事件先到时尾部仍完整呈现。不能通过这些行为则此 PR 不宣称选型完成，转入有界替代验证。
+
+**PR-08 — feat(android): add native composer and draft handoff**
+
+目标：聊天页与新会话 sheet 都具有可靠原生输入和一致草稿语义。
+
+- [ ] LodyKit Kotlin 实现 `EditText` 输入、模型/effort 控制、原生高度事件及 Insets 键盘联动。
+- [ ] 键盘位移只有一个所有者，使用正确窗口坐标；覆盖手势导航、键盘关闭、中文输入法组合、硬件键盘和 sheet。
+- [ ] 对齐现有 draftKey、clear/restore token、发送事件与附件结构，正文与附件一起保存、交接和恢复。
+- [ ] 确认列表与原生 composer 的测量协作、焦点保持、附件移除和上传失败时恢复。
+
+范围：kit `src/chat/NativeComposer` 平台入口、Android composer、fixture 和两个宿主场景。
+
+验收：`A-INPUT-01` 两宿主键盘不遮挡、不双重抬升；`A-DRAFT-01` 离开/返回恢复草稿；`A-DRAFT-02` 模拟发送失败恢复正文和附件；`A-INPUT-02` 中文组词期间不误发送。此 PR 使用服务边界注入的结果，不接真实上传。
+
+**7. 阶段 D：逐步接通真实产品流程**
+
+**PR-09 — feat(android): connect Device Flow and read-only sessions**
+
+目标：真实用户可授权、选择工作区与项目、读取会话历史，并在断网后查看保存的投影。
+
+- [ ] 复用官方已注册 `lody-cli` Device Flow 与现有 RN-safe 协议入口，系统浏览器负责授权展示。
+- [ ] 接通原生凭据存储、短期 grant 请求、catalog/session 订阅与投影事件。
+- [ ] 完成登录取消、过期、拒绝、网络失败、工作区切换、退出等状态，避免旧请求覆盖新上下文。
+- [ ] 将已通过的目录和聊天组件接入 Android 产品路由，尚未实现的发送与附件操作明确不开放。
+- [ ] 清点 facade 上只读能力：会话详情、工具活动、连接状态、分页等；更新 PR-00 能力清单。
+
+范围：`src/cloud/auth/catalog`、`src/features/sessions`、`src/screens` 必要接线与 Android auth/runtime。
+
+验收：`A-AUTH-01` 授权成功/取消/失效；`A-READ-01` 目录→会话→历史；`A-READ-02` 断网与重连无假 live；`A-ACCOUNT-01` 快速切账号不显示旧数据。离线基线全部可复现，另记录使用专门测试账号的真实只读联调；不复制桌面凭据。
+
+**PR-10 — feat(android): send text turns with durable delivery state**
+
+目标：发送一条文本到现有会话，可靠地区分本地保存、交付和回复完成。
+
+- [ ] 接通 composer → pending send → history 持久化 → durable dispatch pointer → Machine RPC 的既有顺序。
+- [ ] 对齐 ACK、回复增量、最终完成、失败和用户主动重试；明确结果不确定时的 UI，不自动再发一次。
+- [ ] 补齐停止/steer/排队等当前产品已暴露命令的能力映射；若某命令需独立更改，拆子 PR 并阻止对应入口提前开放。
+- [ ] 在关键提交点故障注入：保存前后、dispatch 前后、ACK 丢失、runtime 重启、进程退出。
+
+范围：`src/cloud/send`、runtime `session/machine-rpc` 接线、pending 状态、Android 持久化与聊天事件。
+
+验收：`A-SEND-01` 单次发送与流式回复；`A-SEND-02` ACK 不提前显示回复完成；`A-SEND-03` 故障与重启不自动重放；`A-SEND-04` 可操作失败状态与人工重试。证据包含脱敏命令次数和状态轨迹；真实联调只写专门测试会话。
+
+**PR-11 — feat(android): complete new-session and attachment flows**
+
+目标：新会话的第一条消息携带正确正文与附件，失败后用户能继续处理原草稿。
+
+- [ ] 系统文件/图片选择、URI 读取权限和应用持有的临时文件生命周期，处理进程恢复后不可读 URI。
+- [ ] 接通附件上传、取消、失败和重试；关闭 sheet 或清理旧草稿时不删除仍被正在发送任务持有的文件。
+- [ ] 保留 create-session 与首条发送的顺序和结果不确定状态；创建已成功而发送失败时不自动再建第二个会话。
+- [ ] 验证归档/置顶/设置等现有写能力的 Android 接入，按能力清单补齐，小范围命令可独立子 PR。
+
+范围：runtime `create-session` 等现有命令、Android 附件/文件访问、native composer 与新会话页。
+
+验收：`A-NEW-01` 新会话首条正文与附件一致；`A-UPLOAD-01` 中断后完整恢复；`A-URI-01` URI 权限丢失可选择替换；`A-NEW-02` 部分成功不重复建会话。阶段 D 完成时整个授权→读取→发送→回复闭环可用。
+
+**8. 阶段 E：补齐 README 对应体验**
+
+**PR-12 — feat(android): host Pierre diffs and native inline changes**
+
+目标：用户可以查看每轮变更、全屏词级 Diff 和工具详情内嵌 Diff。
+
+- [ ] 在现有 `packages/dom-webview` 内补 Android 宿主，复用 Pierre 资产与协议；共享模块改动同时回归 iOS。
+- [ ] 实现预热、独占租用/释放、主题切换、页面消息隔离和内存压力清理，生命周期独立于数据 WebView。
+- [ ] LodyKit 实现 native inline diff 与工具栏，复用现有变更模型。
+- [ ] 验证大 diff、空 diff、长行、切文件与关闭重开；离线验证不依赖远端文件。
+
+验收：`A-DIFF-01` 词级高亮和模式切换；`A-DIFF-02` 重用无上次文件闪现；`A-DIFF-03` 关闭 Diff 不影响同步；`A-DIFF-04` 原生内嵌变更可读且可打开详情。范围包括 vendored 包、kit diff、场景与许可证检查，不替换 Pierre 算法。
+
+**PR-13 — feat(android): browse workspace files and preview content**
+
+目标：目录、代码、图片、PDF 与不支持类型都有明确且可操作的展示路径。
+
+- [ ] 复用远端目录/文件协议；加载、空目录、权限拒绝、机器离线、取消和切路径请求隔离齐全。
+- [ ] 用代表性大文件核验 Sora 只读候选与轻量方案；记录版本、原生依赖、搜索/定位、内存和只读保证后定案。
+- [ ] 图片、PDF 按类型使用适合的预览器，未知类型通过受控 content URI 交给系统；展示文件名/MIME 与错误状态。
+- [ ] 缓存按账号/工作区隔离，有大小和清理策略；退出清理与正在查看文件的生命周期明确。
+
+验收：`A-FILE-01` 目录浏览与取消不串路径；`A-CODE-01` 指定行定位、长行和大文件；`A-PREVIEW-01` 各类型打开/失败/分享；`A-FILE-02` 账号切换不访问旧缓存。范围为 runtime/files、kit code/preview、文件页和必要依赖。
+
+**PR-14 — feat(android): handle push lifecycle and safe navigation**
+
+目标：前台、后台与冷启动点击通知都只打开当前账号有权访问的会话。
+
+- [ ] LodyKit 在 RN 启动前持有 OneSignal 初始化/监听与点击缓存，JS 确认后消费，避免重复路由。
+- [ ] 按 PR-00 的设备范围配置 Android 推送通道与权限，缺少服务配置时内部构建明确报配置状态。
+- [ ] 保留 recipientUserId 校验、旧 payload 兼容策略与当前 catalog 解析；授权尚未恢复时等待，账号不匹配时拒绝。
+- [ ] Debug fixture 不初始化真实 SDK、不申请通知权限；真实推送另用测试设备与测试账号验收。
+
+验收：`A-PUSH-01` 冷启动等待账号恢复后正确导航；`A-PUSH-02` 同一点击只处理一次；`A-PUSH-03` 账号切换和无效目标不会越界；`A-PUSH-04` 权限拒绝仍能使用应用。范围为 Android notifications、config plugin、typed events 与通知文档。
+
+**PR-15 — feat(android): continue user-started sync within background limits**
+
+目标：用户任务短暂切后台后可在系统允许范围内续行，长时间离开和系统终止后能够正确补同步。
+
+- [ ] 记录任务用途、适用 service type、触发来源、结束条件与当前 target 下限制，核验后实现所需原生机制。
+- [ ] 明确 send→reply synchronization 的生命周期；结束或取消后及时释放服务，不用空闲连接长期占用后台任务。
+- [ ] 合理提供可见通知与取消操作；处理通知权限状态、任务超时、网络切换和系统回收。
+- [ ] WorkManager 如被采用，仅承担适用的可延后工作，不承诺实时长连接。
+- [ ] 前台恢复走原有 watchdog 与读恢复路径；任何后台终止都不触发自动发送重放。
+
+验收：`A-BG-01` 用户任务续行并结束释放；`A-BG-02` 时限/终止后前台补同步；`A-BG-03` 空闲后台不重启风暴；`A-BG-04` 取消与账号退出停止任务。至少记录一类非 Pixel 厂商实机行为。此 PR 不承诺无限后台在线。
+
+**9. 阶段 F：性能、回归与发行**
+
+**PR-16 — perf(android): validate full workflows and bound resource usage**
+
+目标：整合后的产品在指定设备范围内持续稳定，性能结论有可复现数据。
+
+- [ ] 汇总所有 case，用独立 reset 的 Debug 场景跑完整离线矩阵；真实联调单独记录。
+- [ ] 使用中档 60 Hz、120 Hz 和非 Pixel 设备，记录实际系统与 provider；必要时按发行范围加入无 GMS 设备。
+- [ ] 记录帧耗时分布/jank、解析与稳定块重测、峰值内存、队列长度、冷启动投影时间、运行时恢复时间及长会话资源趋势。
+- [ ] 在 PR-06 基线之上明确性能预算与容差，测试前固定输入和统计方式；无法达到的设备/场景公开限制，不事后调低口径制造通过。
+- [ ] 分别验证聊天与数据宿主，以及聊天+Diff+同步并存的峰值资源；只根据已观察的瓶颈做有针对性的改动。
+- [ ] 每次性能修复保留前后 trace 与相同场景结果，规模较大时拆修复 PR；最后一轮汇总不能替代前期每 PR 的验证。
+
+验收：全部必需行为 case 通过，无持续任务积压/资源增长，无文本丢失、重复写入或跨账号事件；视觉和时间行为有人审阅。性能证据使用 Macrobenchmark/Perfetto 等适合工具，不能只贴截图或模拟器 FPS。
+
+**PR-17 — release(android): add reproducible distribution and platform-safe updates**
+
+目标：可安装、可追溯的 Android 内部发行包与双平台持续验证流程。
+
+- [ ] 增加 release APK/AAB 构建、签名配置与 CI secrets 接入说明，仓库不保存签名私钥或凭据。
+- [ ] 校验 native ABI、16 KiB page-size 支持、R8、release 下资源路径、离线 JS/WASM 和依赖 notices。
+- [ ] 为 Android 明确 OTA 平台/渠道/runtime fingerprint 与资产一致性，不假定现有 iOS 发布工作流或服务配置自动兼容；服务尚不支持时采用原生包发行并明确禁用该渠道 OTA。
+- [ ] 验证安装、升级、进程重启、旧投影读取、退出重登；schema 变化向前兼容，不依赖破坏性数据库回滚。
+- [ ] CI 保留 iOS 签名与 simulator 流程，新增 Android 构建与离线 case；文档列实际可用命令、环境和限制。
+- [ ] 更新 README Android 功能状态、已知限制、设备支持范围和维护文档；所有发布声明与能力清单一致。
+
+验收：`A-REL-01` release 包干净安装可完成主流程；`A-REL-02` 升级后投影、登录和资源正确；`A-REL-03` OTA 平台与 runtime 隔离；`A-REL-04` iOS 主流程回归。此 PR 交付内部发行能力；公开上架是独立的发行操作，不由合并该 PR 自动触发。
+
+**10. 可选 PR：只在证据支持时推进**
+
+| PR                             | 依赖与触发条件                                      | 交付及停止条件                                                                                                                                               |
+| ------------------------------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PR-X1：Sandbox 真实资产对照    | PR-03；WebView 数据基线已通过                       | 在内部验证入口执行同一组 WASM/投影/故障样例，逐项检测 provider feature、Web API、大输入/输出与销毁；输出兼容/内存/恢复报告。需要大规模协议重写时停止首版采用 |
+| PR-X2：切换默认数据宿主        | PR-X1、PR-04，且测量收益与设备覆盖成立              | 通过最薄必要宿主接口接入一个默认 owner，明确设备不支持时的发行策略；运行全部数据/发送/后台回归。同一账号不并行启动两份副本，不在不确定发送状态下热切换重放   |
+| PR-X3：mikepenz / Compose 对照 | PR-06；PR-07 出现无法合理解决的解析、选择或性能缺口 | 相同 fixture 下验证 stable/tail 解析、非追加修正、公式、选择和 LazyColumn；只有完整行为达标才替换路线。记录最终保留方案并清理被放弃的原型依赖                |
+
+独立 Kotlin Enriched SDK 不作为首版默认入口；未来发布能力改变时可以重开选型记录。任何新证据导致路线调整，都更新依赖表和相关 PR 范围，避免文档继续保留两套互相冲突的承诺。
+
+**11. 每个 PR 的评审模板与停止条件**
+
+建议 PR 正文采用下面的简短结构，详细证据链接到对应 case 报告：
+
+```text
+对应计划：PR-xx；依赖：真实 PR 链接
+用户结果：在什么场景下，现在会发生什么
+实现边界：本次修改的 owner、输入输出和生命周期
+行为证据：case ID、构建 commit、设备、截图/视频/trace 链接
+工程检查：实际执行与结果；未执行项及原因
+限制与后续：尚未开放能力、阻塞哪个后续 PR
+停用方式：如何停止暴露入口或回到上个兼容版本，如何保留已有数据
+```
+
+统一停止条件：出现跨账号数据、丢失权威文本、自动重复发送、无界重启/队列或 iOS 核心回归时，不将问题挪到最后一阶段；在当前 PR 修复，或保持该能力仅内部可见并阻塞依赖它的产品 PR。依赖尚未具备、真实验收没执行和候选仍待定都要明示，不能以“构建成功”替代完成。
+
+本文的交付范围是计划文档。当前没有 Android 实现、真机结果、远端 PR 或发行产物；实施时按阶段表逐项补充链接与证据。
