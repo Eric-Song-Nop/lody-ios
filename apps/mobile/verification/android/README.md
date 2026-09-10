@@ -159,6 +159,11 @@ global device language settings, TalkBack speech or process-death draft recovery
 
 ### Clipboard and display preferences
 
+`--case list-focus --appearance light|dark` uses TAB, Enter, directional input
+and system Back on production native rows. It requires repeated action updates
+to retain keyboard focus and detail return to restore the navigation row's focus
+in both page and sheet hosts. This is keyboard evidence, not TalkBack evidence.
+
 `--case list-mutations --appearance light|dark` requires the fixture added in
 `674cff2` or later. It scrolls into history, records a fully visible row's offset,
 prepends/removes 20 rows above it, and requires the same row to retain that offset
