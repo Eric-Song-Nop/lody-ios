@@ -46,6 +46,16 @@ Outputs default to `.artifacts/android/<timestamp>/`: `result.json`, UI hierarch
 
 The case uses the real module's Expo lifecycle callbacks. It does not register fake implementations for unbuilt Cloud or UI capabilities. WASM is verified separately below; watchdog, storage and product fixtures arrive in their roadmap PRs.
 
+`--case feedback-keyboard` uses the same host and appearance arguments, opens a
+real input and system keyboard, then checks native toast clearance, preserved
+focus/draft and native close. System back must close the keyboard before the
+page/sheet. This geometry/focus case uses a 60-second system interactive timeout
+so slow IME startup and hierarchy capture do not erase the state being measured;
+it restores the setting and does not test default expiry. Missing dispatch,
+system IME frame, focus or notice fails the case. Screenshots and recordings
+still need visual review. Results and remaining coverage are tracked in
+[the feedback report](../../../../docs/research/android-feedback-verification.md).
+
 **WASM case (PR-02)**
 
 ```sh
@@ -132,22 +142,3 @@ case does not establish whole-app language switching or TalkBack behavior.
 It force-stops only the verification app to check persisted launch values, then
 uses the Android EditText system Paste key to compare the complete clipboard fixture.
 It also calls native selection feedback; this is not physical-haptic evidence.
-
-### Native toast and session feedback
-
-`--case feedback --feedback-host page|sheet --appearance light|dark` checks
-Unicode text, the bounded/coalesced toast burst, timed completion, sticky attention,
-native dismissal, background cleanup and migration to the returning window.
-The runner temporarily sets the real system interactive accessibility timeout to
-10 seconds and restores it in `finally`; this is not default-duration evidence.
-Banners must leave the native page title clear.
-
-`--case feedback-keyboard` uses the same host and appearance arguments, opens a
-real input and system keyboard, then checks native toast clearance, preserved
-focus/draft and native close. System back must close the keyboard before the
-page/sheet. This geometry/focus case uses a 60-second system interactive timeout
-so slow IME startup and hierarchy capture do not erase the state being measured;
-it restores the setting and does not test default expiry. Missing dispatch,
-keyboard hierarchy, focus or notice fails the case. Screenshots and recordings
-still need visual review. Results and remaining coverage are tracked in
-[the feedback report](../../../../docs/research/android-feedback-verification.md).

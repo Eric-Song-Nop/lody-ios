@@ -37,10 +37,22 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
         capture(f'feedback-keyboard-{host}-requested')
         tree = wait_text('Feedback requests: 1')
         tree = wait_text('Your draft remains available')
-        keyboard_nodes = [n for n in tree.iter('node') if 'inputmethod' in n.get('package', '') and bounds(n)[3] > bounds(n)[1]]
-        if not keyboard_nodes:
-            raise AssertionError('No visible system keyboard hierarchy')
-        keyboard_top = min(bounds(n)[1] for n in keyboard_nodes)
+        # UI Automator's active-window dump can omit the separate IME window.
+        # Use the system's visible IME source, independent of the app's insets.
+        display_dump = shell('dumpsys', 'window', 'displays')
+        result['windowDisplayDump'] = display_dump
+        ime_sources = [line.strip() for line in display_dump.splitlines() if 'type=ime' in line and 'visible=true' in line.lower()]
+        result['imeSources'] = ime_sources
+        frames = set()
+        for line in ime_sources:
+            match = re.search(r'frame=\[(-?\d+),(-?\d+)\]\[(-?\d+),(-?\d+)\]', line, re.IGNORECASE)
+            if match:
+                frame = tuple(map(int, match.groups()))
+                if frame[3] > frame[1]:
+                    frames.add(frame)
+        if len(frames) != 1:
+            raise AssertionError(f'Expected one visible system IME frame: {frames}; inspect windowDisplayDump')
+        keyboard_top = next(iter(frames))[1]
         close = next(n for n in tree.iter('node') if n.get('class') == 'android.widget.ImageButton' and 'Your draft remains available' in n.get('content-desc', ''))
         parents = {child: parent for parent in tree.iter('node') for child in parent}
         card = parents[close]
