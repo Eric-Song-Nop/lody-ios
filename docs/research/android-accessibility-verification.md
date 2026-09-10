@@ -1,6 +1,6 @@
 # Android TalkBack verification
 
-PR-05b remains incomplete. The controls/page/light action case has passed; the other host/theme/target combinations remain unverified. The runner uses the installed Google TalkBack service; the latest revision requires exploration to focus the exact target without changing fixture content before double-tap activation. It does not establish spoken-label quality, traversal order or complete accessibility coverage.
+PR-05b remains incomplete. On the original APK, controls, menus and lists passed their page/light action subsets. On the patched APK, controls/sheet/light now passes the original backdrop failure precondition. These versions are recorded separately below; the remaining matrix and complete accessibility gate are still open. The runner uses the installed Google TalkBack service; the latest revision requires exploration to focus the exact target without changing fixture content before double-tap activation. It does not establish spoken-label quality, traversal order or complete accessibility coverage.
 
 ## Retained failures
 
@@ -68,3 +68,13 @@ The nine-case continuation stopped on its first case, `talkback-controls-sheet-l
 The installed `react-native-screens@4.26.2` creates its empty `bottomsheet/DimmingView` with a click listener and no accessibility exclusion. A versioned pnpm patch sets that backdrop's `importantForAccessibility` to `NO`. It keeps ordinary outside-touch handling, system Back and the sheet's labelled close control. The patch is persisted in `patches/` and the workspace/lockfile, rather than only in generated native files or an untracked dependency edit. First-party capabilities remain in LodyKit.
 
 The new APK, same-case repair evidence, affected navigation regression and normally signed iOS build are pending. Earlier original-APK passes remain historical evidence and do not prove this patch. The full PR-05b gate stays open.
+
+## Backdrop repair verified on the new APK
+
+Patch commit `7841c7a` builds successfully for Android. The separate `talkback-controls-sheet-light-backdrop-repair` run exits zero on API 36 ARM64 with APK SHA-256 `553d7744e1f7b4f195a50150b9df62d76763505bd8585a5ca6b526b39fac24c0`, fixture `talkback-v2`. Runner metadata records `7841c7a` with the plan-only worktree edit subsequently committed as `d14ab0d`; no product or verifier source changed during this run.
+
+At the same plus-button point `[294, 976]` that previously focused the empty backdrop, exploration now focuses `Increment native counter` with all counts zero. Double-tap produces icon count one and long count zero. The text button separately gains focus without activation, then double-tap produces text count one with disabled count zero. Back returns to the Settings fixture entry and removes the controls host. Original accessibility settings (`null` enabled services, accessibility enabled `0`) and light appearance are restored; the owned emulator terminates.
+
+All eight PNGs were individually reviewed, along with five-second samples across the 40.666633-second video. Intermediate focus, exact counts and returned-parent XML supplement the sampled video. This proves the original sheet/controls/light defect is repaired; it does not prove all TalkBack targets/themes, spoken output, traversal or originating-row focus restoration. `pnpm check`, tests and iOS Metro bundle passed for the patch; a fresh normally signed iOS native build and strict deep signature verification also pass under the managed `TalkBack backdrop iOS regression` lease. Affected Android navigation and the remaining same-APK matrix still require verification.
+
+The same APK also passes `navigation-v3` in `.artifacts/android/navigation-backdrop-repair`: project/session Back, sheet completion, system Back cancellation, native close, explicit cancellation, nested completion/return, downward title-drag dismissal and both toolbar return targets. All six outer sheet results settle once. All six screenshots and five-second samples across the 112.882689-second recording were reviewed. This establishes the affected normal dismissal paths; interruption and whole-host teardown remain separate cases. The runner records `d14ab0d` with documentation edits only.
