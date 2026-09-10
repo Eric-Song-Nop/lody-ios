@@ -23,7 +23,7 @@ First-round APK SHA-256: `75534785b464fc953fb307e2e547befc02a116415f318e47a26b52
 
 Both builds use runtime SHA-256 `0993a8efc917289e88da43d8cdcfb8b183ea60229f6e86298d6769e1138f901d`, matching the PR-02 assets. The first round used the dedicated ARM64 Android 16 / API 36 emulator and WebView provider 133.0.6943.137. Five WebViews were created and five closed. The command log records one negative `sendTurn`, zero HTTP writes, and no replay after recovery. The video shows idle → running → background-ready → system Home → foreground → passed; the foreground event count changes from zero to one.
 
-The stronger round also requires actual Loro session content after initial recovery, heartbeat recovery, renderer recovery and manual recovery. A `ready` callback alone does not satisfy these assertions.
+The stronger round also requires actual Loro session content after initial recovery, heartbeat recovery, renderer recovery and manual recovery. A `ready` callback alone does not satisfy these assertions. Final recovery screenshots/video were inspected. The same APK also passes all eight WASM cases in `.artifacts/android/wasm-recovery-regression/` and both bootstrap cases in `.artifacts/android/bootstrap-recovery-regression/`; these regression runs are recorded at documentation-only descendant `dd6dc89`.
 
 ## Supporting checks and limits
 
