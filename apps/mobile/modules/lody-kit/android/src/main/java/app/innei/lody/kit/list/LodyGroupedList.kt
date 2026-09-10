@@ -51,6 +51,7 @@ private data class Item(
   val subtitle: String = "", val value: String = "", val image: String = "",
   val mono: Boolean = false, val actionable: Boolean = false,
   val disclosure: Boolean = false, val destructive: Boolean = false,
+  val navigates: Boolean = false,
 )
 
 class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
@@ -65,6 +66,8 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
   private var transparent = false
   private var accent: String? = null
   private var refreshEnabled = false
+  private var navigationFocusId: String? = null
+  private var restoreNavigationFocus = false
 
   init {
     orientation = VERTICAL
@@ -84,11 +87,55 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
   }
 
   override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-    if (event.actionMasked == MotionEvent.ACTION_DOWN) disallowAncestorIntercept(true)
+    if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+      navigationFocusId = null
+      restoreNavigationFocus = false
+      disallowAncestorIntercept(true)
+    }
     return try { super.dispatchTouchEvent(event) } finally {
       if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
         disallowAncestorIntercept(false)
       }
+    }
+  }
+
+  override fun onDetachedFromWindow() {
+    if (navigationFocusId != null) restoreNavigationFocus = true
+    super.onDetachedFromWindow()
+  }
+  override fun onAttachedToWindow() {
+    super.onAttachedToWindow()
+    post { restoreReturningRowFocus() }
+  }
+  override fun onVisibilityChanged(changedView: View, visibility: Int) {
+    super.onVisibilityChanged(changedView, visibility)
+    if (!isShown && navigationFocusId != null) restoreNavigationFocus = true
+    if (isShown) post { restoreReturningRowFocus() }
+  }
+  override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+    super.onLayout(changed, left, top, right, bottom)
+    restoreReturningRowFocus()
+  }
+  private fun restoreReturningRowFocus() {
+    val id = navigationFocusId ?: return
+    if (!restoreNavigationFocus || !isAttachedToWindow || !isShown) return
+    // A keyboard-activated navigation row owns its return focus, never a touch row.
+    // Do not take focus from another control or resurrect a removed row.
+    if (isInTouchMode || rootView.findFocus() != null) {
+      navigationFocusId = null
+      restoreNavigationFocus = false
+      return
+    }
+    val position = rows.currentList.indexOfFirst { it.id == id && it.navigates }
+    if (position < 0) {
+      navigationFocusId = null
+      restoreNavigationFocus = false
+      return
+    }
+    val holder = list.findViewHolderForAdapterPosition(position) ?: return
+    if (holder.itemView.requestFocus()) {
+      navigationFocusId = null
+      restoreNavigationFocus = false
     }
   }
   private fun disallowAncestorIntercept(disallow: Boolean) {
@@ -129,7 +176,7 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
         if (section.header.isNotEmpty()) add(Item(section.id, "", 1, section.header))
         section.rows.forEach { row ->
           add(Item(section.id, row.id, 0, row.title, row.subtitle, row.value, row.image,
-            row.subtitleMono, row.action || row.navigates, row.disclosure, row.destructive))
+            row.subtitleMono, row.action || row.navigates, row.disclosure, row.destructive, row.navigates))
         }
         if (section.footer.isNotEmpty()) add(Item(section.id, "", 2, section.footer))
       }
@@ -173,7 +220,13 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
         val position = bindingAdapterPosition
         if (position != RecyclerView.NO_POSITION) {
           val item = rows.currentList[position]
-          if (item.actionable && isShown) onRowPress(mapOf("id" to item.id))
+          if (item.actionable && isShown) {
+            if (item.navigates && box.hasFocus() && !box.isInTouchMode) {
+              navigationFocusId = item.id
+              restoreNavigationFocus = false
+            }
+            onRowPress(mapOf("id" to item.id))
+          }
         }
       }
     }
