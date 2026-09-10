@@ -6,8 +6,7 @@ SERVICE = 'com.google.android.marvin.talkback/com.google.android.marvin.talkback
 
 
 def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, host, target, snapshot, gesture_input):
-    originals = {key: shell('settings', 'get', 'secure', key).strip()
-                 for key in ('enabled_accessibility_services', 'accessibility_enabled')}
+    originals = result['originalAccessibilitySettings']
     result.update(appearance=appearance, host=host, target=target,
                   originalAccessibilitySettings=originals)
     headings = {'controls': 'Native Android controls', 'menus': 'Native Android menus',
@@ -42,7 +41,28 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
             'from': [int(x), int(start)], 'to': [int(x), int(end)],
         })
         shell('input', 'touchscreen', 'swipe', x, start, x, end, '400')
-        tree = snapshot()
+        # The persistent observer returns immediately, unlike UI Automator's
+        # implicit idle wait. A tap during a fling can merely stop scrolling.
+        # Observe settled geometry before choosing an entry; never retry its tap.
+        deadline = time.monotonic() + 5
+        stable_since = None
+        previous_geometry = None
+        samples = 0
+        while time.monotonic() < deadline:
+            tree = snapshot()
+            geometry = [(node.get('text'), node.get('content-desc'), node.get('bounds'))
+                        for node in tree.iter('node')]
+            samples += 1
+            if geometry != previous_geometry:
+                previous_geometry = geometry
+                stable_since = time.monotonic()
+            elif time.monotonic() - stable_since >= 0.5:
+                result['fixtureEntryScrolls'][-1]['settledGeometrySamples'] = samples
+                result['fixtureEntryScrolls'][-1]['settledGeometry'] = geometry
+                break
+            time.sleep(0.1)
+        else:
+            raise AssertionError('Fixture entry scroll geometry did not settle within five seconds')
     wait_text(headings[target])
 
     def wait_bound():
@@ -64,13 +84,15 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
             time.sleep(0.5)
 
     def activate(tree, title, hold=False):
+        before = wait_bound()
+        # Native adapter updates may finish after the RN counter used by
+        # wait_text. Compare exploration against a fresh pre-input snapshot,
+        # not an older tree retained across screenshot collection.
+        tree = snapshot()
         node = next(node for node in tree.iter('node')
                     if title in (node.get('text'), node.get('content-desc')))
         left, top, right, bottom = map(int, re.findall(r'\d+', node.get('bounds')))
         x, y = str((left + right) // 2), str((top + bottom) // 2)
-        # A hierarchy dump may temporarily suppress other accessibility services.
-        # Recheck after the dump; never count ordinary touch as a TalkBack action.
-        before = wait_bound()
         # Exploration must focus this node without activating it. Capture the
         # intermediate state before dispatching a separate hardware double tap.
         explore_log = gesture_input(x, y, 'explore')
@@ -82,6 +104,8 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
                               for item in explored.iter('node')
                               if item.get('accessibility-focused') == 'true'],
             'fixtureTextUnchanged': texts(explored) == texts(tree),
+            'fixtureTextBefore': texts(tree),
+            'fixtureTextAfter': texts(explored),
         })
         focused = []
         for item in explored.iter('node'):
@@ -195,9 +219,14 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
         shell('input', 'keyevent', 'KEYCODE_BACK')
         # The parent retains its earlier scroll offset; its introductory text
         # may be offscreen. Its exact fixture entry proves the owning page.
-        tree = wait_text(entry_title)
-        if headings[target] in texts(tree):
-            raise AssertionError('TalkBack host remained open after Back')
+        deadline = time.monotonic() + 30
+        while True:
+            tree = snapshot()
+            if entry_title in texts(tree) and headings[target] not in texts(tree):
+                break
+            if time.monotonic() >= deadline:
+                raise AssertionError('TalkBack Back did not reach parent with child host absent')
+            time.sleep(0.1)
         capture('talkback-returned')
         result['checks'].append({
             'id': f'A-UI-01-talkback-{target}-{host}', 'status': 'pass',
@@ -206,13 +235,3 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
     except Exception:
         capture('talkback-before-restoration-failure')
         raise
-    finally:
-        for key, value in originals.items():
-            if value == 'null':
-                shell('settings', 'delete', 'secure', key)
-            else:
-                shell('settings', 'put', 'secure', key, value)
-        restored = {key: shell('settings', 'get', 'secure', key).strip() for key in originals}
-        result['restoredAccessibilitySettings'] = restored
-        if restored != originals:
-            raise AssertionError(f'Failed to restore accessibility settings: {restored}')

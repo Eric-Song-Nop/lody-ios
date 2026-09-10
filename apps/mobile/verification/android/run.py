@@ -12,6 +12,7 @@ import time
 import xml.etree.ElementTree as ET
 import gesture
 import hardware_touch
+import accessibility_observer
 import controls
 import symbols
 import menus
@@ -72,6 +73,8 @@ def main():
     recorder_pid = None
     original_night_mode = None
     observer_remote = None
+    observer = None
+    original_accessibility_settings = None
     serial = args.serial
     touch_driver = None
     result = {'apkSha256': hashlib.file_digest(args.apk.open('rb'), 'sha256').hexdigest(), 'case': args.case, 'status': 'failed', 'checks': [], 'commit': command(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True, text=True).stdout.strip()}
@@ -82,10 +85,11 @@ def main():
         return command([*adb_command, '-s', serial, 'shell', *parts], capture_output=True, text=True).stdout.strip()
 
     def snapshot():
+        if observer:
+            return observer.snapshot()
         if observer_remote:
-            shell(f'CLASSPATH={observer_remote}', 'app_process', '/', 'AccessibilityDump', '/sdcard/lody-verify.xml')
-        else:
-            shell('uiautomator', 'dump', '/sdcard/lody-verify.xml')
+            raise RuntimeError('TalkBack observer did not initialize; suppressing fallback forbidden')
+        shell('uiautomator', 'dump', '/sdcard/lody-verify.xml')
         xml = shell('cat', '/sdcard/lody-verify.xml')
         return ET.fromstring(xml)
 
@@ -199,9 +203,17 @@ def main():
         shell('input', 'keyevent', 'KEYCODE_WAKEUP')
         shell('wm', 'dismiss-keyguard')
         if talkback_dex:
+            # UiAutomation itself affects accessibility_enabled. Preserve the
+            # device state before registering even a non-suppressing observer.
+            original_accessibility_settings = {
+                key: shell('settings', 'get', 'secure', key).strip()
+                for key in ('enabled_accessibility_services', 'accessibility_enabled')}
+            result['originalAccessibilitySettings'] = original_accessibility_settings
             observer_remote = '/data/local/tmp/lody-verify-observer.dex'
             command([*adb_command, '-s', serial, 'push', talkback_dex, observer_remote], capture_output=True)
-            result['hierarchyObserver'] = 'UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES'
+            observer = accessibility_observer.Observer(adb_command, serial, observer_remote, args.output)
+            result['hierarchyObserver'] = 'persistent UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES'
+            result['observerDexSha256'] = hashlib.file_digest(talkback_dex.open('rb'), 'sha256').hexdigest()
         logcat_file = (args.output / 'logcat.txt').open('w')
         logcat_process = subprocess.Popen([*adb_command, '-s', serial, 'logcat', '-v', 'threadtime', '-T', '1'], stdout=logcat_file, stderr=subprocess.STDOUT)
         recorder_pid = shell('sh', '-c', f"'screenrecord --time-limit 180 /sdcard/lody-verify-{args.case}.mp4 >/dev/null 2>&1 & echo $!'")
@@ -454,6 +466,34 @@ def main():
                 result['captureError'] = str(capture_error)
         raise
     finally:
+        if observer:
+            try:
+                observer.save_events()
+            except Exception as error:
+                result['observerEventsError'] = str(error)
+                result['status'] = 'failed'
+            try:
+                observer.close()
+                result['observerClosed'] = True
+                result['observerRequests'] = observer.requests
+            except Exception as error:
+                result['observerCloseError'] = str(error)
+                result['status'] = 'failed'
+        if original_accessibility_settings is not None:
+            try:
+                for key, value in original_accessibility_settings.items():
+                    if value == 'null':
+                        shell('settings', 'delete', 'secure', key)
+                    else:
+                        shell('settings', 'put', 'secure', key, value)
+                restored = {key: shell('settings', 'get', 'secure', key).strip()
+                            for key in original_accessibility_settings}
+                result['restoredAccessibilitySettings'] = restored
+                if restored != original_accessibility_settings:
+                    raise AssertionError(f'Failed to restore accessibility settings: {restored}')
+            except Exception as error:
+                result['accessibilityRestoreError'] = str(error)
+                result['status'] = 'failed'
         if observer_remote:
             try:
                 shell('rm', '-f', observer_remote)
