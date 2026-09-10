@@ -109,6 +109,49 @@ Enriched 的流式支持是选型依据；字符渐入、跨块选择、列表�
 | X2 默认宿主替换 | X1、04 通过，收益和设备覆盖成立               | 单一 owner 接线与数据/发送/后台全回归；不在结果不确定的发送中热切换，不并行运行两份 replica                    |
 | X3 渲染替代对照 | 07 出现无法合理解决的核心缺口                 | 相同 fixture 对照 mikepenz/Compose 路线；完整选择、滚动、修正和公式达标后才替换，并移除废弃原型                |
 
+## 逐 PR 代码落点与交接文件
+
+下面的路径以 `apps/mobile/` 为基准，`kit` 指 `modules/lody-kit`。目录表示修改责任范围，不要求新建同名组件；新增 Android 实现放在 kit 内对应功能目录，通过现有 facade 和 `LodyKitModule` 暴露。生成的原生工程不作为交接源码。每行的交接记录可作为对应验证报告的小节，避免为同一事实维护多份文档。
+
+| 实际 PR | 主要代码或配置落点                                                                        | 必须交给下游的记录                                   |
+| ------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| 00      | 根目录 `docs/architecture/`、`docs/plans/`、README                                        | README 能力映射、未实现 API 清单、设备范围决策       |
+| 01      | app config、`plugins/`、Android entry、kit Android 注册、`verification/android/`          | 干净构建步骤、真实调用样例、设备租用与清理规则       |
+| 02      | kit `data-runtime/`、`decoder/`、Android 数据宿主、`scripts/`                             | 资产与许可证清单、帧和桥接边界、参考投影及差异报告   |
+| 03      | kit Android 数据宿主与生命周期、runtime facade                                            | 状态转换、deadline/generation/retry 规则、故障矩阵   |
+| 04      | kit Android 安全存储与 SQLite、storage facade                                             | schema、恢复与清理顺序、密钥失效和迁移语义           |
+| 05a     | `src/app/`、`src/lib/presentation/`、sessionNav 调用方                                    | 各退出路径的结果结算与资源释放表                     |
+| 05b     | kit 控件/菜单/列表/系统能力、`src/lib/theme/`、`src/lib/i18n/`、`locales/`、locale plugin | facade 覆盖表、双宿主检查、响应式翻译调用点审计      |
+| 06      | kit chat facade、Android 聊天适配、依赖锁文件、离线 Debug 场景                            | 固定语料和时间序列、解析/回收探针、缺口与测量基线    |
+| 07a     | Android 聊天调度与渲染适配、流式 fixture                                                  | 权威文本和显示进度契约、修正/回退/完成状态表         |
+| 07b     | Android 聊天选择/布局/滚动、渲染适配                                                      | 复制预期、锚点策略、同输入对照和最终选型决定         |
+| 08a     | kit `src/chat/`、Android composer、聊天及 sheet 宿主                                      | 输入事件、窗口 Insets 和高度契约、组词与返回录像     |
+| 08b     | composer 草稿所有权、会话创建调用方                                                       | 草稿快照、交接 token、附件持有和清空/恢复时序        |
+| 09a     | `src/cloud/auth/`、kit 安全存储接线、授权页面                                             | 授权状态表、账号切换屏障、过期与取消结果             |
+| 09b     | `src/cloud/catalog/`、runtime 订阅、目录与历史页面                                        | 恢复/同步状态映射、入口白名单、真实只读联调记录      |
+| 10a     | `src/cloud/send/`、kit runtime 的发送与持久化路径                                         | 各提交点的持久化内容、送达不确定性与实际命令次数     |
+| 10b     | 会话发送调用方、composer 接线、回复投影消费                                               | ACK/完成区分、用户重试规则、发送至回复完整轨迹       |
+| 11a     | kit Android 选择器/URI 能力、附件上传与取消调用方                                         | URI 权限、临时文件与上传任务的持有/释放表            |
+| 11b     | 新会话流程、草稿交接、其余 Cloud 写命令调用方                                             | 创建/首发部分成功矩阵、已开放写命令清单              |
+| 12a     | kit diff facade、Android Diff owner、共享 Pierre 资产                                     | 预热租用协议、旧内容隔离、独立销毁与数据同步并存证据 |
+| 12b     | kit Android 内嵌 Diff、工具详情调用方                                                     | 变更模型与打开全屏的交接契约、大变更样例             |
+| 13a     | `src/features/` 文件域、Cloud 文件协议调用方                                              | 路径请求身份、取消和账号缓存隔离契约                 |
+| 13b     | kit 代码/预览 facade、Android 分类预览能力                                                | 预览器决策、支持类型/大小边界、权限和清理行为        |
+| 14      | kit Android notifications、notifications facade、config plugin                            | 原生点击队列、确认消费、账号校验和真实设备覆盖表     |
+| 15a     | kit Android 用户任务生命周期、发送任务接线、config plugin                                 | 系统机制选择、任务开始/结束/取消和通知责任           |
+| 15b     | 数据宿主恢复、后台任务收尾与前台补同步                                                    | 系统终止/OEM 矩阵、不重放写入证据与设备限制          |
+| 16      | `verification/android/`、固定 benchmark 场景、按瓶颈定位的实现                            | 同版本全量报告、冻结预算与实测值、遗留限制           |
+| 17a     | app config/plugin、构建脚本、根目录 `.github/workflows/`                                  | 可复现发行构建、签名配置接入说明、许可证及双平台 CI  |
+| 17b     | 更新配置、持久化升级路径、README 与发行说明                                               | 安装升级矩阵、OTA 隔离决定、包与证据的版本对应关系   |
+
+## 三个需要提前准备的决策包
+
+这些材料随对应 PR 交付，不另建没有行为结果的汇总 PR。
+
+1. **PR-02 的 WASM 兼容包**：锁定实际资产及哈希，列出需要的 Web API、原生桥接、资源上限和失败结果。PR-03、04 消费同一数据契约；可选 Sandbox 对照复用完整资产，不以简单 WASM demo 代替。
+2. **PR-06 → 07b 的渲染决策包**：以 README 的表格、代码、公式、选择、字符渐入和长历史逐项建样例；保留原始增量时间序列、最终文本、复制预期和失败录屏。07b 记录直接采用、扩展后采用或触发 X3 的原因，明确扩展代码归属与后续维护成本。
+3. **PR-10a 的可靠发送包**：在接产品发送按钮前，明确本地保存失败、dispatch 前失败、可能送达但 ACK 丢失、ACK 后回复未完成四类结果。每类写出 UI 状态、允许的用户操作和恢复后的命令次数；由 10b、11b、15b 复用。
+
 ## 每个 PR 的收尾清单
 
 - 在正文列出父 PR、计划编号、本次可观察行为、实际修改范围及仍未开放的入口。
