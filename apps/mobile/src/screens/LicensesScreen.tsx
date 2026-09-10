@@ -30,7 +30,7 @@ function row(entry: BundledLicense): NativeListRow {
   };
 }
 
-function licenseSections(): NativeListSection[] {
+function licenseSections(translate: typeof t): NativeListSection[] {
   const { packages } = bundledLicenses();
   const own = packages.find((entry) => entry.firstParty);
   const grouped = new Map<string, NativeListRow[]>();
@@ -45,7 +45,7 @@ function licenseSections(): NativeListSection[] {
   if (own)
     sections.push({
       id: 'app',
-      header: t('settings.section.about'),
+      header: translate('settings.section.about'),
       rows: [row(own)],
     });
   sections.push(
@@ -58,7 +58,7 @@ function licenseSections(): NativeListSection[] {
       .map(([letter, rows]) => ({ id: letter, header: letter, rows })),
   );
   const last = sections[sections.length - 1];
-  if (last) last.footer = t('settings.licenses.footer');
+  if (last) last.footer = translate('settings.licenses.footer');
   return sections;
 }
 
@@ -66,7 +66,7 @@ function View() {
   const { t } = useTranslations();
   const colors = usePalette();
   const { push } = usePageRuntime();
-  const sections = licenseSections();
+  const sections = licenseSections(t);
   return (
     <NativeGroupedList
       style={{ flex: 1 }}

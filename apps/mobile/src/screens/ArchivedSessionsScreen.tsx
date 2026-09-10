@@ -7,7 +7,6 @@ import { usePalette } from '@/lib/theme/palette';
 import { byActivity, sessionRow } from '@/features/sessions/inbox';
 import { listRowAction } from '@/features/sessions/sessionActions';
 import { openCatalogRow } from '@/hooks/screens/openCatalogRow';
-import { t } from '../lib/i18n/index.ts';
 
 function View() {
   const { t } = useTranslations();
@@ -18,7 +17,9 @@ function View() {
   const rows = catalog.sessions
     .filter((s) => s.archived)
     .sort(byActivity)
-    .map((s) => sessionRow(s, colors.accent, names.get(s.projectId)));
+    .map((s) =>
+      sessionRow(s, colors.accent, names.get(s.projectId), undefined, t),
+    );
   return (
     <>
       <NativeGroupedList
