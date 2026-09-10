@@ -85,6 +85,8 @@ internal class StorageVerification(private val context: Context) {
         it.write(ByteArray(100) { 0x7f })
       }
       check(runCatching { store.startup() }.isFailure) { "corrupt_database_must_fail" }
+      check(java.io.File(context.noBackupFilesDir, "verification-catalog.sqlite").exists()) { "corrupt_database_was_deleted" }
+      check(runCatching { store.startup() }.isFailure) { "corruption_was_silently_reset" }
       store.clear()
       check(store.startup().isEmpty())
       store.write("account", account("c"))

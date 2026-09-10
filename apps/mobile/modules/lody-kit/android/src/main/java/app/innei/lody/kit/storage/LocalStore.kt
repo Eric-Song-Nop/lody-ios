@@ -16,7 +16,11 @@ internal class LocalStore(context: Context, name: String = "catalog") : AutoClos
   private fun database(): SQLiteDatabase {
     db?.let { return it }
     path.parentFile?.mkdirs()
-    val opened = SQLiteDatabase.openOrCreateDatabase(path, null)
+    // The default handler deletes corrupt files and may reopen an empty database.
+    // Surface the failure until an explicit clear owns the destructive recovery.
+    val opened = SQLiteDatabase.openOrCreateDatabase(path.path, null) {
+      throw android.database.sqlite.SQLiteDatabaseCorruptException("storage_database_corrupt")
+    }
     try {
       check(opened.version <= 1) { "storage_schema_unsupported" }
       opened.execSQL("CREATE TABLE IF NOT EXISTS cache (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
