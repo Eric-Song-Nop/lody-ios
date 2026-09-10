@@ -76,6 +76,11 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance):
                 'defaultTitleHeight': baseline_height, 'scaledTitleHeight': scaled_height,
                 'defaultRowBounds': baseline_row, 'scaledRowBounds': scaled_row,
             })
+    except Exception:
+        result['failedFontScale'] = shell('settings', 'get', 'system', 'font_scale').strip()
+        result['failedProcess'] = shell('pidof', 'app.innei.lody').strip()
+        capture('fonts-before-restoration-failure')
+        raise
     finally:
         if original == 'null':
             shell('settings', 'delete', 'system', 'font_scale')
