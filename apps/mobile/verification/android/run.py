@@ -44,6 +44,8 @@ def main():
     adb_command = [str(adb), '-P', str(args.adb_port)]
     emulator = None
     emulator_log = None
+    logcat_process = None
+    logcat_file = None
     recorder_pid = None
     serial = args.serial
     result = {'apkSha256': hashlib.file_digest(args.apk.open('rb'), 'sha256').hexdigest(), 'case': args.case, 'status': 'failed', 'checks': [], 'commit': command(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True, text=True).stdout.strip()}
@@ -144,6 +146,8 @@ def main():
         shell('pm', 'clear', PACKAGE)
         shell('input', 'keyevent', 'KEYCODE_WAKEUP')
         shell('wm', 'dismiss-keyguard')
+        logcat_file = (args.output / 'logcat.txt').open('w')
+        logcat_process = subprocess.Popen([*adb_command, '-s', serial, 'logcat', '-v', 'threadtime', '-T', '1'], stdout=logcat_file, stderr=subprocess.STDOUT)
         recorder_pid = shell('sh', '-c', f"'screenrecord --time-limit 180 /sdcard/lody-verify-{args.case}.mp4 >/dev/null 2>&1 & echo $!'")
         if not recorder_pid.isdigit():
             raise RuntimeError(f'Could not start screenrecord: {recorder_pid}')
@@ -264,7 +268,15 @@ def main():
         result['status'] = 'pass'
     except Exception as error:
         result['error'] = str(error)
-        if serial:
+        if logcat_process:
+            logcat_process.terminate()
+            try:
+                logcat_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                logcat_process.kill()
+                logcat_process.wait(timeout=5)
+            logcat_file.close()
+        elif serial:
             try:
                 capture('failure')
             except Exception as capture_error:
