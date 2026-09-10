@@ -5,7 +5,7 @@ import time
 SERVICE = 'com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService'
 
 
-def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, host, target, snapshot):
+def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, host, target, snapshot, gesture_input):
     originals = {key: shell('settings', 'get', 'secure', key).strip()
                  for key in ('enabled_accessibility_services', 'accessibility_enabled')}
     result.update(appearance=appearance, host=host, target=target,
@@ -72,15 +72,13 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
         # Recheck after the dump; never count ordinary touch as a TalkBack action.
         before = wait_bound()
         # Explore this location first, then send a real touchscreen double tap.
-        shell('input', 'touchscreen', 'swipe', x, y, x, y, '100')
-        time.sleep(0.5)
-        shell('input', 'tap', x, y)
-        shell('input', 'touchscreen', 'swipe', x, y, x, y, '800' if hold else '60')
+        input_log = gesture_input(x, y, hold)
         after = wait_bound()
         result.setdefault('talkBackInputs', []).append({
             'title': title, 'bounds': node.get('bounds'),
             'gesture': 'explore then double-tap-and-hold' if hold else 'explore then double-tap',
             'accessibilityBefore': before, 'accessibilityAfter': after,
+            'inputEvents': input_log,
         })
 
     try:
@@ -104,8 +102,10 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
             deny = next(node for node in tree.iter('node')
                         if node.get('resource-id') == 'com.android.permissioncontroller:id/permission_deny_button')
             activate(tree, deny.get('text'))
-            result['talkBackNotificationPromptDismissed'] = True
+            result['talkBackNotificationPromptActionAttempted'] = True
         tree = wait_text(headings[target])
+        if permission is not None:
+            result['talkBackNotificationPromptDismissed'] = True
         if target == 'controls':
             activate(tree, 'Increment native counter')
             tree = wait_text('Icon presses: 1; long presses: 0')

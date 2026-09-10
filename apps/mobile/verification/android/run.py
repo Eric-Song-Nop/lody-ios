@@ -119,6 +119,7 @@ def main():
 
     try:
         gesture_dex = gesture.build(SDK, args.output) if args.case == 'navigation-interruption' else None
+        talkback_dex = gesture.build(SDK, args.output, 'TalkBackInput') if args.case == 'talkback' else None
         command([*adb_command, 'start-server'], capture_output=True)
         server = command([*adb_command, 'server-status'], capture_output=True, text=True).stdout
         if str(adb.resolve()) not in server:
@@ -217,7 +218,8 @@ def main():
             list_mutations.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
         elif args.case == 'talkback':
             result['fixtureVersion'] = 'talkback-v1'
-            talkback.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.talkback_host, args.talkback_target, snapshot)
+            talkback.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.talkback_host, args.talkback_target, snapshot,
+                         lambda x, y, hold: gesture.talkback_input(adb_command, serial, talkback_dex, x, y, hold))
         elif args.case == 'symbols':
             result['fixtureVersion'] = 'symbols-v1'
             symbols.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.symbols_host)

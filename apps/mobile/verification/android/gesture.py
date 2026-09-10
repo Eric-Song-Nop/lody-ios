@@ -5,16 +5,31 @@ import subprocess
 import time
 
 
-def build(sdk, output):
+def build(sdk, output, class_name='GestureInput'):
     directory = output / 'gesture-driver'
     directory.mkdir()
-    source = Path(__file__).with_name('GestureInput.java')
+    source = Path(__file__).with_name(f'{class_name}.java')
     android_jar = sdk / 'platforms/android-36/android.jar'
     java_home = os.environ.get('JAVA_HOME')
     javac = str(Path(java_home) / 'bin/javac') if java_home else 'javac'
     subprocess.run([javac, '-source', '8', '-target', '8', '-classpath', str(android_jar), '-d', str(directory), str(source)], check=True, timeout=60)
-    subprocess.run([str(sdk / 'build-tools/36.0.0/d8'), '--lib', str(android_jar), '--output', str(directory), str(directory / 'GestureInput.class')], check=True, timeout=60)
+    subprocess.run([str(sdk / 'build-tools/36.0.0/d8'), '--lib', str(android_jar), '--output', str(directory), str(directory / f'{class_name}.class')], check=True, timeout=60)
     return directory / 'classes.dex'
+
+
+def talkback_input(adb, serial, dex, x, y, hold):
+    remote = '/data/local/tmp/lody-verify-talkback.dex'
+    device = [*adb, '-s', serial]
+    subprocess.run([*device, 'push', str(dex), remote], check=True, capture_output=True, timeout=30)
+    try:
+        completed = subprocess.run([*device, 'shell', f'CLASSPATH={remote}', 'app_process', '/',
+                                    'TalkBackInput', str(x), str(y), str(hold).lower()],
+                                   check=True, capture_output=True, text=True, timeout=20)
+        if 'talkback-gesture-released' not in completed.stdout:
+            raise AssertionError('TalkBack gesture did not finish')
+        return completed.stdout
+    finally:
+        subprocess.run([*device, 'shell', 'rm', '-f', remote], check=True, timeout=15)
 
 
 def cancel(adb, serial, dex, output, width, height, screenshot):

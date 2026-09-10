@@ -161,9 +161,9 @@ global device language settings, TalkBack speech or process-death draft recovery
 
 `--case talkback --talkback-host page|sheet --talkback-target controls|menus|lists`
 uses the installed Google TalkBack service with real touch exploration. It requires
-that service to bind, performs touchscreen exploration/double-tap (and hold for
+that service to bind, builds a shell-only API 36 gesture driver with JDK 17, performs touchscreen exploration/double-tap (and hold for
 context menus), checks production action counts and system Back, and restores the
-original accessibility settings in `finally`. It records service/package state around every gesture, rechecking real binding
+original accessibility settings in `finally`. Both taps run in one device process and their MotionEvent times are recorded. It records service/package state around every gesture, rechecking real binding
 after hierarchy reads;
 this does not establish spoken-label quality or traversal order. The runner is
 implemented but device gesture compatibility and the complete host/theme matrix
