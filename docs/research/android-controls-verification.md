@@ -20,7 +20,7 @@ Each host emits an `A-UI-01-controls-*` subset result. Screenshots and video req
 
 `342d4bf` contains the first cohort; `b8fa5d3` adds native license packaging. `pnpm check` passes, including both TypeScript configurations, locale checks, generated licenses and formatting. Python compilation and local SVG conversion pass. The Android build passes; the follow-up license build also passes and the APK license entry matches the source text byte-for-byte. The repeat emulator evidence below supersedes the initial visual failure for this subset.
 
-PR-05b still requires native menus/context actions, grouped rows and their selection behavior, the remaining system APIs and semantic icons, generated Android strings/plurals, Chinese/English coverage, TalkBack and the final shared-host/iOS regressions. Those capabilities are not exported as placeholder native APIs.
+Native menus/context actions now have real implementations and separate [menu evidence](android-menus-verification.md). PR-05b still requires the remaining menu/accessibility cases, grouped rows and their selection behavior, the remaining system APIs and semantic icons, generated Android strings/plurals, Chinese/English coverage, TalkBack and the final shared-host/iOS regressions. Those capabilities are not exported as placeholder native APIs.
 
 ## First emulator round: behavior passes, visual acceptance fails
 

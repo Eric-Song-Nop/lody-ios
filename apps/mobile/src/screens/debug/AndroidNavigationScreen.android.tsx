@@ -16,6 +16,7 @@ import {
 import type { Session } from '@/models/catalog';
 import { androidControlsPage } from './AndroidControlsScreen.android';
 import { androidMenusPage } from './AndroidMenusScreen.android';
+import { androidMenuEdgesPage } from './AndroidMenuEdgesScreen.android';
 import {
   trackNavigationResult,
   useNavigationPageAudit,
@@ -96,6 +97,12 @@ function ProjectsScreen() {
         onPress={() => router.back()}
       />
       <Action
+        title="Open menu edges page"
+        onPress={() => {
+          void present(androidMenuEdgesPage, undefined, { style: 'push' });
+        }}
+      />
+      <Action
         title="Open menus page"
         onPress={() => {
           void present(androidMenusPage, undefined, { style: 'push' });
@@ -151,6 +158,15 @@ function SettingsScreen() {
       <Copy>Settled sheets: {settled}</Copy>
       <Action title="Open form sheet" onPress={() => open('formSheet')} />
       <Action title="Open page sheet" onPress={() => open('pageSheet')} />
+      <Action
+        title="Open menu edges sheet"
+        onPress={() => {
+          void present(androidMenuEdgesPage, undefined, {
+            style: 'formSheet',
+            sheetAllowedDetents: [1],
+          });
+        }}
+      />
       <Action
         title="Open menus sheet"
         onPress={() => {

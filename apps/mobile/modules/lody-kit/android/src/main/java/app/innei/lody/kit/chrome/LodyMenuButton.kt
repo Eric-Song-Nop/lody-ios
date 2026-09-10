@@ -42,6 +42,8 @@ class LodyMenuButton(context: Context, appContext: AppContext) : ExpoView(contex
     button.minWidth = minimum
     button.minHeight = minimum
     button.isAllCaps = false
+    button.maxLines = 1
+    button.ellipsize = android.text.TextUtils.TruncateAt.END
     button.setPadding(LodyUiColors.dp(context, 12f), 0, LodyUiColors.dp(context, 12f), 0)
     button.compoundDrawablePadding = LodyUiColors.dp(context, 8f)
     button.setOnClickListener { menu.show() }
@@ -49,7 +51,11 @@ class LodyMenuButton(context: Context, appContext: AppContext) : ExpoView(contex
     updateColors()
   }
 
-  fun setItems(value: List<LodyMenuEntry>) { menu.setEntries(value); button.isEnabled = value.isNotEmpty() }
+  fun setItems(value: List<LodyMenuEntry>) {
+    menu.setEntries(value)
+    button.isEnabled = value.isNotEmpty()
+    button.alpha = if (value.isEmpty()) 0.38f else 1f
+  }
   fun setLabel(value: String) { button.text = value; reportSize() }
   fun setAccessibilityName(value: String) { button.contentDescription = value }
   fun setAvatar(value: LodyMenuAvatar) { Color.parseColor(value.color); avatar = value; updateColors() }
@@ -73,7 +79,7 @@ class LodyMenuButton(context: Context, appContext: AppContext) : ExpoView(contex
     post {
       if (!isAttachedToWindow) return@post
       button.measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED)
-      val width = kotlin.math.ceil(button.measuredWidth / context.resources.displayMetrics.density.toDouble()).toInt()
+      val width = minOf(200, kotlin.math.ceil(button.measuredWidth / context.resources.displayMetrics.density.toDouble()).toInt())
       if (width != reportedWidth) { reportedWidth = width; onSize(mapOf("width" to width)) }
       requestLayout()
     }
