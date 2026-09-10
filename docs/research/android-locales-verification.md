@@ -9,3 +9,5 @@ Generator tests cover XML-sensitive characters, quotes, whitespace, backslashes,
 Run `pnpm verify:android --case locales --appearance light --apk <internal.apk>`. The scene is offline and exposes only fixture text. Local screenshot/video/results remain under `.artifacts/android`; remote acceptance publication is separate. Build and emulator evidence are being collected. Broader system-font, TalkBack and product language coverage remain part of the unfinished PR-05 gate.
 
 Reference: [Android string and quantity resources](https://developer.android.com/guide/topics/resources/string-resource).
+
+The first `71fee44` device run stopped in the RN verifier because the installed Hermes does not provide `Intl.PluralRules`. `locales-first` preserves the failure. The verifier now uses explicit expected categories for its fixed en/es/zh quantities 0, 1 and 2; the production path still calls Android `getQuantityText`. No product polyfill was added.

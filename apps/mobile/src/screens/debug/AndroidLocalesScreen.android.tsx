@@ -50,9 +50,9 @@ function AndroidLocalesScreen() {
             entry.locale === 'zh-Hans' ? zh : en;
           let key = entry.key;
           if (entry.count !== null) {
-            const category = new Intl.PluralRules(entry.locale).select(
-              entry.count,
-            );
+            // Fixed en/es/zh oracle for this fixture's quantities 0, 1 and 2.
+            const category =
+              entry.locale !== 'zh-Hans' && entry.count === 1 ? 'one' : 'other';
             key += `.${category}`;
           }
           const template = catalog[key];
