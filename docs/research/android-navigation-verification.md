@@ -1,6 +1,6 @@
 # Android navigation verification
 
-Roadmap PR-05a. The implementation is on `codex/android-05a-navigation`, based on PR-04. Android product/account routes remain closed; this is an offline native navigation scene using the shared page and presentation contracts.
+Roadmap PR-05a, [draft #6](https://github.com/Eric-Song-Nop/lody-ios/pull/6), stacked on #5. The implementation is on `codex/android-05a-navigation`, based on PR-04. Android product/account routes remain closed; this is an offline native navigation scene using the shared page and presentation contracts.
 
 ## Initial implementation and failure
 
@@ -11,3 +11,9 @@ The first emulator round under `.artifacts/android/navigation-first/` failed bef
 ## Remaining acceptance
 
 The navigation runner covers project/session/message traversal, hardware system Back, sheet completion/cancellation, nested return and native close. A passing build alone does not establish these behaviors. Predictive back interruption, rapid navigation, complete teardown and theme/accessibility scenarios remain required before the full capability is accepted. Shared iOS UI regression and a normal-signing simulator build remain separate required checks.
+
+## Router fix and nested system Back
+
+The normalized route graph loads on the actual emulator. `.artifacts/android/navigation-route-keys/` passed project→sessions→messages and system return, then completed a form sheet and cancelled a page sheet. It failed after pushing an inner sheet page: system Back cancelled the entire outer sheet instead of returning to its parent page. The final video frame shows Settings with the third outer sheet already cancelled. The local ScreenStack levels were not represented in Router's outer navigation state.
+
+The fix adds a focus-scoped Android BackHandler only while the sheet has inner levels. It cancels the top inner level and consumes that committed Back event; an empty inner stack lets Router dismiss the outer sheet. iOS does not install this handler. The runner cleanup was also corrected so failure screenshots remain captured and its continuous startup log is not overwritten by a late log tail. Fresh behavior verification is required. The iOS production bundle and the four existing presentation/session-mailbox behavior tests passed before this follow-up.

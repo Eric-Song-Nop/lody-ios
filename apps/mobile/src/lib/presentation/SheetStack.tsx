@@ -6,7 +6,13 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Platform, StyleSheet, useColorScheme } from 'react-native';
+import {
+  BackHandler,
+  Platform,
+  StyleSheet,
+  useColorScheme,
+} from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import type { ScreenStackHeaderConfigProps } from 'react-native-screens';
 import {
   ScreenStack,
@@ -105,6 +111,24 @@ export function SheetStack({
       });
     },
     [],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android' || levels.length === 0) return;
+      // The Router owns the outer sheet; this native stack owns its inner pages.
+      // Consume a committed system Back only while an inner page is present.
+      const subscription = BackHandler.addEventListener(
+        'hardwareBackPress',
+        () => {
+          const top = pendingLevels.current.at(-1);
+          if (!top) return false;
+          drop(top.key, { status: 'cancelled' });
+          return true;
+        },
+      );
+      return () => subscription.remove();
+    }, [drop, levels.length]),
   );
 
   const push = useCallback<PushPage>((page, ...args) => {

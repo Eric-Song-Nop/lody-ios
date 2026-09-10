@@ -268,15 +268,7 @@ def main():
         result['status'] = 'pass'
     except Exception as error:
         result['error'] = str(error)
-        if logcat_process:
-            logcat_process.terminate()
-            try:
-                logcat_process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                logcat_process.kill()
-                logcat_process.wait(timeout=5)
-            logcat_file.close()
-        elif serial:
+        if serial:
             try:
                 capture('failure')
             except Exception as capture_error:
@@ -296,7 +288,15 @@ def main():
             except Exception as error:
                 result['videoPullError'] = str(error)
                 result['status'] = 'failed'
-        if serial:
+        if logcat_process:
+            logcat_process.terminate()
+            try:
+                logcat_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                logcat_process.kill()
+                logcat_process.wait(timeout=5)
+            logcat_file.close()
+        elif serial:
             with (args.output / 'logcat.txt').open('w') as file:
                 subprocess.run([*adb_command, '-s', serial, 'logcat', '-d', '-t', '1500'], stdout=file, stderr=subprocess.STDOUT, timeout=20)
         (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
