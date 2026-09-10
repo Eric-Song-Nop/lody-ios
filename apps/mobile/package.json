@@ -10,7 +10,7 @@
     "prebuild": "pnpm native:assets && expo prebuild --platform ios --no-install",
     "pods": "cd ios && PATH=\"$(brew --prefix ruby)/bin:$PATH\" bundle exec pod install",
     "bundle": "pnpm native:assets && EXPO_NO_BUNDLE_SPLITTING=1 expo export --platform ios --output-dir .expo/export-check",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.android.json",
     "native:assets": "node scripts/build-decoder.mjs",
     "licenses:build": "node scripts/build-licenses.mjs",
     "licenses:check": "node scripts/build-licenses.mjs --check",

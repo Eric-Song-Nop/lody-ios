@@ -33,10 +33,10 @@ import {
   sendTurn as sendSessionTurn,
 } from './session';
 import { decodeFrames, encodeFrame } from '../decoder/frames';
+import { sendToHost } from './host';
 
 type Grant = { token: string; gatewayBaseUrl: string; expiresIn: number };
-const host = (globalThis as any).webkit.messageHandlers.dataRuntime;
-const send = (message: object) => host.postMessage(message);
+const send = sendToHost;
 let grantResolve: ((grant: Grant) => void) | undefined;
 let grantReject: ((error: Error) => void) | undefined;
 let grant: Grant | undefined,

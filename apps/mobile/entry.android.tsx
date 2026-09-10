@@ -1,8 +1,12 @@
 import { registerRootComponent } from 'expo';
 import { useEffect, useState } from 'react';
-import { Button, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { addAppActiveListener, runtimeInfo } from '@lody-ios/kit';
+import {
+  addAppActiveListener,
+  runtimeInfo,
+  runDataRuntimeVerification,
+} from '@lody-ios/kit';
 
 if (process.env.EXPO_PUBLIC_ANDROID_VERIFY !== '1') {
   throw new Error(
@@ -10,9 +14,50 @@ if (process.env.EXPO_PUBLIC_ANDROID_VERIFY !== '1') {
   );
 }
 
+function ProbeButton({
+  title,
+  onPress,
+  disabled = false,
+}: {
+  title: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      android_ripple={{ color: '#ffffff33' }}
+      style={[styles.button, disabled && styles.disabled]}
+    >
+      <Text style={styles.buttonText}>{title.toUpperCase()}</Text>
+    </Pressable>
+  );
+}
+
 function BootstrapProbe() {
   const [subscribed, setSubscribed] = useState(true);
   const [events, setEvents] = useState(0);
+  const [wasm, setWasm] = useState('WASM not run');
+  const [running, setRunning] = useState(false);
+  async function verifyWasm() {
+    setRunning(true);
+    setWasm('WASM running');
+    try {
+      const report = JSON.parse(await runDataRuntimeVerification());
+      setWasm(
+        `WASM passed: ${report.cases.length} cases\n${report.cases.map((item: { name: string }) => item.name).join('\n')}`,
+      );
+    } catch (error) {
+      setWasm(
+        `WASM failed: ${error instanceof Error ? error.message : 'unknown'}`,
+      );
+    } finally {
+      setRunning(false);
+    }
+  }
   useEffect(() => {
     if (!subscribed) return;
     const subscription = addAppActiveListener(() =>
@@ -27,7 +72,7 @@ function BootstrapProbe() {
         <Text accessibilityRole="header" style={styles.title}>
           Lody Android verification
         </Text>
-        <Text>Internal bootstrap · PR-01</Text>
+        <Text>Internal native verification · PR-01/02</Text>
         <Text testID="native-runtime">
           {runtimeInfo.moduleName}: {runtimeInfo.systemVersion}
         </Text>
@@ -35,10 +80,16 @@ function BootstrapProbe() {
         <Text testID="lifecycle-state">
           {subscribed ? 'Listener attached' : 'Listener detached'}
         </Text>
-        <Button
+        <ProbeButton
           title={subscribed ? 'Detach listener' : 'Attach listener'}
           onPress={() => setSubscribed((value) => !value)}
         />
+        <ProbeButton
+          title="Run WASM verification"
+          disabled={running}
+          onPress={verifyWasm}
+        />
+        <Text testID="wasm-result">{wasm}</Text>
       </View>
     </SafeAreaView>
   );
@@ -54,5 +105,15 @@ const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#f5f5f5' },
   content: { padding: 24, gap: 20 },
   title: { fontSize: 24, color: '#111111' },
+  button: {
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1565c0',
+    borderRadius: 4,
+    padding: 12,
+  },
+  buttonText: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
+  disabled: { opacity: 0.5 },
 });
 registerRootComponent(AndroidVerification);

@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "moduleSuffixes": [".android", ""],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@lody-ios/kit": ["./modules/lody-kit/src/index.android.ts"]
+    }
+  },
+  "include": [
+    "entry.android.tsx",
+    "modules/lody-kit/src/**/*.android.ts",
+    "expo-env.d.ts"
+  ],
+  "exclude": ["node_modules"]
+}

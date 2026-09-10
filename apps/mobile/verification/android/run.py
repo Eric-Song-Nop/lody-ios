@@ -23,7 +23,7 @@ def command(args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--apk', type=Path, required=True)
-    parser.add_argument('--case', choices=['bootstrap'], required=True)
+    parser.add_argument('--case', choices=['bootstrap', 'wasm'], required=True)
     parser.add_argument('--adb-port', type=int, default=5038, help='Dedicated SDK adb server; leaves the default 5037 server alone.')
     parser.add_argument('--serial', help='Caller-owned device; installs and clears only app.innei.lody.')
     parser.add_argument('--avd', default='Lody_Android_Verify_36')
@@ -62,6 +62,8 @@ def main():
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             tree = snapshot()
+            if 'WASM failed:' in texts(tree):
+                raise AssertionError(texts(tree))
             if expected in texts(tree):
                 return tree
             time.sleep(0.5)
@@ -76,6 +78,11 @@ def main():
         shell('input', 'keyevent', 'KEYCODE_HOME')
         time.sleep(1)
         shell('am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity')
+
+    def tap_button(tree, title):
+        button = next(node for node in tree.iter('node') if node.get('text', '').lower() == title.lower())
+        x1, y1, x2, y2 = map(int, re.findall(r'\d+', button.attrib['bounds']))
+        shell('input', 'tap', str((x1 + x2) // 2), str((y1 + y2) // 2))
 
     try:
         command([*adb_command, 'start-server'], capture_output=True)
@@ -129,28 +136,39 @@ def main():
         shell('pm', 'clear', PACKAGE)
         shell('input', 'keyevent', 'KEYCODE_WAKEUP')
         shell('wm', 'dismiss-keyguard')
-        recorder_pid = shell('sh', '-c', "'screenrecord --time-limit 180 /sdcard/lody-verify-bootstrap.mp4 >/dev/null 2>&1 & echo $!'")
+        recorder_pid = shell('sh', '-c', f"'screenrecord --time-limit 180 /sdcard/lody-verify-{args.case}.mp4 >/dev/null 2>&1 & echo $!'")
         if not recorder_pid.isdigit():
             raise RuntimeError(f'Could not start screenrecord: {recorder_pid}')
         shell('am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity')
         tree = wait_text('LodyKit: Android')
         capture('boot')
-        result['checks'].append({'id': 'A-BOOT-01', 'status': 'pass'})
-        before = int(re.search(r'Foreground events: (\d+)', texts(tree)).group(1))
-        foreground()
-        wait_text(f'Foreground events: {before + 1}')
-        tree = snapshot()
-        button = next(node for node in tree.iter('node') if node.get('text', '').lower() == 'detach listener')
-        x1, y1, x2, y2 = map(int, re.findall(r'\d+', button.attrib['bounds']))
-        shell('input', 'tap', str((x1 + x2) // 2), str((y1 + y2) // 2))
-        wait_text('Listener detached')
-        foreground()
-        tree = wait_text('Listener detached')
-        after = int(re.search(r'Foreground events: (\d+)', texts(tree)).group(1))
-        if after != before + 1:
-            raise AssertionError('Detached listener received a foreground event.')
-        capture('detached')
-        result['checks'].append({'id': 'A-BOOT-02', 'status': 'pass', 'before': before, 'after': after})
+        if args.case == 'wasm':
+            result['webViewProvider'] = shell('dumpsys', 'webviewupdate')
+            tap_button(tree, 'Run WASM verification')
+            wait_text('WASM passed:', timeout=180)
+            command([*adb_command, '-s', serial, 'pull', f'/sdcard/Android/data/{PACKAGE}/files/lody-runtime-verification.json', args.output / 'runtime.json'], capture_output=True)
+            runtime = json.loads((args.output / 'runtime.json').read_text())
+            required = {'increment', 'compressed', 'large', 'output-limit', 'truncated-length', 'truncated-body', 'invalid-json', 'over-limit'}
+            actual = {case['name'] for case in runtime['cases'] if case['status'] == 'pass'}
+            if actual != required:
+                raise AssertionError(f'Runtime case coverage mismatch: {actual}')
+            result['fixtureVersion'] = runtime['fixtureVersion']
+            result['checks'] = runtime['cases']
+            capture('wasm-passed')
+        else:
+            result['checks'].append({'id': 'A-BOOT-01', 'status': 'pass'})
+            before = int(re.search(r'Foreground events: (\d+)', texts(tree)).group(1))
+            foreground()
+            wait_text(f'Foreground events: {before + 1}')
+            tap_button(snapshot(), 'Detach listener')
+            wait_text('Listener detached')
+            foreground()
+            tree = wait_text('Listener detached')
+            after = int(re.search(r'Foreground events: (\d+)', texts(tree)).group(1))
+            if after != before + 1:
+                raise AssertionError('Detached listener received a foreground event.')
+            capture('detached')
+            result['checks'].append({'id': 'A-BOOT-02', 'status': 'pass', 'before': before, 'after': after})
         result['status'] = 'pass'
     except Exception as error:
         result['error'] = str(error)
@@ -165,7 +183,7 @@ def main():
             try:
                 shell('kill', '-2', recorder_pid)
                 time.sleep(2)
-                command([*adb_command, '-s', serial, 'pull', '/sdcard/lody-verify-bootstrap.mp4', args.output / 'bootstrap.mp4'], capture_output=True)
+                command([*adb_command, '-s', serial, 'pull', f'/sdcard/lody-verify-{args.case}.mp4', args.output / f'{args.case}.mp4'], capture_output=True)
             except Exception as error:
                 result['videoError'] = str(error)
                 result['status'] = 'failed'

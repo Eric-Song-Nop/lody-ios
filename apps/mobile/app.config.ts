@@ -6,6 +6,9 @@ const config: ExpoConfig = {
   version: '0.1.0',
   platforms: ['ios', 'android'],
   android: { package: 'app.innei.lody' },
+  ...(process.env.EXPO_PUBLIC_ANDROID_VERIFY === '1'
+    ? { androidStatusBar: { barStyle: 'dark-content' as const } }
+    : {}),
   scheme: 'lody-ios',
   orientation: 'portrait',
   userInterfaceStyle: 'automatic',
