@@ -172,6 +172,9 @@ def main():
                 raise AssertionError(f'Storage coverage mismatch: {actual}')
             if storage['processId'] == storage['priorProcessId'] or storage['projectionUtf8Bytes'] < 2 * 1024 * 1024 or storage.get('runtimeSeeded') is not True:
                 raise AssertionError('Storage did not cover real process restart and large projection')
+            for boundary in ('restoredEnvelopeRejected', 'tamperedEnvelopeRejected', 'backupDisabled', 'corruptDatabaseRecovered'):
+                if storage.get(boundary) is not True:
+                    raise AssertionError(f'Storage boundary was not verified: {boundary}')
             result['fixtureVersion'] = storage['fixtureVersion']
             result['checks'] = storage['cases']
             capture('storage-passed')

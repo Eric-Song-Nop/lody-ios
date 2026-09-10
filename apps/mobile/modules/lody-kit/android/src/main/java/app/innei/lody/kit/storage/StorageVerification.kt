@@ -1,6 +1,7 @@
 package app.innei.lody.kit.storage
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.os.Process
 import android.os.SystemClock
 import org.json.JSONArray
@@ -52,6 +53,19 @@ internal class StorageVerification(private val context: Context) {
       check(auth.read() == null)
       auth.save("offline-reauthorized")
       check(auth.read() == "offline-reauthorized")
+      // A restored envelope without its original key must never become a valid session.
+      val envelope = auth.ciphertextForVerification()
+      auth.clear()
+      java.io.File(context.noBackupFilesDir, "verification-session.enc").writeBytes(envelope)
+      check(runCatching { auth.read() }.exceptionOrNull()?.message == "credential_reauthorization_required")
+      check(auth.read() == null)
+      auth.save("offline-after-restore")
+      val damaged = auth.ciphertextForVerification()
+      damaged[damaged.lastIndex] = (damaged.last().toInt() xor 1).toByte()
+      java.io.File(context.noBackupFilesDir, "verification-session.enc").writeBytes(damaged)
+      check(runCatching { auth.read() }.exceptionOrNull()?.message == "credential_reauthorization_required")
+      check(auth.read() == null)
+      check(context.applicationInfo.flags and ApplicationInfo.FLAG_ALLOW_BACKUP == 0) { "backup_must_be_disabled" }
       pass(checks, "A-STORE-03", "Actual Keystore key loss requires authorization and a newly generated key can save/read again")
 
       val previous = store.generation
@@ -64,11 +78,25 @@ internal class StorageVerification(private val context: Context) {
       check(runCatching { store.startup() }.isFailure)
       store.clear()
       check(store.startup().isEmpty())
+      store.close()
+      // Corrupt the actual isolated SQLite file, not a mocked database result.
+      java.io.RandomAccessFile(java.io.File(context.noBackupFilesDir, "verification-catalog.sqlite"), "rw").use {
+        it.seek(0)
+        it.write(ByteArray(100) { 0x7f })
+      }
+      check(runCatching { store.startup() }.isFailure) { "corrupt_database_must_fail" }
+      store.clear()
+      check(store.startup().isEmpty())
+      store.write("account", account("c"))
+      check(store.startup()["workspace"] == "c-one")
+      store.clear()
       pass(checks, "A-STORE-04", "Clear fences delayed old writes; malformed saved context fails explicitly and can be cleared")
       return JSONObject().put("status", "pass").put("fixtureVersion", "storage-v1")
         .put("cases", checks).put("priorProcessId", prior.getInt("pid")).put("processId", Process.myPid())
         .put("projectionUtf8Bytes", largeCatalog().toByteArray().size).put("restoreMs", restoreMs)
         .put("runtimeCatalogSha256", prior.getString("catalogHash")).put("runtimeSeeded", true)
+        .put("restoredEnvelopeRejected", true).put("tamperedEnvelopeRejected", true)
+        .put("backupDisabled", true).put("corruptDatabaseRecovered", true)
         .put("credentialPlaintextPersisted", false).toString()
     } finally { store.close() }
   }
