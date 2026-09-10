@@ -33,6 +33,7 @@ def main():
     parser.add_argument('--apk', type=Path, required=True)
     parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption', 'navigation-teardown', 'controls', 'menus', 'menu-edges', 'lists', 'locales', 'system', 'feedback'], required=True)
     parser.add_argument('--appearance', choices=['light', 'dark'], default='light', help='System appearance for control/menu cases; restored after verification.')
+    parser.add_argument('--feedback-host', choices=['page', 'sheet'], default='page', help='Feedback host; run both separately to keep each recording within 180 seconds.')
     parser.add_argument('--adb-port', type=int, default=5038, help='Dedicated SDK adb server; leaves the default 5037 server alone.')
     parser.add_argument('--serial', help='Caller-owned device; installs and clears only app.innei.lody.')
     parser.add_argument('--avd', default='Lody_Android_Verify_36')
@@ -182,8 +183,8 @@ def main():
             result['fixtureVersion'] = 'menus-v1'
             menus.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
         elif args.case == 'feedback':
-            result['fixtureVersion'] = 'feedback-v1'
-            feedback.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
+            result['fixtureVersion'] = 'feedback-v2'
+            feedback.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.feedback_host)
         elif args.case == 'system':
             result['fixtureVersion'] = 'system-v1'
             system_api.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)

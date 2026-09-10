@@ -2,7 +2,27 @@
 import time
 
 
-def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance):
+def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, host):
+    # Exercise the public accessibility timeout setting; restore it even on failure.
+    setting = 'accessibility_interactive_ui_timeout_ms'
+    original = shell('settings', 'get', 'secure', setting)
+    result['feedbackHost'] = host
+    result['appearance'] = appearance
+    result['interactiveTimeoutMs'] = 10000
+    try:
+        shell('settings', 'put', 'secure', setting, '10000')
+        _run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, host)
+    finally:
+        if original == 'null':
+            shell('settings', 'delete', 'secure', setting)
+        else:
+            shell('settings', 'put', 'secure', setting, original)
+        if shell('settings', 'get', 'secure', setting) != original:
+            raise AssertionError('Accessibility timeout setting was not restored')
+        result['interactiveTimeoutRestored'] = True
+
+
+def _run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, selected_host):
     def absent(value):
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
@@ -16,7 +36,7 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance):
         tap_button(current, button.get('content-desc'))
 
     tap_button(tree, 'Open navigation verification')
-    for host in ('page', 'sheet'):
+    for host in (selected_host,):
         if host == 'page':
             tap_button(wait_text('Offline navigation: projects'), 'Open feedback page')
         else:
