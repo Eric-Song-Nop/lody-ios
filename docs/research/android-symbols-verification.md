@@ -17,3 +17,9 @@ API 36 ARM64, `symbols-v1`, runner `2564677` with a clean checkout; APK `3382ae3
 All eight screenshots (boot plus seven batches) and the full 91.957833-second recording sampled every five seconds have been reviewed. Static and action glyphs match, filled/outline and pin/unpin variants remain distinguishable, and archive/restore, document search, security and error shapes retain the intended meaning. The sampled recording ends on the final catalog batch; host removal is established by the runner's hierarchy assertion, not that final sampled frame.
 
 Evidence: `.artifacts/android/symbol-catalog-page-light`, including `result.json`, all seven batch hierarchies/images, `symbols.mp4` and `visual-review.json`. This result covers one host/theme only; TalkBack and the remaining matrix are not accepted by this result.
+
+## Light sheet result
+
+The same `3382ae3e…` APK passes `symbols-v1` in the light sheet host. Runner checkout was `2564677` with documentation changes. All 39 targets meet 48 dp, all seven sampled reused-button actions return the current name, final Next is disabled and Back removes the host. Night mode is restored and the owned emulator is shut down.
+
+All eight screenshots and the complete 101.864400-second recording sampled every five seconds are reviewed in `.artifacts/android/symbol-catalog-sheet-light`. Glyph semantics and outline/filled distinctions match the page result; long labels and buttons remain readable below the native sheet header. The sampled recording ends on the final catalog batch, so it does not itself prove dismissal. Both light hosts now have scoped device evidence; dark hosts and TalkBack remain pending.

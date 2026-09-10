@@ -205,3 +205,7 @@ after native view reuse, and returns through system Back. Review every captured
 glyph pair and the recording for shape, contrast and variant semantics. The case
 is implemented but has no device result yet; see
 [the symbol report](../../../../docs/research/android-symbols-verification.md).
+
+### Default toast timeout
+
+`--case feedback-default --feedback-host page|sheet --appearance light|dark` uses the existing production feedback fixture with the system interactive timeout set to zero (no extension), restoring the previous value in `finally`. It requires accessibility services to be disabled; TalkBack behavior remains a separate case. It takes the visible screenshot before requesting another hierarchy dump, then checks absence after a six-second wait and actual Back dismissal. Capture latency and the observed absence time are recorded. Visual review must confirm the early screenshot contains the Unicode toast; the runner does not infer presence from a successful click or claim an exact 3.2-second measured lifetime. Run all four host/theme combinations. This case is newly prepared and has no device acceptance yet.

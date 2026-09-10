@@ -24,6 +24,7 @@ import locales
 import locale_switch
 import system_api
 import feedback
+import feedback_default
 import feedback_keyboard
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -38,7 +39,7 @@ def command(args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--apk', type=Path, required=True)
-    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption', 'navigation-teardown', 'controls', 'symbols', 'menus', 'menu-edges', 'lists', 'list-fonts', 'list-focus', 'talkback', 'list-mutations', 'locales', 'locale-switch', 'system', 'feedback', 'feedback-keyboard'], required=True)
+    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption', 'navigation-teardown', 'controls', 'symbols', 'menus', 'menu-edges', 'lists', 'list-fonts', 'list-focus', 'talkback', 'list-mutations', 'locales', 'locale-switch', 'system', 'feedback', 'feedback-default', 'feedback-keyboard'], required=True)
     parser.add_argument('--appearance', choices=['light', 'dark'], default='light', help='System appearance for control/menu cases; restored after verification.')
     parser.add_argument('--talkback-host', choices=['page', 'sheet'], default='page')
     parser.add_argument('--talkback-target', choices=['controls', 'menus', 'lists'], default='controls')
@@ -168,7 +169,7 @@ def main():
         result['serial'] = serial
         result['system'] = shell('getprop', 'ro.build.fingerprint')
         result['abi'] = shell('getprop', 'ro.product.cpu.abi')
-        if args.case in ('controls', 'symbols', 'menus', 'menu-edges', 'lists', 'list-fonts', 'list-focus', 'talkback', 'list-mutations', 'locales', 'locale-switch', 'system', 'feedback', 'feedback-keyboard'):
+        if args.case in ('controls', 'symbols', 'menus', 'menu-edges', 'lists', 'list-fonts', 'list-focus', 'talkback', 'list-mutations', 'locales', 'locale-switch', 'system', 'feedback', 'feedback-default', 'feedback-keyboard'):
             mode = shell('cmd', 'uimode', 'night')
             match = re.search(r'\b(auto|yes|no|custom)\b', mode)
             if not match:
@@ -196,6 +197,9 @@ def main():
         elif args.case == 'feedback':
             result['fixtureVersion'] = 'feedback-v3'
             feedback.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.feedback_host)
+        elif args.case == 'feedback-default':
+            result['fixtureVersion'] = 'feedback-default-v1'
+            feedback_default.run(shell, wait_text, tap_button, screenshot, capture, texts, result, tree, args.appearance, args.feedback_host)
         elif args.case == 'feedback-keyboard':
             result['fixtureVersion'] = 'feedback-keyboard-v2'
             feedback_keyboard.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.feedback_host)
