@@ -286,6 +286,20 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
             capture('talkback-detail-open')
             shell('input', 'keyevent', 'KEYCODE_BACK')
             tree = wait_text('Actions: 1; returns: 1; refreshes: 0')
+            expected = 'Open list detail, 原生导航行 · Native navigation'
+            deadline = time.monotonic() + 5
+            while True:
+                tree = snapshot()
+                focused = [node.get('content-desc') or node.get('text')
+                           for node in tree.iter('node')
+                           if node.get('accessibility-focused') == 'true']
+                if focused == [expected] or time.monotonic() >= deadline:
+                    break
+                time.sleep(0.1)
+            result['listReturnFocus'] = {'expected': expected, 'observed': focused}
+            capture('talkback-list-return-focus')
+            if focused != [expected]:
+                raise AssertionError(f'List return did not restore originating accessibility focus: {focused}')
         capture('talkback-actions-passed')
         shell('input', 'keyevent', 'KEYCODE_BACK')
         # The parent retains its earlier scroll offset; its introductory text

@@ -239,3 +239,9 @@ Default-toast screenshots additionally record first-byte, complete-PNG, and proc
 `feedback-default-v4` schedules the single emulator screenshot at one second after input begins; the completion gate is still two seconds. The v3 immediate direct capture returned before the toast appeared and failed visual review despite passing programmatic checks. The adb path remains immediate. Retain both the PNG and recording: a successful capture or returned input command never establishes visible toast presence by itself.
 
 `talkback-v5` adds explicit `--talkback-traversal` for `--talkback-target controls`. After the icon has actually gained focus and activated, four SDK hardware swipes require icon → disabled icon → text action → disabled icon → icon, using right/right/left/left. The gesture center comes from the display and current focus, never the next target. Each step records input coordinates/times and actual focus, captures a screenshot, and requires unchanged fixture content; focus is observed within five seconds, with no gesture retry or direct accessibility focus action. The original text-button activation and Back checks then continue. This bounded sequence does not establish full-screen reading order, spoken labels or originating-list-row focus restoration.
+
+List TalkBack cases use `talkback-v6` and require the originating navigation row's
+actual accessibility focus within five seconds after detail Back. The runner
+records `listReturnFocus` and captures `talkback-list-return-focus` before any
+further gesture. A correct return counter alone no longer passes this case.
+Controls/menus retain v5; no direct focus assignment is used by the verifier.
