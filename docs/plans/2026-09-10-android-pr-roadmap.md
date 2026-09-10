@@ -2,6 +2,8 @@
 
 日期：2026-09-10。状态：实施中。本文是分 PR 的交付计划；远端 PR 和验证状态见阶段表，候选方案仍须通过对应验收。
 
+执行时配合[逐 PR 交付清单](2026-09-10-android-pr-checklist.md)：该文按实际子 PR 列出准入条件、审查材料和阻塞条件。本文维护能力范围与验证状态，清单不另行维护一套完成状态。
+
 依据：[组件研究](../research/android-native-alternatives.md)、[源码与发布包证据](../research/android-native-alternatives-evidence.json)、[项目 README](../../README.md)及本轮讨论。版本观察截至研究日期；实际引入依赖时重新核验并锁定。PR 编号是本文内部编号，未来在进度表中补真实链接。
 
 **1. 已确定的方向与待定事项**
