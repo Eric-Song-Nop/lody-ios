@@ -1,3 +1,4 @@
+import androidLocales from '../plugins/androidLocales.js';
 import { build } from 'esbuild';
 import {
   mkdir,
@@ -9,6 +10,7 @@ import {
 import { fileURLToPath } from 'node:url';
 import { buildRuntimeFixtures } from './build-runtime-fixtures.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
+androidLocales.writeAndroidLocales(root);
 const result = await build({
   entryPoints: [root + 'modules/lody-kit/decoder/index.ts'],
   bundle: true,

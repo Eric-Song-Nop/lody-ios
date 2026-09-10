@@ -14,6 +14,7 @@ import {
   subscribeSessionNav,
 } from '@/features/sessions/sessionNav';
 import type { Session } from '@/models/catalog';
+import { androidLocalesPage } from './AndroidLocalesScreen.android';
 import { androidListsPage } from './AndroidListsScreen.android';
 import { androidControlsPage } from './AndroidControlsScreen.android';
 import { androidMenusPage } from './AndroidMenusScreen.android';
@@ -96,6 +97,12 @@ function ProjectsScreen() {
       <Action
         title="Return to runtime verification"
         onPress={() => router.back()}
+      />
+      <Action
+        title="Open native languages"
+        onPress={() => {
+          void present(androidLocalesPage, undefined, { style: 'push' });
+        }}
       />
       <Action
         title="Open lists page"

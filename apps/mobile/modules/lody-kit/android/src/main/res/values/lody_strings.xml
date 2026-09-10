@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from locales; edit the JSON catalogs. -->
+<resources>
+  <string name="lody_native_attachment_error_empty" formatted="false">"Attachments cannot be empty, and files must stay under 100 MiB"</string>
+  <string name="lody_native_attachment_error_imageread" formatted="false">"Could not read the image. Choose another."</string>
+  <string name="lody_native_attachment_error_imagetoolarge" formatted="false">"The image is still over 5 MiB after compression"</string>
+  <string name="lody_native_attachment_error_invalid" formatted="false">"That attachment is not valid. Choose another."</string>
+  <string name="lody_native_attachment_error_limit" formatted="false">"Each message can carry at most 8 images and 8 files"</string>
+  <string name="lody_native_attachment_error_signin" formatted="false">"Sign in first"</string>
+  <string name="lody_native_attachment_error_upload" formatted="false">"The attachment upload failed. Check your network or account quota and try again."</string>
+  <string name="lody_native_attachment_error_uploadresponse" formatted="false">"The attachment upload response was invalid"</string>
+  <string name="lody_native_chat_attachment_accessdenied" formatted="false">"Photo access is off. Turn it on in Settings."</string>
+  <plurals name="lody_native_chat_attachment_addcount">
+    <item quantity="one">"Add {count} item"</item>
+    <item quantity="other">"Add {count} items"</item>
+  </plurals>
+  <string name="lody_native_chat_attachment_allowaccess" formatted="false">"Allow Access"</string>
+  <string name="lody_native_chat_attachment_limitedaccess" formatted="false">"Allow photo access to pick recent photos here"</string>
+  <string name="lody_native_chat_attachment_managephotos" formatted="false">"Manage Selected Photos"</string>
+  <string name="lody_native_chat_attachment_opensettings" formatted="false">"Open Settings"</string>
+  <string name="lody_native_chat_attachment_photoindex" formatted="false">"Photo {index}"</string>
+  <string name="lody_native_chat_attachment_preview" formatted="false">"Preview attachment {name}"</string>
+  <string name="lody_native_chat_attachment_remove" formatted="false">"Remove attachment {name}"</string>
+  <string name="lody_native_chat_attachment_selected" formatted="false">"Selected"</string>
+  <string name="lody_native_chat_attachment_videoindex" formatted="false">"Video {index}"</string>
+  <string name="lody_native_chat_composer_attach" formatted="false">"Add attachment"</string>
+  <string name="lody_native_chat_composer_controlerror" formatted="false">"Could not complete the action. Check the connection and try again."</string>
+  <string name="lody_native_chat_composer_defaulteffort" formatted="false">"Default"</string>
+  <string name="lody_native_chat_composer_defaultmodel" formatted="false">"Default model"</string>
+  <string name="lody_native_chat_composer_effort" formatted="false">"Thinking effort"</string>
+  <string name="lody_native_chat_composer_faileddraft" formatted="false">"One message was not sent · Tap to merge it into the draft"</string>
+  <string name="lody_native_chat_composer_files" formatted="false">"Files"</string>
+  <string name="lody_native_chat_composer_input" formatted="false">"Message"</string>
+  <string name="lody_native_chat_composer_modelbutton" formatted="false">"Model and effort, {summary}"</string>
+  <string name="lody_native_chat_composer_modelpicker" formatted="false">"Choose model, {model}, {effort}"</string>
+  <string name="lody_native_chat_composer_photolibrary" formatted="false">"Photo Library"</string>
+  <string name="lody_native_chat_composer_placeholder" formatted="false">"Message Lody…"</string>
+  <string name="lody_native_chat_composer_queue" formatted="false">"Queued messages"</string>
+  <string name="lody_native_chat_composer_recentphotos" formatted="false">"Recent Photos"</string>
+  <string name="lody_native_chat_composer_send" formatted="false">"Send"</string>
+  <string name="lody_native_chat_composer_sending" formatted="false">"Sending"</string>
+  <string name="lody_native_chat_composer_steer" formatted="false">"Steer"</string>
+  <string name="lody_native_chat_composer_steering" formatted="false">"Confirming delivery…"</string>
+  <string name="lody_native_chat_composer_stop" formatted="false">"Stop"</string>
+  <string name="lody_native_chat_composer_stopping" formatted="false">"Stopping…"</string>
+  <string name="lody_native_chat_copy" formatted="false">"Copy"</string>
+  <string name="lody_native_chat_duration_hour" formatted="false">"h"</string>
+  <string name="lody_native_chat_duration_minute" formatted="false">"m"</string>
+  <string name="lody_native_chat_duration_second" formatted="false">"s"</string>
+  <string name="lody_native_chat_empty_loading" formatted="false">"Fetching the conversation…"</string>
+  <string name="lody_native_chat_error_transcript" formatted="false">"The conversation cannot be shown · Tap to resync"</string>
+  <string name="lody_native_chat_file_diffstats" formatted="false">"{text}, {add} added, {del} removed"</string>
+  <string name="lody_native_chat_image_closepreview" formatted="false">"Close the image preview"</string>
+  <string name="lody_native_chat_image_failed" formatted="false">"This image cannot be shown"</string>
+  <string name="lody_native_chat_image_label" formatted="false">"Image, {name}"</string>
+  <string name="lody_native_chat_image_openpreview" formatted="false">"Open the full-screen preview"</string>
+  <string name="lody_native_chat_image_retry" formatted="false">"The image failed to load. Tap to retry."</string>
+  <string name="lody_native_chat_preview_empty" formatted="false">"No conversation on this device"</string>
+  <string name="lody_native_chat_row_openchanges" formatted="false">"Open the file changes"</string>
+  <string name="lody_native_chat_row_openprocess" formatted="false">"Open the activity"</string>
+  <string name="lody_native_chat_row_queued" formatted="false">"Queued — sends after the current reply"</string>
+  <string name="lody_native_chat_row_queuedattachmentsonly" formatted="false">"Attachments only"</string>
+  <string name="lody_native_chat_row_resend" formatted="false">"Reconnect and keep sending"</string>
+  <string name="lody_native_chat_scrolltobottom" formatted="false">"Scroll to bottom"</string>
+  <string name="lody_native_chat_status_sending" formatted="false">"Sending…"</string>
+  <string name="lody_native_chat_title_hint" formatted="false">"View the session details"</string>
+  <plurals name="lody_native_chat_transcript_activity_commands">
+    <item quantity="one">"Ran {count} command"</item>
+    <item quantity="other">"Ran {count} commands"</item>
+  </plurals>
+  <plurals name="lody_native_chat_transcript_activity_editedfiles">
+    <item quantity="one">"Edited {count} file"</item>
+    <item quantity="other">"Edited {count} files"</item>
+  </plurals>
+  <plurals name="lody_native_chat_transcript_activity_fetches">
+    <item quantity="one">"Fetched {count} resource"</item>
+    <item quantity="other">"Fetched {count} resources"</item>
+  </plurals>
+  <plurals name="lody_native_chat_transcript_activity_readfiles">
+    <item quantity="one">"Read {count} file"</item>
+    <item quantity="other">"Read {count} files"</item>
+  </plurals>
+  <plurals name="lody_native_chat_transcript_activity_searches">
+    <item quantity="one">"Ran {count} search"</item>
+    <item quantity="other">"Ran {count} searches"</item>
+  </plurals>
+  <string name="lody_native_chat_transcript_activity_thinking" formatted="false">"Thinking…"</string>
+  <string name="lody_native_chat_transcript_activity_thought" formatted="false">"Thought"</string>
+  <plurals name="lody_native_chat_transcript_activity_tools">
+    <item quantity="one">"Called {count} tool"</item>
+    <item quantity="other">"Called {count} tools"</item>
+  </plurals>
+  <string name="lody_native_chat_transcript_event" formatted="false">"Session event"</string>
+  <string name="lody_native_chat_transcript_failed" formatted="false">"Failed · {text}"</string>
+  <plurals name="lody_native_chat_transcript_filecount">
+    <item quantity="one">"{count} file"</item>
+    <item quantity="other">"{count} files"</item>
+  </plurals>
+  <string name="lody_native_chat_transcript_pending" formatted="false">"Waiting for approval · {text}"</string>
+  <string name="lody_native_chat_transcript_status_done" formatted="false">"Activity"</string>
+  <string name="lody_native_chat_transcript_status_failed" formatted="false">"Failed"</string>
+  <string name="lody_native_chat_transcript_status_pending" formatted="false">"Waiting for approval"</string>
+  <string name="lody_native_chat_transcript_status_running" formatted="false">"Working"</string>
+  <string name="lody_native_chat_transcript_status_workedfor" formatted="false">"Worked for {duration}"</string>
+  <string name="lody_native_chat_transcript_status_workingfor" formatted="false">"Working for {duration}"</string>
+  <string name="lody_native_chat_transcript_subtask" formatted="false">"Subtask"</string>
+  <string name="lody_native_chat_transcript_summary" formatted="false">"{title} · {tools}"</string>
+  <string name="lody_native_chat_transcript_tool" formatted="false">"Tool call"</string>
+  <plurals name="lody_native_chat_transcript_toolcount">
+    <item quantity="one">"{count} operation"</item>
+    <item quantity="other">"{count} operations"</item>
+  </plurals>
+  <string name="lody_native_close" formatted="false">"Close"</string>
+  <string name="lody_native_list_collapsed" formatted="false">"Collapsed"</string>
+  <string name="lody_native_list_expanded" formatted="false">"Expanded"</string>
+  <string name="lody_native_runtime_connectionswitched" formatted="false">"The connection changed, so the message was not sent"</string>
+  <string name="lody_native_runtime_notconnected" formatted="false">"Not connected to a workspace"</string>
+  <string name="lody_native_runtime_replaced" formatted="false">"The connection was rebuilt. Check the synced history for the result."</string>
+  <string name="lody_native_runtime_sendtimeout" formatted="false">"The result is unknown. Check the synced history instead of sending again."</string>
+  <string name="lody_native_runtime_sessionnotready" formatted="false">"The session is not ready yet. Try again shortly."</string>
+  <string name="lody_native_runtime_sessionnotsynced" formatted="false">"The session is not synced yet"</string>
+  <string name="lody_native_runtime_sessionnotsyncedretry" formatted="false">"The session is not synced yet. Try again shortly."</string>
+  <string name="lody_native_session_banner_attention" formatted="false">"Needs approval"</string>
+  <string name="lody_native_session_banner_completed" formatted="false">"Done"</string>
+  <string name="lody_native_session_banner_openhint" formatted="false">"Open this session"</string>
+  <string name="lody_native_session_sync_needsapproval" formatted="false">"Waiting for your approval"</string>
+  <string name="lody_native_session_sync_receiving" formatted="false">"Receiving the reply"</string>
+  <string name="lody_native_session_sync_sending" formatted="false">"Sending"</string>
+  <string name="lody_native_session_sync_synced" formatted="false">"Reply synced"</string>
+  <string name="lody_native_session_sync_title" formatted="false">"Syncing the session reply"</string>
+  <string name="lody_native_session_sync_waitingreply" formatted="false">"Waiting for a reply"</string>
+</resources>

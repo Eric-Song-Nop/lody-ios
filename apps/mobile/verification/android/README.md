@@ -111,3 +111,11 @@ stable-ID updates, navigation return, a real pull-to-refresh gesture, scrolling,
 and empty/restore snapshots. Screenshots and the recording require visual review.
 This subset does not establish TalkBack, arbitrary advanced iOS row features,
 insert/delete anchor preservation or the complete PR-05 gate.
+
+### Compiled language resources
+
+`--case locales` compares every compiled native resource with the shared JSON
+catalogs in English, Simplified Chinese and a fallback locale. It exercises
+plural quantities 0/1/2, literal named interpolation and invalid inputs, and
+captures rendered examples. Locale-specific Context resources are used; this
+case does not establish whole-app language switching or TalkBack behavior.

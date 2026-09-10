@@ -1,4 +1,8 @@
-export { runtimeInfo, addAppActiveListener } from './runtime/AndroidBootstrap';
+export {
+  runtimeInfo,
+  addAppActiveListener,
+  runLocaleVerification,
+} from './runtime/AndroidBootstrap';
 export { NativeCloseButton } from './chrome/NativeCloseButton';
 export { NativeSymbol } from './chrome/NativeSymbol';
 export { NativeSymbolButton } from './chrome/NativeSymbolButton';

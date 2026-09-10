@@ -105,6 +105,10 @@ class LodyKitModule : Module() {
       Events("onClose")
       Prop("label") { view: app.innei.lody.kit.chrome.LodyCloseButton, label: String? -> view.setLabel(label) }
     }
+    AsyncFunction("runLocaleVerification") {
+      val context = requireNotNull(appContext.reactContext) { "Locale context unavailable" }
+      app.innei.lody.kit.locale.LocaleVerification.run(context)
+    }
     Constants {
       mapOf("runtimeInfo" to mapOf(
         "moduleName" to "LodyKit",

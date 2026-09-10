@@ -8,6 +8,8 @@ const {
 } = require('expo/config-plugins');
 const { LOCALES, INFO_KEYS, readCatalogs } = require('./locales');
 
+const { writeAndroidLocales } = require('./androidLocales');
+
 const RESOURCES = ['Localizable.xcstrings', 'InfoPlist.xcstrings'];
 
 function load(projectRoot) {
@@ -146,4 +148,13 @@ const withLocalizedInfoPlist = (config) =>
   });
 
 module.exports = (config) =>
-  withResourcesLinked(withGeneratedResources(withLocalizedInfoPlist(config)));
+  withDangerousMod(
+    withResourcesLinked(withGeneratedResources(withLocalizedInfoPlist(config))),
+    [
+      'android',
+      (result) => {
+        writeAndroidLocales(result.modRequest.projectRoot);
+        return result;
+      },
+    ],
+  );
