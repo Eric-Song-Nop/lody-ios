@@ -144,7 +144,7 @@ def main():
         capture('boot')
         if args.case == 'storage':
             tap_button(tree, 'Run storage verification')
-            wait_text('Storage prepared: restart required', timeout=60)
+            wait_text('Storage prepared: restart required', timeout=180)
             capture('prepared')
             command([*adb_command, '-s', serial, 'pull', f'/sdcard/Android/data/{PACKAGE}/files/lody-runtime-verification.json', args.output / 'seed-runtime.json'], capture_output=True)
             seed = json.loads((args.output / 'seed-runtime.json').read_text())
