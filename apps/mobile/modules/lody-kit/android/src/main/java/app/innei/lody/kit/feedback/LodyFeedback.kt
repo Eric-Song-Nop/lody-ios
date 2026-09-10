@@ -20,6 +20,7 @@ import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import app.innei.lody.kit.chrome.LodyUiColors
+import app.innei.lody.kit.chrome.LodySymbols
 import app.innei.lody.kit.locale.LodyStrings
 import java.lang.ref.WeakReference
 
@@ -206,6 +207,8 @@ internal class LodyFeedback {
     val context = surface.context
     val column = toastColumn ?: LinearLayout(context).apply {
       orientation = LinearLayout.VERTICAL
+      clipChildren = false
+      clipToPadding = false
       toastColumn = this
       surface.addView(this, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL))
     }
@@ -287,7 +290,8 @@ internal class LodyFeedback {
     }
     row.addView(text, LinearLayout.LayoutParams(0, -2, 1f))
     val close = android.widget.ImageButton(context).apply {
-      setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+      setImageResource(LodySymbols.resource("xmark"))
+      setPadding(dp(context, 12), dp(context, 12), dp(context, 12), dp(context, 12))
       imageTintList = ColorStateList.valueOf(LodyUiColors.action(context))
       this.background = RippleDrawable(ColorStateList.valueOf(LodyUiColors.actionSurface(context)), null, null)
       contentDescription = LodyStrings.text(context, "native.close") + ": " + label.replace('\n', ' ')
