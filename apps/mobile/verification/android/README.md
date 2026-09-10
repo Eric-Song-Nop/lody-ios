@@ -136,6 +136,19 @@ plural quantities 0/1/2, literal named interpolation and invalid inputs, and
 captures rendered examples. Locale-specific Context resources are used; this
 case does not establish whole-app language switching or TalkBack behavior.
 
+### Runtime application language changes
+
+`--case locale-switch --locale-host page` uses real Android app locale overrides
+(en-US → zh-Hans-CN → es-ES fallback → en-US), including a change while the app
+is backgrounded. Run again with `--locale-host sheet` and repeat both with
+`--appearance dark`. The runner restores the original override and appearance.
+It requires API 33+ application locale shell support; absence is a failure, not
+an in-app substitute. It checks independently subscribed memoized copy, native
+close accessibility labels, editable draft/counter/process retention, and actual
+route removal after dismissing any restored IME. Captures and recording remain
+with the versioned result. This does not establish every product call site,
+global device language settings, TalkBack speech or process-death draft recovery.
+
 ### Clipboard and display preferences
 
 `--case system` exercises the real LodyKit clipboard and inbox preference APIs.
