@@ -49,8 +49,15 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
         deadline = time.monotonic() + 20
         while True:
             state = shell('dumpsys', 'accessibility')
+            result['lastObservedAccessibilityState'] = state
             bound = re.search(r'Bound services:\{(.*?)\n\s*Enabled services:', state, re.S)
-            if bound and 'TalkBackService' in bound.group(1) and 'touchExplorationEnabled=true' in state:
+            enabled = re.search(r'Enabled services:\{([^\n]*)', state)
+            # Android dumps a service label in the bound section, not its class.
+            # Require the real component in Enabled as well as the bound label.
+            if (bound and 'Service[label=TalkBack,' in bound.group(1)
+                    and enabled and any(component in enabled.group(1) for component in (
+                        SERVICE, 'com.google.android.marvin.talkback/.TalkBackService'))
+                    and 'touchExplorationEnabled=true' in state):
                 return state
             if time.monotonic() >= deadline:
                 raise AssertionError('Real TalkBack did not bind with touch exploration enabled')
@@ -86,6 +93,18 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
         result['activeAccessibilityState'] = wait_bound()
         result['talkBackPackage'] = shell('dumpsys', 'package', 'com.google.android.marvin.talkback')
         capture('talkback-enabled')
+        tree = snapshot()
+        # First launch of the installed screen reader can request its own
+        # notification permission. Dismiss that observed system prompt through
+        # TalkBack; unrelated overlays still fail the fixture readiness check.
+        permission = next((node for node in tree.iter('node')
+                           if node.get('resource-id') == 'com.android.permissioncontroller:id/permission_message'
+                           and 'Android Accessibility Suite' in node.get('text', '')), None)
+        if permission is not None:
+            deny = next(node for node in tree.iter('node')
+                        if node.get('resource-id') == 'com.android.permissioncontroller:id/permission_deny_button')
+            activate(tree, deny.get('text'))
+            result['talkBackNotificationPromptDismissed'] = True
         tree = wait_text(headings[target])
         if target == 'controls':
             activate(tree, 'Increment native counter')

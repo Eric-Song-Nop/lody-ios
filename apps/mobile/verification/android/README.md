@@ -167,7 +167,7 @@ original accessibility settings in `finally`. It records service/package state a
 after hierarchy reads;
 this does not establish spoken-label quality or traversal order. The runner is
 implemented but device gesture compatibility and the complete host/theme matrix
-remain pending; tutorial overlays or failed activation fail the case.
+remain pending. Before service activation, the internal fixture entry may be reached by at most five scrolls using observed container bounds. The first-run Android Accessibility Suite notification prompt is dismissed through TalkBack when its exact system resource IDs and message are present; unrelated tutorial overlays or failed activation still fail the case. The bound service label and enabled component are checked separately, and the last observed accessibility dump is retained on timeout.
 
 `--case list-focus --appearance light|dark` uses TAB, Enter, directional input
 and system Back on production native rows. It requires repeated action updates
