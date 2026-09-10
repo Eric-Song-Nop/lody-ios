@@ -7,6 +7,7 @@ import {
   copyFile,
 } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { buildRuntimeFixtures } from './build-runtime-fixtures.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const result = await build({
   entryPoints: [root + 'modules/lody-kit/decoder/index.ts'],
@@ -67,3 +68,17 @@ for (const name of await readdir(fileIcons)) {
   if (name.endsWith('.png'))
     await copyFile(fileIcons + '/' + name, output + '/' + name);
 }
+
+// Both platforms consume the exact same compiled runtime and license bytes.
+const androidOutput =
+  root + 'modules/lody-kit/android/src/main/assets/lody-runtime';
+await mkdir(androidOutput, { recursive: true });
+for (const name of [
+  'DataRuntime.html',
+  'FlockDecoder.html',
+  'Flock-LICENSE.txt',
+  'Loro-LICENSE.txt',
+]) {
+  await copyFile(output + '/' + name, androidOutput + '/' + name);
+}
+await buildRuntimeFixtures(root, androidOutput);

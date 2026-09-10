@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "description": "Real Flock exportFile compressed with Node zstdCompressSync; fixed peer and timestamps; no account data.",
+  "zstdBase64": "KLUv/WDMAK0JAEZRPjKAazrzBgAY5XDLTEBH4mqYc0tSbLl3u5DdaaWRyjRxKkRwgo215cMq5rRNo2wXkaSUAjIAMQAuAC3TNJew4qzUI5xT+JKEz6owSkLn1oa63uc7DtrdjIIQRWaXL3Z3gBU0OjS7K1B5yDQElkoUWbxll8iSMP8vbxkGc0Cnn68DJQWfwSVybj3lDSGqOK9Pp0l+vvM+nEelKeFPD3BTOYjhsVkBHtwR5q34uXchzRAEEkjA47FVS1Z6Sn9elYQUS0ZKn/Z+S3q5syz9E6ueOFEivMvNzb29XhHisMDYmFybWWmVkjNZcOdP1Vi9OeUnVj1xcueSw1txIhYAOltCMEasvjVbRMtE+EOh38wypjyxnZ9A5ks4K1TQIMNLj65w4KhGwIuh4n5TxXgVQiwE50PRAw=="
+}

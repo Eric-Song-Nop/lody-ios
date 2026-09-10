@@ -44,7 +44,18 @@ Outputs default to `.artifacts/android/<timestamp>/`: `result.json`, UI hierarch
 - `A-BOOT-01`: open the offline entry and show actual Kotlin system/version constants, proving the module is registered and callable.
 - `A-BOOT-02`: background and return while subscribed, observe one native foreground event, detach, then background and return again; the counter must remain unchanged. The component also removes subscriptions during unmount.
 
-The case uses the real module's Expo lifecycle callbacks. It does not register fake implementations for unbuilt Cloud or UI capabilities. WASM, watchdog, storage and product fixtures arrive in their roadmap PRs; they are not claimed by bootstrap.
+The case uses the real module's Expo lifecycle callbacks. It does not register fake implementations for unbuilt Cloud or UI capabilities. WASM is verified separately below; watchdog, storage and product fixtures arrive in their roadmap PRs.
+
+**WASM case (PR-02)**
+
+```sh
+pnpm verify:android --case wasm \
+  --apk apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+```
+
+This opens the internal native verification screen and runs the real bundled data runtime in Kotlin's WebView. Fixture HTTP responses exercise normal Streams parsing and actual Flock/Loro WASM. Eight subcases cover incremental catalog updates plus Loro history, Zstd bootstrap, large projections, bridge output rejection, malformed frames/JSON and the catalog input ceiling. Each run stops every fixture runtime and requires zero HTTP writes. An absent subcase or failure is a failed run.
+
+Artifacts add `runtime.json` (runtime/fixture hashes, structural projection checks, native bridge statistics) and `wasm-passed.png/xml`; the video is `wasm.mp4`. The implementation and bounds are described in `docs/architecture/android-data-runtime.md`. Native fixtures and expected projections are generated from the committed fixture source during `native:assets`; they contain no account data. Successful offline cases do not establish lifecycle recovery, authentication, or live Cloud access.
 
 **Evidence limits**
 
