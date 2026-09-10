@@ -1,0 +1,14 @@
+diff --git a/android/src/main/java/com/swmansion/rnscreens/bottomsheet/DimmingView.kt b/android/src/main/java/com/swmansion/rnscreens/bottomsheet/DimmingView.kt
+index 124010f026de9703c2fc21f5877814610814672a..823ae9851138bc3a0c0147de81f7605c3efdf895 100644
+--- a/android/src/main/java/com/swmansion/rnscreens/bottomsheet/DimmingView.kt
++++ b/android/src/main/java/com/swmansion/rnscreens/bottomsheet/DimmingView.kt
+@@ -32,6 +32,9 @@ internal class DimmingView(
+     init {
+         pointerEventsProxy.pointerEventsImpl = DimmingViewPointerEventsImpl(this)
+         setFocusable(false)
++        // This empty backdrop must not capture TalkBack touch exploration over
++        // the sheet. Dismissal remains available through Back and sheet controls.
++        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+     }
+ 
+     internal val blockGestures

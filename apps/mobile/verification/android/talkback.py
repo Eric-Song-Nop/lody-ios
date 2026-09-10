@@ -83,9 +83,25 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
                               if item.get('accessibility-focused') == 'true'],
             'fixtureTextUnchanged': texts(explored) == texts(tree),
         })
-        focused = [item for item in explored.iter('node')
-                   if item.get('accessibility-focused') == 'true'
-                   and title in (item.get('text'), item.get('content-desc'))]
+        focused = []
+        for item in explored.iter('node'):
+            if item.get('accessibility-focused') != 'true':
+                continue
+            if title in (item.get('text'), item.get('content-desc')):
+                focused.append(item)
+                continue
+            # Android popup rows expose focus on the clickable row, with its
+            # label on a non-actionable child. Require that exact subtree and
+            # hit bounds; a focused screen/root containing the label is invalid.
+            labels = [child for child in item.iter('node') if child is not item
+                      and title in (child.get('text'), child.get('content-desc'))]
+            bounds = list(map(int, re.findall(r'\d+', item.get('bounds', ''))))
+            if (item.get('clickable') == 'true' and len(labels) == 1
+                    and labels[0].get('clickable') == 'false'
+                    and len(bounds) == 4
+                    and bounds[0] <= int(x) < bounds[2]
+                    and bounds[1] <= int(y) < bounds[3]):
+                focused.append(item)
         capture(f'talkback-explored-{len(result.get("talkBackInputs", []))}')
         if not focused:
             raise AssertionError(f'Hardware exploration did not focus {title}')
