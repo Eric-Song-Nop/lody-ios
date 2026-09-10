@@ -75,6 +75,10 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
   private var accessibilityNavigationId: String? = null
   private var accessibilityNavigationCovered = false
   private val returnFocusObserver = ViewTreeObserver.OnPreDrawListener {
+    if (navigationFocusId != null && !availableToKeyboard(this)) {
+      restoreNavigationFocus = true
+    }
+    restoreReturningRowFocus()
     observeAccessibilityReturn()
     true
   }
@@ -132,7 +136,7 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
   }
   private fun restoreReturningRowFocus() {
     val id = navigationFocusId ?: return
-    if (!restoreNavigationFocus || !isAttachedToWindow || !isShown) return
+    if (!restoreNavigationFocus || !availableToKeyboard(this)) return
     // A keyboard-activated navigation row owns its return focus, never a touch row.
     // Do not take focus from another control or resurrect a removed row.
     if (isInTouchMode || rootView.findFocus() != null) {
@@ -151,6 +155,15 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
       navigationFocusId = null
       restoreNavigationFocus = false
     }
+  }
+  private fun availableToKeyboard(view: View): Boolean {
+    if (!view.isAttachedToWindow || !view.isShown) return false
+    var ancestor = view.parent as? View
+    while (ancestor != null) {
+      if (ancestor is ViewGroup && ancestor.descendantFocusability == FOCUS_BLOCK_DESCENDANTS) return false
+      ancestor = ancestor.parent as? View
+    }
+    return true
   }
   private fun clearAccessibilityReturn() {
     accessibilityNavigationId = null
@@ -220,6 +233,10 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
     require(allRows.all { it.id.isNotBlank() } && allRows.map { it.id }.distinct().size == allRows.size) { "List row IDs must be nonempty and globally unique" }
     allRows.filter { it.image.isNotEmpty() }.forEach { LodySymbols.resource(it.image) }
     sections = value
+    if (navigationFocusId != null && allRows.none { it.id == navigationFocusId && it.navigates }) {
+      navigationFocusId = null
+      restoreNavigationFocus = false
+    }
     if (accessibilityNavigationId != null && allRows.none { it.id == accessibilityNavigationId && it.navigates }) {
       clearAccessibilityReturn()
     }
