@@ -5,12 +5,16 @@ import time
 SERVICE = 'com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService'
 
 
-def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, host, target, snapshot, gesture_input):
+def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, host, target, snapshot, gesture_input, traversal=False):
     originals = result['originalAccessibilitySettings']
     result.update(appearance=appearance, host=host, target=target,
                   originalAccessibilitySettings=originals)
     headings = {'controls': 'Native Android controls', 'menus': 'Native Android menus',
                 'lists': 'Native grouped rows'}
+    # The initial readiness tree precedes boot screenshot collection. Startup
+    # insets can change during that capture, moving this button by a full row.
+    # Read current coordinates once before input; never retry the entry tap.
+    tree = snapshot()
     tap_button(tree, 'Open navigation verification')
     root = 'Offline navigation: projects' if host == 'page' else 'Offline navigation: settings'
     if host == 'sheet':
@@ -217,6 +221,46 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
             activate(tree, 'Increment native counter')
             tree = wait_text('Icon presses: 1; long presses: 0')
             capture('talkback-icon-activated')
+            if traversal:
+                original_text = texts(snapshot())
+                steps = [('next', 'Disabled native counter'),
+                         ('next', 'Native text action'),
+                         ('previous', 'Disabled native counter'),
+                         ('previous', 'Increment native counter')]
+                for index, (direction, expected) in enumerate(steps):
+                    before = snapshot()
+                    current = [node for node in before.iter('node')
+                               if node.get('accessibility-focused') == 'true']
+                    if len(current) != 1:
+                        raise AssertionError('Traversal requires one observed accessibility focus')
+                    bounds = list(map(int, re.findall(r'\d+', current[0].get('bounds'))))
+                    # Gesture position is independent of the next target. TalkBack
+                    # chooses its successor; never set focus or tap that target.
+                    display = list(map(int, re.findall(r'\d+', next(before.iter('node')).get('bounds'))))
+                    x, y = (display[0] + display[2]) // 2, (bounds[1] + bounds[3]) // 2
+                    input_log = gesture_input(x, y, direction)
+                    deadline = time.monotonic() + 5
+                    while True:
+                        observed = snapshot()
+                        labels = [node.get('content-desc') or node.get('text')
+                                  for node in observed.iter('node')
+                                  if node.get('accessibility-focused') == 'true']
+                        if labels == [expected] or time.monotonic() >= deadline:
+                            break
+                        time.sleep(0.1)
+                    result.setdefault('talkBackTraversal', []).append({
+                        'expected': expected, 'observed': labels, 'input': input_log,
+                        'contentUnchanged': texts(observed) == original_text})
+                    capture(f'talkback-traversal-{index}')
+                    if labels != [expected]:
+                        raise AssertionError(f'TalkBack {direction} expected {expected}, got {labels}')
+                    if texts(observed) != original_text:
+                        raise AssertionError('Sequential browsing activated or changed fixture content')
+                wait_bound()
+                result['checks'].append({
+                    'id': f'A-UI-01-talkback-controls-traversal-{host}', 'status': 'pass',
+                    'detail': 'Real right/left gestures traverse icon, disabled icon and text action in both directions without activation; no full-screen traversal or speech-quality claim.',
+                })
             activate(tree, 'Native text action')
             tree = wait_text('Text presses: 1; disabled presses: 0')
             disabled = next(node for node in tree.iter('node') if node.get('content-desc') == 'Disabled native counter')

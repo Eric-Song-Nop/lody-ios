@@ -46,6 +46,7 @@ def main():
     parser.add_argument('--appearance', choices=['light', 'dark'], default='light', help='System appearance for control/menu cases; restored after verification.')
     parser.add_argument('--talkback-host', choices=['page', 'sheet'], default='page')
     parser.add_argument('--talkback-target', choices=['controls', 'menus', 'lists'], default='controls')
+    parser.add_argument('--talkback-traversal', action='store_true', help='Verify native control order through real TalkBack next/previous gestures.')
     parser.add_argument('--symbols-host', choices=['page', 'sheet'], default='page', help='Review one native symbol host per recording.')
     parser.add_argument('--locale-host', choices=['page', 'sheet'], default='page', help='Host for real application language switching.')
     parser.add_argument('--feedback-host', choices=['page', 'sheet'], default='page', help='Feedback host; run both separately to keep each recording within 180 seconds.')
@@ -59,6 +60,8 @@ def main():
     parser.add_argument('--avd-home', type=Path, help='AVD registry directory when SDK tools use a different default.')
     parser.add_argument('--output', type=Path, default=ROOT / '.artifacts/android' / time.strftime('%Y%m%d-%H%M%S'))
     args = parser.parse_args()
+    if args.talkback_traversal and (args.case != 'talkback' or args.talkback_target != 'controls'):
+        parser.error('--talkback-traversal currently requires talkback controls.')
     if args.screenshot_source == 'emulator' and (args.serial or args.case != 'feedback-default'):
         parser.error('Emulator screenshots require feedback-default on a runner-owned AVD.')
     if not 0 <= args.settle_seconds <= 180:
@@ -264,9 +267,9 @@ def main():
             result['fixtureVersion'] = 'list-mutations-v1'
             list_mutations.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
         elif args.case == 'talkback':
-            result['fixtureVersion'] = 'talkback-v4'
+            result['fixtureVersion'] = 'talkback-v5'
             talkback.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.talkback_host, args.talkback_target, snapshot,
-                         touch_driver.run)
+                         touch_driver.run, args.talkback_traversal)
         elif args.case == 'symbols':
             result['fixtureVersion'] = 'symbols-v1'
             symbols.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.symbols_host)

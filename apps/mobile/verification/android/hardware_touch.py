@@ -81,7 +81,7 @@ class Driver:
                 'completeSeconds': time.monotonic() - started, 'bytes': len(data)}
 
     def run(self, x, y, mode):
-        if mode not in ('explore', 'activate', 'hold'):
+        if mode not in ('explore', 'activate', 'hold', 'next', 'previous'):
             raise ValueError(mode)
         x, y = int(x), int(y)
         events = []
@@ -107,7 +107,18 @@ class Driver:
                 send(0)
 
         try:
-            if mode == 'explore':
+            if mode in ('next', 'previous'):
+                direction = 1 if mode == 'next' else -1
+                current_x = x - direction * 180
+                try:
+                    send(1, current_x)
+                    for step in range(1, 13):
+                        time.sleep(0.015)
+                        current_x = x + direction * (step * 30 - 180)
+                        send(1, current_x)
+                finally:
+                    send(0, current_x)
+            elif mode == 'explore':
                 # Explore by touch is sustained contact with slow movement,
                 # not a short tap that can remain in gesture recognition.
                 # Stay within eight pixels of the already measured target center.
