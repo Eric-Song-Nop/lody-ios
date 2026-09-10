@@ -31,6 +31,7 @@ internal class RuntimeRecoveryVerification(private val context: Context, private
   private var awaitingLifecycle = false
   private var readySeen = 0
   private var pingReplies = 0
+  private val readGenerations = mutableSetOf<Int>()
   private var catalogEvents = 0
   private var deliveredEvents = 0
   private var completion: ((Result<String>) -> Unit)? = null
@@ -72,6 +73,11 @@ internal class RuntimeRecoveryVerification(private val context: Context, private
       onEvent = { event ->
         deliveredEvents++
         if (event.optString("type") == "catalog") catalogEvents++
+        if (event.optString("type") == "session" && event.optBoolean("synced")) {
+          val session = JSONObject(event.getString("session"))
+          check(session.getJSONArray("entries").length() == 1 && session.toString().contains("Real Loro WASM 回复"))
+          readGenerations.add(supervisor.health.generation)
+        }
       },
       onState = { state, generation, reason ->
         states.put(JSONObject().put("state", state.name).put("generation", generation).put("reason", reason ?: JSONObject.NULL).put("clock", now))
@@ -119,11 +125,12 @@ internal class RuntimeRecoveryVerification(private val context: Context, private
       JSONObject().put("fixtureVersion", "recovery-v1").put("runtimeSha256", fixture.runtimeHash)
         .put("cases", checks).put("states", states).put("commands", commands)
         .put("createdViews", views.size).put("closedViews", views.values.count { it.isClosed })
-        .put("httpWrites", fixture.writeCount).toString()
+        .put("httpWrites", fixture.writeCount).put("readGenerations", JSONArray(readGenerations.toList())).toString()
     })
   }
 
   private suspend fun exercise() {
+    supervisor.watchSessions(listOf("s1"), "s1")
     supervisor.start()
     val first = supervisor.health.generation
     waitFor("real_page_ready") { readySeen == 1 }
@@ -135,7 +142,7 @@ internal class RuntimeRecoveryVerification(private val context: Context, private
     suppressReady = false
     now += 1_000
     supervisor.tick()
-    waitFor("read_recovery") { supervisor.health.state == RuntimeHealth.State.READY && catalogEvents > 0 }
+    waitFor("read_recovery") { supervisor.health.state == RuntimeHealth.State.READY && catalogEvents > 0 && supervisor.health.generation in readGenerations }
     val recovered = supervisor.health.generation
     val eventCount = deliveredEvents
     events.getValue(first)(JSONObject().put("type", "catalog").put("catalog", "old-instance"))
@@ -167,14 +174,14 @@ internal class RuntimeRecoveryVerification(private val context: Context, private
     suppressPing = false
     now += 2_000
     supervisor.tick()
-    waitFor("heartbeat_recovery") { supervisor.health.state == RuntimeHealth.State.READY }
+    waitFor("heartbeat_recovery") { supervisor.health.state == RuntimeHealth.State.READY && supervisor.health.generation in readGenerations }
 
     check(views.getValue(supervisor.health.generation).terminateRendererForVerification()) { "renderer_termination_unavailable" }
     waitFor("renderer_gone") { supervisor.health.state == RuntimeHealth.State.FAILED }
     check(supervisor.health.reason == "renderer_gone")
     now += 4_000
     supervisor.tick()
-    waitFor("renderer_recovery") { supervisor.health.state == RuntimeHealth.State.READY }
+    waitFor("renderer_recovery") { supervisor.health.state == RuntimeHealth.State.READY && supervisor.health.generation in readGenerations }
     check(views.getValue(supervisor.health.generation).terminateRendererForVerification())
     waitFor("restart_exhausted") { supervisor.health.reason == "restart_limit" }
     val exhausted = supervisor.health.generation
@@ -185,7 +192,7 @@ internal class RuntimeRecoveryVerification(private val context: Context, private
     pass("A-REC-03", "Heartbeat loss and real renderer termination recover finitely, then stop at three automatic restarts")
 
     supervisor.start()
-    waitFor("manual_recovery") { supervisor.health.state == RuntimeHealth.State.READY }
+    waitFor("manual_recovery") { supervisor.health.state == RuntimeHealth.State.READY && supervisor.health.generation in readGenerations }
     val last = supervisor.health.generation
     supervisor.stop()
     val stoppedEvents = deliveredEvents
