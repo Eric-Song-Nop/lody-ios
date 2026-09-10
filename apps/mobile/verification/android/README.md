@@ -195,3 +195,13 @@ and recording require separate visual review before acceptance.
 It force-stops only the verification app to check persisted launch values, then
 uses the Android EditText system Paste key to compare the complete clipboard fixture.
 It also calls native selection feedback; this is not physical-haptic evidence.
+
+### Semantic symbol corpus
+
+`--case symbols --symbols-host page|sheet --appearance light|dark` requires the APK containing the 39-name
+symbol fixture. It opens the production symbol views/buttons in the selected host (run both hosts separately),
+captures all seven batches, checks 48 dp action targets and current action identity
+after native view reuse, and returns through system Back. Review every captured
+glyph pair and the recording for shape, contrast and variant semantics. The case
+is implemented but has no device result yet; see
+[the symbol report](../../../../docs/research/android-symbols-verification.md).

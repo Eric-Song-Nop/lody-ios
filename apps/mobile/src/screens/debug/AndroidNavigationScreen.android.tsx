@@ -21,6 +21,7 @@ import { androidLocaleSwitchPage } from './AndroidLocaleSwitchScreen.android';
 import { androidLocalesPage } from './AndroidLocalesScreen.android';
 import { androidListsPage } from './AndroidListsScreen.android';
 import { androidControlsPage } from './AndroidControlsScreen.android';
+import { androidSymbolsPage } from './AndroidSymbolsScreen.android';
 import { androidMenusPage } from './AndroidMenusScreen.android';
 import { androidMenuEdgesPage } from './AndroidMenuEdgesScreen.android';
 import {
@@ -135,6 +136,12 @@ function ProjectsScreen() {
         }}
       />
       <Action
+        title="Open symbols page"
+        onPress={() => {
+          void present(androidSymbolsPage, undefined, { style: 'push' });
+        }}
+      />
+      <Action
         title="Open lists page"
         onPress={() => {
           void present(androidListsPage, undefined, { style: 'push' });
@@ -224,6 +231,15 @@ function SettingsScreen() {
         title="Open language switching sheet"
         onPress={() => {
           void present(androidLocaleSwitchPage, undefined, {
+            style: 'formSheet',
+            sheetAllowedDetents: [1],
+          });
+        }}
+      />
+      <Action
+        title="Open symbols sheet"
+        onPress={() => {
+          void present(androidSymbolsPage, undefined, {
             style: 'formSheet',
             sheetAllowedDetents: [1],
           });
