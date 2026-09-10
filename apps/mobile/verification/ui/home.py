@@ -99,6 +99,9 @@ assert abs(after_pull - before_pull) <= 2, 'Pulling the CRDT inbox left a refres
 
 tap_create()
 ui.element('create-session-input')
+ui.wait(lambda items: any(i.get('AXLabel') == catalog.text('create.machineConfig.retry') for i in items), 'Offline creation options did not settle')
+error_prefix = catalog.text('create.error.machineConfigDetail', error='')
+assert not any(error_prefix in (i.get('AXLabel') or '') or 'not_ready' in (i.get('AXLabel') or '') for i in ui.state()), 'Home fixture escaped into the real machine configuration runtime'
 ui.capture('create')
 # Expand from the sheet's header, leaving the production form untouched.
 header = next(item['frame'] for item in ui.state() if item.get('AXLabel') == close_create)

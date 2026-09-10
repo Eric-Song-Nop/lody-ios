@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useContext, useEffect } from 'react';
+import { CreationOptionsLoaderContext } from '@/features/sessions/creationOptionsLoader';
 import { present } from '@/lib/presentation';
 import { showToast } from '@/ui/toast';
 import { subscribeSessionNav } from '@/features/sessions/sessionNav';
@@ -7,6 +8,7 @@ import { CreateSessionScreen } from '@/screens/CreateSessionScreen';
 import { t } from '../../lib/i18n/index.ts';
 
 export function useBindSessionNav() {
+  const loadOptions = useContext(CreationOptionsLoaderContext);
   useEffect(() => {
     return subscribeSessionNav(async (intent) => {
       try {
@@ -22,6 +24,7 @@ export function useBindSessionNav() {
           workspaceId: intent.workspaceId,
           projects: intent.catalog.projects,
           projectId: intent.projectId,
+          loadOptions,
         });
         if (result.status === 'completed')
           await present(
@@ -44,5 +47,5 @@ export function useBindSessionNav() {
         );
       }
     });
-  }, []);
+  }, [loadOptions]);
 }
