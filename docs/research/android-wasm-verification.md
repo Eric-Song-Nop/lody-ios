@@ -40,7 +40,7 @@ pnpm verify:android --case bootstrap \
   --apk apps/mobile/android/app/build/outputs/apk/release/app-release.apk
 ```
 
-工程检查：共享检查、112 个应用/原生 JS 测试、14 个模拟器工具测试、4 个 DOM WebView 测试及 iOS bundle 通过。Android 原生构建成功；最后一次修正后的增量构建耗时 36 秒。iOS 原生行为检查和签名构建正在专用模拟器上验证，尚不在本记录中声明通过。
+工程检查：共享检查、112 个应用/原生 JS 测试、14 个模拟器工具测试、4 个 DOM WebView 测试及 iOS bundle 通过。Android 原生构建成功；最后一次修正后的增量构建耗时 36 秒。[iOS 原生行为检查与签名构建](ios-android-regression.md)亦已通过；CI 复跑单独跟踪。
 
 **保留的失败与修复**
 

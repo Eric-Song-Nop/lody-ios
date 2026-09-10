@@ -1,6 +1,6 @@
 # Android bundled data runtime
 
-PR-02 implementation notes, 2026-09-10. The host is under verification; these notes do not establish that stage B has passed or that product authentication is available.
+PR-02 implementation notes, 2026-09-10. The host passed the documented local emulator checks; stage B and product authentication are not complete. See [verification evidence](../research/android-wasm-verification.md).
 
 **Ownership and assets**
 
@@ -28,4 +28,4 @@ Fixtures cover Flock bootstrap plus framed incremental updates, a real Zstd-comp
 
 The report records fixture/asset hashes, runtime HTML hash, projection counts, transported character/chunk counts, peak admitted queue size and HTTP read/write counts. The Android runner captures screen/video/log evidence and the installed WebView provider. Node bridge tests additionally exercise rejected admission and oversized output; they do not substitute for emulator checks.
 
-Remaining PR-02 acceptance work must be recorded as pending until real emulator evidence passes. Live Cloud authorization, write operations, lifecycle recovery, secure storage and physical-device performance are outside this PR's proof.
+The documented emulator and iOS native regression checks have passed; remote CI and evidence publication are tracked separately. Live Cloud authorization, write operations, lifecycle recovery, secure storage and physical-device performance are outside this PR's proof.
