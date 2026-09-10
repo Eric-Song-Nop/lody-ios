@@ -58,7 +58,9 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
             if language == 'zh-Hans':
                 projection = '需要你确认 · 等你确认 · User 标题 stays literal'
             if projection not in text:
-                raise AssertionError(f'Cached Inbox projection did not update: {projection}')
+                result['failedLocaleText'] = text
+                capture(f'{name}-projection-failed')
+                raise AssertionError(f'Cached Inbox projection did not update: {projection}; observed: {text}')
             if not any(node.get('class') == 'android.widget.EditText' and node.get('text') == 'Retained-draft-42' for node in tree.iter('node')):
                 raise AssertionError('Editable draft was lost during locale change')
             if not any(node.get('content-desc') == close and node.get('clickable') == 'true' for node in tree.iter('node')):

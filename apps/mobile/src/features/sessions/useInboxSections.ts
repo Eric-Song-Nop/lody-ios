@@ -10,6 +10,9 @@ export function useInboxSections(
   accent: string,
   expanded: Record<string, boolean>,
 ) {
+  'use no memo';
+  // Projection helpers read the imperative locale store. React Compiler cannot
+  // infer that dependency and removes the locale-only invalidation below.
   const { locale } = useTranslations();
   return useMemo(
     () =>
