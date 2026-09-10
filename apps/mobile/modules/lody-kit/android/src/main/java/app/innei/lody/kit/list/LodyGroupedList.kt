@@ -221,10 +221,8 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
         if (position != RecyclerView.NO_POSITION) {
           val item = rows.currentList[position]
           if (item.actionable && isShown) {
-            if (item.navigates && box.hasFocus() && !box.isInTouchMode) {
-              navigationFocusId = item.id
-              restoreNavigationFocus = false
-            }
+            navigationFocusId = if (item.navigates && box.hasFocus() && !box.isInTouchMode) item.id else null
+            restoreNavigationFocus = false
             onRowPress(mapOf("id" to item.id))
           }
         }
