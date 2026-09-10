@@ -41,7 +41,7 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
         # Use the system's visible IME source, independent of the app's insets.
         display_dump = shell('dumpsys', 'window', 'displays')
         result['windowDisplayDump'] = display_dump
-        ime_sources = [line.strip() for line in display_dump.splitlines() if 'type=ime' in line and 'visible=true' in line.lower()]
+        ime_sources = [line.strip() for line in display_dump.splitlines() if 'type=ime' in line.lower() and 'visible=true' in line.lower()]
         result['imeSources'] = ime_sources
         frames = set()
         for line in ime_sources:
