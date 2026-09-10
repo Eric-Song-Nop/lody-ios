@@ -72,3 +72,12 @@ Additional completed visual review:
 - Dark `list-fonts-v1`: all nine screenshots and the full 91.291522-second recording sampled every five seconds. In both hosts the long title grows from 122 to 216 pixels at system font scale 1.3 and returns to 122 at 1.0; text remains readable without clipping. The action count and app process survive; Back removes the host. The runner records its exact checkout and restored system settings in `result.json`.
 
 Evidence directories are `.artifacts/android/list-focus-repair-lists-light` and `.artifacts/android/list-focus-repair-list-fonts-dark`, including `visual-review.json`. Dark mutation and dark basic-list behavior assertions passed, but their screenshots and recordings still require visual review. TalkBack and deleted/competing focus targets remain outside this result. The PR-05b completion gate stays open.
+
+### Final dark matrix visual review
+
+The remaining dark results on the same `c7760795…` APK have now been visually reviewed:
+
+- `list-mutations-v1`: all nine screenshots and the full 123.829889-second recording sampled every five seconds. Page anchor `row-11` retains its 16-pixel offset; sheet anchor `row-6` retains its 63-pixel offset through insertion/removal of 20 rows within the 2-pixel tolerance. Real activation dispatches the current ID and increments counts. The partially scrolled preceding sheet row remains at the viewport boundary rather than shifting after mutation. Runner commit `c1a5752`, clean checkout.
+- `lists-v2`: all 13 screenshots and the full 163.462911-second recording sampled every five seconds. Both hosts show readable updates, detail return, refresh, scrolling and empty/restore. The sheet title drag dismisses to Settings. Runner commit `c1a5752` with documentation edits.
+
+Their evidence directories follow `.artifacts/android/list-focus-repair-<case>-dark` and contain visual-review manifests. This closes the behavior and visual-review matrix for these four list cases in both themes, using the same APK. It does not close full PR-05b, TalkBack, focus exclusion cases, or device acceptance for the later symbol resources.
