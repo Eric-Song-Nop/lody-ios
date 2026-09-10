@@ -1,6 +1,6 @@
 # PR-01 Android bootstrap 验证记录
 
-日期：2026-09-10。PR：<https://github.com/Eric-Song-Nop/lody-ios/pull/2>。此记录只证明内部 bootstrap；阶段 A 的 iOS 签名原生构建仍待完成。
+日期：2026-09-10。PR：<https://github.com/Eric-Song-Nop/lody-ios/pull/2>。此记录只证明内部 bootstrap；iOS 原生回归结果见文末更新。
 
 **已验证的构建与设备**
 
@@ -36,4 +36,4 @@ pnpm verify:android --case bootstrap \
 
 初次较低内存 AVD 出现 System UI ANR，遮住应用并导致 case 失败，记录保留在 `.artifacts/android/bootstrap-first/`。提高专用模拟器内存、在原生构建完成后重试得到通过结果；这不能单独证明 ANR 的唯一根因。第一次通过截图发现状态栏对比度不足，修正后重新构建并得到上述最终证据。
 
-iOS CocoaPods 安装完成，iOS 26.5 Simulator 官方运行时仍在下载；尚未执行完成签名 simulator build。WASM、聊天、存储、真机刷新率、推送和 OEM 后台行为均不在本次证明范围内。阶段 A 继续保持验证中。
+iOS 26.5 Simulator 安装后，已完成堆叠的[原生行为检查及正常签名构建](ios-android-regression.md)。结合本记录，阶段 A 的本机验收通过；远端 CI 复跑单独跟踪。WASM 另有 PR-02 证据，聊天、存储、真机刷新率、推送和 OEM 后台行为仍不在本次证明范围内。
