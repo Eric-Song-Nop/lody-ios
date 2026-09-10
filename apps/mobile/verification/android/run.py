@@ -11,6 +11,7 @@ import subprocess
 import time
 import xml.etree.ElementTree as ET
 import gesture
+import controls
 
 ROOT = Path(__file__).resolve().parents[4]
 SDK = Path(os.environ.get('ANDROID_HOME', Path.home() / 'Library/Android/sdk'))
@@ -24,7 +25,8 @@ def command(args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--apk', type=Path, required=True)
-    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption', 'navigation-teardown'], required=True)
+    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption', 'navigation-teardown', 'controls'], required=True)
+    parser.add_argument('--appearance', choices=['light', 'dark'], default='light', help='System appearance for the controls case; restored after verification.')
     parser.add_argument('--adb-port', type=int, default=5038, help='Dedicated SDK adb server; leaves the default 5037 server alone.')
     parser.add_argument('--serial', help='Caller-owned device; installs and clears only app.innei.lody.')
     parser.add_argument('--avd', default='Lody_Android_Verify_36')
@@ -48,6 +50,7 @@ def main():
     logcat_process = None
     logcat_file = None
     recorder_pid = None
+    original_night_mode = None
     serial = args.serial
     result = {'apkSha256': hashlib.file_digest(args.apk.open('rb'), 'sha256').hexdigest(), 'case': args.case, 'status': 'failed', 'checks': [], 'commit': command(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True, text=True).stdout.strip()}
     result['workingTreeDirty'] = bool(command(['git', 'status', '--porcelain'], cwd=ROOT, capture_output=True, text=True).stdout.strip())
@@ -147,6 +150,13 @@ def main():
         result['serial'] = serial
         result['system'] = shell('getprop', 'ro.build.fingerprint')
         result['abi'] = shell('getprop', 'ro.product.cpu.abi')
+        if args.case == 'controls':
+            mode = shell('cmd', 'uimode', 'night')
+            match = re.search(r'\b(auto|yes|no|custom)\b', mode)
+            if not match:
+                raise RuntimeError(f'Cannot preserve system night mode: {mode}')
+            original_night_mode = match.group(1)
+            shell('cmd', 'uimode', 'night', 'yes' if args.appearance == 'dark' else 'no')
         command([*adb_command, '-s', serial, 'install', '-r', args.apk], capture_output=True, text=True)
         shell('pm', 'clear', PACKAGE)
         shell('input', 'keyevent', 'KEYCODE_WAKEUP')
@@ -159,7 +169,10 @@ def main():
         shell('am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity')
         tree = wait_text('LodyKit: Android')
         capture('boot')
-        if args.case == 'navigation-teardown':
+        if args.case == 'controls':
+            result['fixtureVersion'] = 'controls-v1'
+            controls.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
+        elif args.case == 'navigation-teardown':
             result['fixtureVersion'] = 'navigation-teardown-v1'
             for cycle in range(1, 3):
                 tap_button(tree, 'Open navigation verification')
@@ -366,6 +379,13 @@ def main():
                 command([*adb_command, '-s', serial, 'pull', f'/sdcard/lody-verify-{args.case}.mp4', args.output / f'{args.case}.mp4'], capture_output=True)
             except Exception as error:
                 result['videoPullError'] = str(error)
+                result['status'] = 'failed'
+        if original_night_mode is not None:
+            try:
+                shell('cmd', 'uimode', 'night', original_night_mode)
+                result['nightModeRestored'] = original_night_mode
+            except Exception as error:
+                result['nightModeRestoreError'] = str(error)
                 result['status'] = 'failed'
         if logcat_process:
             logcat_process.terminate()

@@ -14,6 +14,7 @@ import {
   subscribeSessionNav,
 } from '@/features/sessions/sessionNav';
 import type { Session } from '@/models/catalog';
+import { androidControlsPage } from './AndroidControlsScreen.android';
 import {
   trackNavigationResult,
   useNavigationPageAudit,
@@ -93,6 +94,12 @@ function ProjectsScreen() {
         title="Return to runtime verification"
         onPress={() => router.back()}
       />
+      <Action
+        title="Open controls page"
+        onPress={() => {
+          void present(androidControlsPage, undefined, { style: 'push' });
+        }}
+      />
     </Scene>
   );
 }
@@ -137,6 +144,15 @@ function SettingsScreen() {
       <Copy>Settled sheets: {settled}</Copy>
       <Action title="Open form sheet" onPress={() => open('formSheet')} />
       <Action title="Open page sheet" onPress={() => open('pageSheet')} />
+      <Action
+        title="Open controls sheet"
+        onPress={() => {
+          void present(androidControlsPage, undefined, {
+            style: 'formSheet',
+            sheetAllowedDetents: [1],
+          });
+        }}
+      />
     </Scene>
   );
 }

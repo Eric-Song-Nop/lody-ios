@@ -1,0 +1,67 @@
+{
+  "collection": "Material Symbols",
+  "upstream": "https://github.com/google/material-design-icons",
+  "license": "Apache-2.0",
+  "icons": [
+    {
+      "name": "folder-outline",
+      "source": "https://api.iconify.design/material-symbols/folder-outline.svg",
+      "sha256": "c5897b1130f62ffb4c40017b7d66f85a7850ab2d3fdd0ddc3db967190a798b7a"
+    },
+    {
+      "name": "folder",
+      "source": "https://api.iconify.design/material-symbols/folder.svg",
+      "sha256": "4bfe333483129786241becacff898b45ef041c4d0f0190f447f5049716a12f81"
+    },
+    {
+      "name": "settings-outline",
+      "source": "https://api.iconify.design/material-symbols/settings-outline.svg",
+      "sha256": "b4fbb77020d5b3bbf36ce4878115501da2f1b1ff3de915447ba8fb16dfbdc6cd"
+    },
+    {
+      "name": "settings",
+      "source": "https://api.iconify.design/material-symbols/settings.svg",
+      "sha256": "a80c22f0c109b696e18d4da0bb123e3248b23536d893cb05091f14257b04a93e"
+    },
+    {
+      "name": "add",
+      "source": "https://api.iconify.design/material-symbols/add.svg",
+      "sha256": "f62fe45804608d2e4d5295b4e9c95b739095655a58508ef5974d97747eccb9d5"
+    },
+    {
+      "name": "search",
+      "source": "https://api.iconify.design/material-symbols/search.svg",
+      "sha256": "1d24d9034f3059216bdf92a6c5f79c1cf0f0dcd70e030b09f7144c416062b121"
+    },
+    {
+      "name": "check",
+      "source": "https://api.iconify.design/material-symbols/check.svg",
+      "sha256": "83597ab2a8ac3730cc9775e97ac11171c7ed1138a925781e5debc298252c45dc"
+    },
+    {
+      "name": "close",
+      "source": "https://api.iconify.design/material-symbols/close.svg",
+      "sha256": "c3a8c0f561e4a1000edc0c8d193188d2020719c69b8388df97ca0bc1b4004e03"
+    },
+    {
+      "name": "more-horiz",
+      "source": "https://api.iconify.design/material-symbols/more-horiz.svg",
+      "sha256": "7a4188430b00b46bca608b2d64bc1d315d98ae3d9a22141a2a371d5e92894c41"
+    },
+    {
+      "name": "person-outline",
+      "source": "https://api.iconify.design/material-symbols/person-outline.svg",
+      "sha256": "ad33d658e29a2754ed235655e21151e423a1395e6cde64e3c5f58062ba8225b4"
+    },
+    {
+      "name": "info-outline",
+      "source": "https://api.iconify.design/material-symbols/info-outline.svg",
+      "sha256": "6ebe07ea989963bdfcb3bf898c394c90603b39711841043fd3d1bd16e0be74fb"
+    },
+    {
+      "name": "circle-outline",
+      "source": "https://api.iconify.design/material-symbols/circle-outline.svg",
+      "sha256": "e9f07296fbf93c49715d4ae0db27890a97456ef0cdb53640fe1101a3776687f5"
+    }
+  ]
+}

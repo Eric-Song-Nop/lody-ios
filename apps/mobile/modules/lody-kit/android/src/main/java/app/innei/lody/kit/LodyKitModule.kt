@@ -53,6 +53,33 @@ class LodyKitModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("LodyKit")
+    View(app.innei.lody.kit.chrome.LodySymbolView::class) {
+      Prop("symbol") { view: app.innei.lody.kit.chrome.LodySymbolView, value: String -> view.setSymbol(value) }
+      Prop("pointSize") { view: app.innei.lody.kit.chrome.LodySymbolView, value: Float -> view.setPointSize(value) }
+      Prop("tint") { view: app.innei.lody.kit.chrome.LodySymbolView, value: String? -> view.setTint(value) }
+    }
+    View(app.innei.lody.kit.chrome.LodySymbolButton::class) {
+      Events("onSymbolPress", "onSymbolLongPress")
+      Prop("symbol") { view: app.innei.lody.kit.chrome.LodySymbolButton, value: String -> view.setSymbol(value) }
+      Prop("accessibilityName") { view: app.innei.lody.kit.chrome.LodySymbolButton, value: String -> view.setLabel(value) }
+      Prop("disabled") { view: app.innei.lody.kit.chrome.LodySymbolButton, value: Boolean -> view.setDisabled(value) }
+      Prop("prominent") { view: app.innei.lody.kit.chrome.LodySymbolButton, value: Boolean -> view.setProminent(value) }
+      Prop("longPress") { view: app.innei.lody.kit.chrome.LodySymbolButton, value: Boolean -> view.setLongPress(value) }
+      Prop("tint") { view: app.innei.lody.kit.chrome.LodySymbolButton, value: String? -> view.setTint(value) }
+    }
+    View(app.innei.lody.kit.press.LodyPressable::class) {
+      Events("onNativePress")
+      Prop("disabled") { view: app.innei.lody.kit.press.LodyPressable, value: Boolean -> view.setDisabled(value) }
+      Prop("haptic") { view: app.innei.lody.kit.press.LodyPressable, value: Boolean -> view.haptic = value }
+      Prop("pressScale") { view: app.innei.lody.kit.press.LodyPressable, value: Float ->
+        require(value.isFinite() && value > 0 && value <= 1) { "Press scale must be between 0 and 1" }
+        view.pressScale = value
+      }
+    }
+    View(app.innei.lody.kit.press.LodyGlassSurface::class) {
+      Prop("radius") { view: app.innei.lody.kit.press.LodyGlassSurface, value: Float -> view.setRadius(value) }
+      Prop("tint") { view: app.innei.lody.kit.press.LodyGlassSurface, value: String? -> view.setTint(value) }
+    }
     View(app.innei.lody.kit.chrome.LodyCloseButton::class) {
       Events("onClose")
       Prop("label") { view: app.innei.lody.kit.chrome.LodyCloseButton, label: String? -> view.setLabel(label) }
