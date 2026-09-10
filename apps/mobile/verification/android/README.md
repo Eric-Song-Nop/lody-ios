@@ -159,6 +159,15 @@ global device language settings, TalkBack speech or process-death draft recovery
 
 ### Clipboard and display preferences
 
+`--case list-fonts --appearance light|dark` uses the production grouped list in
+page and sheet hosts. It changes the real system `font_scale` from 1.0 to 1.3 and
+back while the list is mounted, compares the long title's rendered height and row
+bounds, retains the action counter/process, and checks Back dismissal. The prior
+font setting is restored in `finally`, including an originally absent setting.
+This is a native-list font check; it does not establish TalkBack speech, every
+control's font behavior, or arbitrarily large accessibility layouts. Screenshots
+and recording require separate visual review before acceptance.
+
 `--case system` exercises the real LodyKit clipboard and inbox preference APIs.
 It force-stops only the verification app to check persisted launch values, then
 uses the Android EditText system Paste key to compare the complete clipboard fixture.

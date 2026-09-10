@@ -15,6 +15,7 @@ import controls
 import menus
 import menu_edges
 import lists
+import list_fonts
 import locales
 import locale_switch
 import system_api
@@ -33,7 +34,7 @@ def command(args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--apk', type=Path, required=True)
-    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption', 'navigation-teardown', 'controls', 'menus', 'menu-edges', 'lists', 'locales', 'locale-switch', 'system', 'feedback', 'feedback-keyboard'], required=True)
+    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption', 'navigation-teardown', 'controls', 'menus', 'menu-edges', 'lists', 'list-fonts', 'locales', 'locale-switch', 'system', 'feedback', 'feedback-keyboard'], required=True)
     parser.add_argument('--appearance', choices=['light', 'dark'], default='light', help='System appearance for control/menu cases; restored after verification.')
     parser.add_argument('--locale-host', choices=['page', 'sheet'], default='page', help='Host for real application language switching.')
     parser.add_argument('--feedback-host', choices=['page', 'sheet'], default='page', help='Feedback host; run both separately to keep each recording within 180 seconds.')
@@ -160,7 +161,7 @@ def main():
         result['serial'] = serial
         result['system'] = shell('getprop', 'ro.build.fingerprint')
         result['abi'] = shell('getprop', 'ro.product.cpu.abi')
-        if args.case in ('controls', 'menus', 'menu-edges', 'lists', 'locales', 'locale-switch', 'system', 'feedback', 'feedback-keyboard'):
+        if args.case in ('controls', 'menus', 'menu-edges', 'lists', 'list-fonts', 'locales', 'locale-switch', 'system', 'feedback', 'feedback-keyboard'):
             mode = shell('cmd', 'uimode', 'night')
             match = re.search(r'\b(auto|yes|no|custom)\b', mode)
             if not match:
@@ -200,6 +201,9 @@ def main():
         elif args.case == 'locales':
             result['fixtureVersion'] = 'locales-v1'
             locales.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
+        elif args.case == 'list-fonts':
+            result['fixtureVersion'] = 'list-fonts-v1'
+            list_fonts.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
         elif args.case == 'lists':
             result['fixtureVersion'] = 'lists-v1'
             lists.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
