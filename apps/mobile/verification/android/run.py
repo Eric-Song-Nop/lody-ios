@@ -173,7 +173,7 @@ def main():
                 capture(f'teardown-released-{cycle}')
             result['checks'].append({'id': 'A-NAV-03-teardown', 'status': 'pass', 'detail': 'Two complete host dismissals release mounted pages, both pending results and the observed presentation session'})
         elif args.case == 'navigation-interruption':
-            result['fixtureVersion'] = 'navigation-interruption-v3'
+            result['fixtureVersion'] = 'navigation-interruption-v4'
             result['gestureDriverSha256'] = hashlib.file_digest(gesture_dex.open('rb'), 'sha256').hexdigest()
             mode = shell('settings', 'get', 'secure', 'navigation_mode')
             if mode != '2':
@@ -198,12 +198,17 @@ def main():
             tap_button(wait_text('Offline navigation: settings'), 'Projects')
             wait_text('Offline navigation: sessions')
             shell('input', 'keyevent', 'KEYCODE_BACK')
-            wait_text('Project returns: 5')
-            result['checks'].append({'id': 'A-NAV-03-rapid-return', 'status': 'pass', 'detail': 'Committed edge gesture, three immediate return cycles and retained tab stacks'})
-            result['acceptanceGaps'] = ['Edge return-and-release leaves the page visible, but this alone does not prove an active predictive-back transition was cancelled. Full A-NAV-03 also requires teardown evidence.']
+            tree = wait_text('Project returns: 5')
             capture('navigation-interruption-passed')
+            tap_button(tree, 'Return to runtime verification')
+            tree = wait_text('Navigation audit: mounted=0 pending=0 retained=0')
+            if 'settled=5 cancelled=5' not in texts(tree):
+                raise AssertionError('Rapid return did not release all five presentation results')
+            capture('rapid-return-released')
+            result['checks'].append({'id': 'A-NAV-03-rapid-return', 'status': 'pass', 'detail': 'Committed edge gesture, three immediate returns, retained tab stacks and all five presentation results released'})
+            result['visualReviewRequired'] = ['Confirm the system recognized the held edge gesture in back-gesture-preview.png/video, then retained Sessions after cancellation. This is not a claim of a page-level predictive transition animation.']
         elif args.case == 'navigation':
-            result['fixtureVersion'] = 'navigation-v1'
+            result['fixtureVersion'] = 'navigation-v2'
             tap_button(tree, 'Open navigation verification')
             tap_button(wait_text('Offline navigation: projects'), 'Open offline project')
             tap_button(wait_text('Offline navigation: sessions'), 'Open offline session')
@@ -236,8 +241,25 @@ def main():
             tree = wait_text('Settled sheets: 3')
             if 'Sheet result: cancelled' not in texts(tree):
                 raise AssertionError('Native close did not settle cancellation')
+            tap_button(tree, 'Open form sheet')
+            tap_button(wait_text('Offline navigation: sheet'), 'Cancel sheet')
+            tree = wait_text('Settled sheets: 4')
+            if 'Sheet result: cancelled' not in texts(tree):
+                raise AssertionError('Explicit cancellation result was lost')
+            tap_button(tree, 'Open form sheet')
+            tap_button(wait_text('Offline navigation: sheet'), 'Push sheet child')
+            tap_button(wait_text('Offline navigation: sheet child'), 'Complete child')
+            tree = wait_text('Child result: completed')
+            capture('nested-completed')
+            header = next(node for node in tree.iter('node') if node.get('text') == 'Navigation sheet')
+            x1, y1, x2, y2 = map(int, re.findall(r'\d+', header.attrib['bounds']))
+            _, _, _, height = map(int, re.findall(r'\d+', next(tree.iter('node')).attrib['bounds']))
+            shell('input', 'touchscreen', 'swipe', str((x1 + x2) // 2), str((y1 + y2) // 2), str((x1 + x2) // 2), str(height - 50), '350')
+            tree = wait_text('Settled sheets: 5')
+            if 'Sheet result: cancelled' not in texts(tree):
+                raise AssertionError('Downward sheet dismissal did not settle cancellation')
             result['checks'].append({'id': 'A-NAV-02', 'status': 'pass'})
-            result['checks'].append({'id': 'A-NAV-03', 'status': 'pass', 'detail': 'Nested system return retains its parent sheet; each outer result settles once'})
+            result['checks'].append({'id': 'A-NAV-03-nested-return', 'status': 'pass', 'detail': 'Nested system return/completion retain their parent; all five outer results settle once'})
             capture('navigation-passed')
         elif args.case == 'storage':
             tap_button(tree, 'Run storage verification')
