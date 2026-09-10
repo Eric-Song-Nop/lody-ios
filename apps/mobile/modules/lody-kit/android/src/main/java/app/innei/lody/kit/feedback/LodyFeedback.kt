@@ -88,6 +88,7 @@ internal class LodyFeedback {
       toastDeadline = SystemClock.uptimeMillis() + timeout(3200)
       render()
       scheduleExpiration()
+      haptic(kind == "error")
     }
   }
 
@@ -102,6 +103,7 @@ internal class LodyFeedback {
       bannerDeadline = if (kind == "attention") 0 else SystemClock.uptimeMillis() + timeout(4000)
       render()
       scheduleExpiration()
+      haptic(false)
     }
   }
 
@@ -147,6 +149,13 @@ internal class LodyFeedback {
     }
     // Older Android has no timeout recommendation API; let accessibility users dismiss.
     return if (manager.isTouchExplorationEnabled) Int.MAX_VALUE.toLong() else base.toLong()
+  }
+
+  private fun haptic(error: Boolean) {
+    val effect = if (Build.VERSION.SDK_INT >= 30) {
+      if (error) android.view.HapticFeedbackConstants.REJECT else android.view.HapticFeedbackConstants.CONFIRM
+    } else android.view.HapticFeedbackConstants.CLOCK_TICK
+    activeView()?.performHapticFeedback(effect)
   }
 
   private fun expireNotices() {
@@ -253,6 +262,7 @@ internal class LodyFeedback {
       minimumHeight = dp(context, 48)
       setPadding(dp(context, 16), dp(context, 8), 0, dp(context, 8))
       elevation = dp(context, 4).toFloat()
+      setOnClickListener { dismiss() }
     }
     val background = GradientDrawable().apply {
       cornerRadius = dp(context, 12).toFloat()
