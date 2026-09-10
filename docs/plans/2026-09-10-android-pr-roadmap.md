@@ -76,7 +76,7 @@ PR-01 将 Android 命令的参数、设备选择、安装、输出路径和清�
 | F：发行质量           | PR-16 | 全场景回归与性能收敛                         | PR-11～PR-15 | 待开始                                                                                       |
 | F                     | PR-17 | Android 内部发行、CI、OTA 隔离和文档         | PR-16        | 待开始                                                                                       |
 
-PR-05b 已创建 [draft #7](https://github.com/Eric-Song-Nop/lody-ios/pull/7)，以 PR-05a 为父分支；首批控件、图标和主题子集已有本机证据；原生菜单及上下文动作的双宿主深浅色触屏检查也已通过，见[菜单报告](../research/android-menus-verification.md)。菜单长标题、空菜单、键盘焦点和外观切换已有补充证据；基础分组列表的双宿主深浅色子集已通过，见[列表报告](../research/android-lists-verification.md)；本地化与 TalkBack 等可访问性验收仍未完成。
+PR-05b 已创建 [draft #7](https://github.com/Eric-Song-Nop/lody-ios/pull/7)，以 PR-05a 为父分支；首批控件、图标和主题子集已有本机证据；原生菜单及上下文动作的双宿主深浅色触屏检查也已通过，见[菜单报告](../research/android-menus-verification.md)。菜单长标题、空菜单、键盘焦点和外观切换已有补充证据；基础分组列表的双宿主深浅色子集已通过，见[列表报告](../research/android-lists-verification.md)；原生语言资源已通过设备比较；整套语言切换、字体与 TalkBack 验收仍未完成。
 
 依赖表决定执行顺序，编号不要求严格串行。例如 PR-05 可以与阶段 B 独立推进；PR-12、PR-13、PR-14 在只读闭环之后互不依赖。这里是工作依赖，不是自动启用多 agent 的指令。
 
@@ -214,7 +214,7 @@ PR-05b 已创建 [draft #7](https://github.com/Eric-Song-Nop/lody-ios/pull/7)，
 - [x] 保留 NativeTabs、每 tab Stack、`definePage / usePageRuntime / present` 与 `sessionNav`；覆盖系统返回、手势返回、sheet 关闭和 unmount。PR-05a 本机证据见[导航报告](../research/android-navigation-verification.md)；系统边缘手势取消已验证，当前配置不提供页面级预测返回动画。
 - [ ] 实现能力清单中的基础分组行、菜单、按钮、按压反馈、语义图标和必要提示控件；颜色采用蓝色动作与中性系统背景。
 - [ ] 保持导航行与普通动作行的正确选择/返回反馈；用 Android 合适的行为实现，不机械复制 UIKit 绘制。
-- [ ] 从 `apps/mobile/locales` 生成 Android strings/plurals，核验占位符和转义；保留 iOS xcstrings 流程。
+- [x] 从 `apps/mobile/locales` 生成 Android strings/plurals，核验占位符和转义；保留 iOS xcstrings 流程。101 个原生资源及 357 次设备比较已通过，见[语言资源报告](../research/android-locales-verification.md)；整套界面语言切换仍由下一项验收。
 - [ ] Debug 场景使用生产组件，包含深浅色、中文/英文、TalkBack、系统字体与至少 48 dp 的 Android 触摸目标。
 
 范围：LodyKit `chrome/list/menu/press` 对应平台实现、`src/lib/presentation` 必要平台配置、locales plugin、Debug screens 与验证 runner。

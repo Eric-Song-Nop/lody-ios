@@ -15,6 +15,8 @@
 
 PR-05b 还已实现原生 Symbol、SymbolButton、Pressable 与中性 Surface，page/sheet 深浅色子集验证见[控件报告](../research/android-controls-verification.md)。原生 MenuButton/ContextMenu 已实现，菜单动作及生命周期的已验范围见[菜单报告](../research/android-menus-verification.md)；基础 NativeGroupedList 已接入 RecyclerView/SwipeRefreshLayout，已实现边界和待验项见[列表报告](../research/android-lists-verification.md)；完整 A-UI-01 与产品入口尚未开放。
 
+Android 原生 strings/plurals 已由共享语言源生成；101 个资源的设备读取、复数和插值检查见[语言资源报告](../research/android-locales-verification.md)。整套界面的系统语言切换与 TalkBack 仍待验证。
+
 以 `src/index.android.ts`（LodyKit 内）实际导出和原生注册为入口依据。未列出的产品接口继续按后续 PR 实施，不能通过扩大 TS 导出或注册空实现绕过阶段门槛。
 
 **范围决策**
