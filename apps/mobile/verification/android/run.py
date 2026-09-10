@@ -232,7 +232,7 @@ def main():
             result['fixtureVersion'] = 'feedback-v3'
             feedback.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.feedback_host)
         elif args.case == 'feedback-default':
-            result['fixtureVersion'] = 'feedback-default-v1'
+            result['fixtureVersion'] = 'feedback-default-v2'
             feedback_default.run(shell, wait_text, tap_button, screenshot, capture, texts, result, tree, args.appearance, args.feedback_host)
         elif args.case == 'feedback-keyboard':
             result['fixtureVersion'] = 'feedback-keyboard-v2'

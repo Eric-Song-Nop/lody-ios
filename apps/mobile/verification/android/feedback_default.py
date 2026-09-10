@@ -28,7 +28,7 @@ def run(shell, wait_text, tap_button, screenshot, capture, texts, result, tree, 
         started = time.monotonic()
         tap_button(tree, 'Show info toast')
         # No UI Automator dump here: its idle wait can consume the entire toast.
-        time.sleep(0.3)
+        result['screenshotStartedSecondsAfterInput'] = time.monotonic() - started
         screenshot('default-toast-visible')
         captured = time.monotonic() - started
         result['visibleCaptureSecondsAfterInput'] = captured
