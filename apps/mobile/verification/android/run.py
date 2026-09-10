@@ -174,6 +174,7 @@ def main():
             result['checks'].append({'id': 'A-NAV-03-teardown', 'status': 'pass', 'detail': 'Two complete host dismissals release mounted pages, both pending results and the observed presentation session'})
         elif args.case == 'navigation-interruption':
             result['fixtureVersion'] = 'navigation-interruption-v3'
+            result['gestureDriverSha256'] = hashlib.file_digest(gesture_dex.open('rb'), 'sha256').hexdigest()
             mode = shell('settings', 'get', 'secure', 'navigation_mode')
             if mode != '2':
                 raise AssertionError(f'Gesture navigation is required for interruption evidence; actual mode={mode}')
