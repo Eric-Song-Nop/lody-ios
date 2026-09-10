@@ -1,6 +1,6 @@
 # Android clipboard, inbox preferences and selection feedback
 
-PR-05b adds real LodyKit implementations of `copyText`, `selectionFeedback`, `initialInboxView`, `saveInboxView`, `readInboxExpansion` and `saveInboxExpansion`. This does not complete the system UI API inventory: toast and session-banner APIs are still outside the Android entry graph.
+PR-05b adds real LodyKit implementations of `copyText`, `selectionFeedback`, `initialInboxView`, `saveInboxView`, `readInboxExpansion` and `saveInboxExpansion`. This report covers that subset; subsequent toast and session-banner work is tracked in the separate [native feedback report](android-feedback-verification.md).
 
 Clipboard writes use Android ClipboardManager and preserve the supplied text. No extra copy toast is shown. Selection feedback uses the foreground Activity's decor view on the main queue and requests platform CLOCK_TICK feedback without overriding system settings. A resolved call does not prove a physical vibration.
 
@@ -22,4 +22,4 @@ The four state screenshots were opened and reviewed: saved preferences, restored
 
 `pnpm check` and the incremental Android build pass after the fixture color change. The system API implementation also passed `pnpm test`, `pnpm bundle`, a normally signed iOS simulator build and strict deep signature verification; the later color change is confined to the Android Debug screen. Build/check logs are under `.artifacts/android/environment/system-*`; the iOS log is `.artifacts/android/ios-regression/system-build.log`.
 
-This accepts only the listed system API subset. Toast/banner delivery, full PR-05b host/navigation/accessibility regression and stage C remain incomplete. Acceptance-service publication is pending because `lh` is unavailable; local artifacts are retained, not represented as uploaded evidence.
+This accepts only the listed system API subset. Toast/banner delivery is tracked separately; full PR-05b host/navigation/accessibility regression and stage C remain incomplete. Acceptance-service publication is pending because `lh` is unavailable; local artifacts are retained, not represented as uploaded evidence.

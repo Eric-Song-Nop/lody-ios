@@ -61,6 +61,12 @@ Artifacts add `runtime.json` (runtime/fixture hashes, structural projection chec
 
 This runner does not prove physical haptics, 120 Hz behavior, push delivery or OEM background policy. Separate device validation remains required in the roadmap. Acceptance service publication is additional to local artifacts; if the `lh` CLI is unavailable, retain artifacts and explicitly report publication as pending.
 
+**Native feedback (PR-05b)**
+
+Run `--case feedback --feedback-host page` and `--case feedback --feedback-host sheet`, each with `--appearance light` and `--appearance dark`, using the same internal APK. Each invocation records one host so the flow stays within the 180-second screen recording limit. The case temporarily sets the real Android interactive accessibility timeout to 10 seconds, then restores and verifies the original value in `finally`; results identify this preference. It does not change the APK's default timers or prove default-duration visual timing.
+
+The scene calls production LodyKit toast/banner APIs. It verifies Unicode text, at most three burst notices with consecutive duplicate coalescing, expiry, persistent attention, dismissal, page touch pass-through, background cleanup and migration to the returning window. Captures must visibly show the notice, not merely the underlying fixture after expiry. See `docs/research/android-feedback-verification.md` for source/APK identity, failures and remaining keyboard/accessibility/device coverage.
+
 **Runtime recovery case (PR-03)**
 
 ```sh
