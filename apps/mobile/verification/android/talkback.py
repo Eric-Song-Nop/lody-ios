@@ -104,7 +104,9 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
             if permission is not None:
                 ready_since = None
                 deny = next((node for node in tree.iter('node')
-                             if node.get('resource-id') == 'com.android.permissioncontroller:id/permission_deny_button'), None)
+                             if node.get('resource-id') in (
+                                 'com.android.permissioncontroller:id/permission_deny_button',
+                                 'com.android.permissioncontroller:id/permission_deny_and_dont_ask_again_button')), None)
                 if deny is not None:
                     if prompt_attempts == 2:
                         raise AssertionError('TalkBack notification prompt did not dismiss')
