@@ -43,12 +43,16 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
         if list_return != 'present':
             label = {'removed': 'Remove source row', 'disabled': 'Disable source navigation'}[list_return]
             # Stay in keyboard mode while mutating the covered list's data.
-            for _ in range(12):
+            observations = []
+            result.setdefault('detailKeyboardFocus', {})[host] = observations
+            for step in range(12):
                 tree = wait_text('Native list detail')
+                observations.append({'step': step, 'focused': [dict(node.attrib) for node in tree.iter('node') if node.get('focused') == 'true']})
                 if any(node.get('focused') == 'true' and label in (node.get('content-desc'), node.get('text')) for node in tree.iter('node')):
                     break
                 shell('input', 'keyevent', 'KEYCODE_TAB')
             else:
+                capture(f'focus-{host}-mutation-unreachable')
                 raise AssertionError(f'Cannot reach detail mutation button: {label}')
             shell('input', 'keyevent', 'KEYCODE_ENTER')
             wait_text(f'Source row: {list_return}')
