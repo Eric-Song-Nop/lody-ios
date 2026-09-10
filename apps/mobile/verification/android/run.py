@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run explicit offline Android cases on a caller-owned device or a leased AVD."""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -36,7 +37,7 @@ def main():
     emulator_log = None
     recorder_pid = None
     serial = args.serial
-    result = {'case': args.case, 'status': 'failed', 'checks': [], 'commit': command(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True, text=True).stdout.strip()}
+    result = {'apkSha256': hashlib.file_digest(args.apk.open('rb'), 'sha256').hexdigest(), 'case': args.case, 'status': 'failed', 'checks': [], 'commit': command(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True, text=True).stdout.strip()}
 
     def shell(*parts):
         return command([adb, '-s', serial, 'shell', *parts], capture_output=True, text=True).stdout.strip()
@@ -137,6 +138,11 @@ def main():
         result['status'] = 'pass'
     except Exception as error:
         result['error'] = str(error)
+        if serial:
+            try:
+                capture('failure')
+            except Exception as capture_error:
+                result['captureError'] = str(capture_error)
         raise
     finally:
         if recorder_pid and recorder_pid.isdigit():
@@ -152,11 +158,13 @@ def main():
                 subprocess.run([str(adb), '-s', serial, 'logcat', '-d', '-t', '1500'], stdout=file, stderr=subprocess.STDOUT, timeout=20)
         (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
         if emulator:
-            subprocess.run([str(adb), '-s', serial, 'emu', 'kill'], capture_output=True, timeout=15)
+            if emulator.poll() is None:
+                emulator.terminate()
             try:
                 emulator.wait(timeout=20)
             except subprocess.TimeoutExpired:
-                emulator.terminate()
+                emulator.kill()
+                emulator.wait(timeout=10)
         if emulator_log:
             emulator_log.close()
     if result['status'] != 'pass':
