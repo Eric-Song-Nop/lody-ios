@@ -235,9 +235,14 @@ def main():
             try:
                 shell('kill', '-2', recorder_pid)
                 time.sleep(2)
-                command([*adb_command, '-s', serial, 'pull', f'/sdcard/lody-verify-{args.case}.mp4', args.output / f'{args.case}.mp4'], capture_output=True)
             except Exception as error:
                 result['videoError'] = str(error)
+                result['status'] = 'failed'
+            try:
+                # Keep partial video even if screenrecord already hit its time limit.
+                command([*adb_command, '-s', serial, 'pull', f'/sdcard/lody-verify-{args.case}.mp4', args.output / f'{args.case}.mp4'], capture_output=True)
+            except Exception as error:
+                result['videoPullError'] = str(error)
                 result['status'] = 'failed'
         if serial:
             with (args.output / 'logcat.txt').open('w') as file:
