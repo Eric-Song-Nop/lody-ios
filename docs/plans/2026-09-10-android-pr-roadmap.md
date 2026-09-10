@@ -60,8 +60,8 @@ PR-01 将 Android 命令的参数、设备选择、安装、输出路径和清�
 | A：边界与验证基础     | PR-00 | 双平台约束、能力清单与范围决策               | 无           | [draft #1](https://github.com/Eric-Song-Nop/lody-ios/pull/1)                                 |
 | A                     | PR-01 | Android 原生壳、模块隔离、构建与离线验证入口 | PR-00        | [draft #2，本机验收通过，CI iOS UI 待修复](https://github.com/Eric-Song-Nop/lody-ios/pull/2) |
 | B：WASM 数据能力      | PR-02 | 真实 bundled JS/WASM 的离线数据链路          | PR-01        | [draft #3，本机验收通过，CI 复跑中](https://github.com/Eric-Song-Nop/lody-ios/pull/3)        |
-| B                     | PR-03 | 生命周期、watchdog 与受控恢复                | PR-02        | 验证中：真实恢复首轮通过，补会话订阅恢复断言                                                 |
-| B                     | PR-04 | Keystore、SQLite 与账号上下文恢复            | PR-03        | 验证中：真实恢复首轮通过，补会话订阅恢复断言                                                 |
+| B                     | PR-03 | 生命周期、watchdog 与受控恢复                | PR-02        | [draft #4，恢复验证通过，回归中](https://github.com/Eric-Song-Nop/lody-ios/pull/4)           |
+| B                     | PR-04 | Keystore、SQLite 与账号上下文恢复            | PR-03        | [draft #4，恢复验证通过，回归中](https://github.com/Eric-Song-Nop/lody-ios/pull/4)           |
 | C：平台 UI 与聊天选型 | PR-05 | 导航、系统控件、主题和本地化                 | PR-01        | 待开始                                                                                       |
 | C                     | PR-06 | Enriched 在真实虚拟列表中的离线原型          | PR-02、PR-05 | 待开始                                                                                       |
 | C                     | PR-07 | 流式调度、选择与滚动达标，渲染方案定案       | PR-06        | 待开始                                                                                       |
