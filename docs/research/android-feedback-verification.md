@@ -35,7 +35,7 @@ The earlier `feedback-vector-*` matrix passed its behavioral assertions but fail
 
 All 20 notice-state screenshots were opened and reviewed, together with samples spanning each full recording. Native headers remain visible, text and close actions are readable in both appearances, toast bursts are bounded to three cards, and the returning window owns the surviving banner. Every run restored the interactive accessibility timeout preference and night mode. The first three runs recorded clean `d3184ec`; the final run’s source identity is retained in its result file (documentation changed during the matrix, with no APK change). The matrix shut down its own emulator before starting iOS verification.
 
-This is a bounded feedback subset, not complete PR-05b acceptance. Keyboard, system-font and TalkBack coverage remain required; video sampling does not establish frame-rate or physical haptic performance. Local artifacts have not been published through `lh`, which is unavailable on this host.
+This is a bounded feedback subset, not complete PR-05b acceptance. Keyboard coverage is recorded separately below; system-font and TalkBack coverage remain required; video sampling does not establish frame-rate or physical haptic performance. Local artifacts have not been published through `lh`, which is unavailable on this host.
 
 ## iOS offline fixture correction
 
@@ -45,8 +45,23 @@ Commit `6e8339c` injects creation options through the existing screen service bo
 
 ## Keyboard follow-up
 
-The separate `feedback-keyboard` case opens a real TextInput and system IME, requests the production toast, compares its native bounds with the visible keyboard, and checks that focus and draft text survive. Native close must leave the keyboard open; system back must dismiss the keyboard before closing the host. Run separately for page/sheet and each appearance. This fixture and runner are implemented; emulator results are pending.
+The separate `feedback-keyboard` case opens a real TextInput and system IME, requests the production toast, compares its native bounds with the visible keyboard, and checks that focus and draft text survive. Native close must leave the keyboard open; system back must dismiss the keyboard before closing the host. Run separately for page/sheet and each appearance. The fixture and runner pass the emulator matrix below.
 
 The first keyboard run (`feedback-keyboard-first-page`, clean `8e8b89f`, APK `e2d0d2d04c53dc9b838277c9f909756e2531c3d6a99f33a700f285badda086d1`) failed to observe the transient toast during a slow first IME startup. Its log contains input-method timeouts and system delays; this does not prove why the toast was missed. The follow-up fixture counts actual public API requests and captures IME readiness and the requested state. The geometry/focus case now uses the real system 60-second interactive timeout, restores it afterward and makes no expiry claim.
 
-The observed rerun (`feedback-keyboard-observed-page-light`, clean `8368e1a`, APK `22cfe0e8764d05a0ee137e42473353b402edf96e6d736a6f95b1d07c6cca9999`) visibly showed the native toast above the keyboard with the input caret retained. It failed because UI Automator’s active-window hierarchy omitted the separate keyboard window. The v2 verifier obtains the visible IME frame from `dumpsys window displays`, records the raw system report, and rejects missing or ambiguous frames. This checks the app’s card against independently reported system geometry. The repaired matrix is pending; both earlier failures remain retained.
+The observed rerun (`feedback-keyboard-observed-page-light`, clean `8368e1a`, APK `22cfe0e8764d05a0ee137e42473353b402edf96e6d736a6f95b1d07c6cca9999`) visibly showed the native toast above the keyboard with the input caret retained. It failed because UI Automator’s active-window hierarchy omitted the separate keyboard window. The v2 verifier obtains the visible IME frame from `dumpsys window displays`, records the raw system report, and rejects missing or ambiguous frames. This checks the app’s card against independently reported system geometry. The repaired matrix passes below; both earlier failures remain retained.
+
+### Keyboard matrix result
+
+The same APK `22cfe0e8764d05a0ee137e42473353b402edf96e6d736a6f95b1d07c6cca9999` (fixture code from `b818853`) passes all four cases on the dedicated API 36 arm64 emulator:
+
+| Local directory under `.artifacts/android/` | Runner commit / worktree       | Video   | Result                          |
+| ------------------------------------------- | ------------------------------ | ------- | ------------------------------- |
+| `feedback-keyboard-window-page-light`       | `704f09c`, clean at start      | 35.50 s | Behavior and visual review pass |
+| `feedback-keyboard-window-sheet-light`      | `83cf827`, documentation dirty | 37.75 s | Behavior and visual review pass |
+| `feedback-keyboard-window-page-dark`        | `9cfbf29`, clean               | 35.34 s | Behavior and visual review pass |
+| `feedback-keyboard-window-sheet-dark`       | `9cfbf29`, clean               | 38.33 s | Behavior and visual review pass |
+
+All 16 readiness/requested/visible/dismissed screenshots and full-recording five-second samples were reviewed. The immediate requested capture can precede native rendering; the separate visible capture and geometry assertion establish display. The native toast bottom is 1,475 px and the independent system IME starts at 1,517 px in this device configuration. Draft text and focus survive the request, native close leaves the IME open, and system back closes IME before the page/sheet. Every run restores the system interactive-timeout preference and night mode. The matrix shuts down only its owned emulator.
+
+No native implementation change was needed for this keyboard result. The new Debug screen uses the production feedback API and TextInput; verification corrections address slow observation and the separate keyboard window. `pnpm check` and the updated Android release build pass. The keyboard-only Android fixture does not change the iOS entry graph. This does not replace PR-08 composer/IME composition tests, nor complete PR-05b’s language, font, TalkBack, dynamic list or final navigation requirements.

@@ -46,16 +46,6 @@ Outputs default to `.artifacts/android/<timestamp>/`: `result.json`, UI hierarch
 
 The case uses the real module's Expo lifecycle callbacks. It does not register fake implementations for unbuilt Cloud or UI capabilities. WASM is verified separately below; watchdog, storage and product fixtures arrive in their roadmap PRs.
 
-`--case feedback-keyboard` uses the same host and appearance arguments, opens a
-real input and system keyboard, then checks native toast clearance, preserved
-focus/draft and native close. System back must close the keyboard before the
-page/sheet. This geometry/focus case uses a 60-second system interactive timeout
-so slow IME startup and hierarchy capture do not erase the state being measured;
-it restores the setting and does not test default expiry. Missing dispatch,
-system IME frame, focus or notice fails the case. Screenshots and recordings
-still need visual review. Results and remaining coverage are tracked in
-[the feedback report](../../../../docs/research/android-feedback-verification.md).
-
 **WASM case (PR-02)**
 
 ```sh
@@ -76,6 +66,16 @@ This runner does not prove physical haptics, 120 Hz behavior, push delivery or O
 Run `--case feedback --feedback-host page` and `--case feedback --feedback-host sheet`, each with `--appearance light` and `--appearance dark`, using the same internal APK. Each invocation records one host so the flow stays within the 180-second screen recording limit. The case temporarily sets the real Android interactive accessibility timeout to 10 seconds, then restores and verifies the original value in `finally`; results identify this preference. It does not change the APK's default timers or prove default-duration visual timing.
 
 The scene calls production LodyKit toast/banner APIs. It verifies Unicode text, at most three burst notices with consecutive duplicate coalescing, expiry, persistent attention, dismissal, page touch pass-through, background cleanup and migration to the returning window. Captures must visibly show the notice, not merely the underlying fixture after expiry. See `docs/research/android-feedback-verification.md` for source/APK identity, failures and remaining keyboard/accessibility/device coverage.
+
+`--case feedback-keyboard` uses the same host and appearance arguments, opens a
+real input and system keyboard, then checks native toast clearance, preserved
+focus/draft and native close. System back must close the keyboard before the
+page/sheet. This geometry/focus case uses a 60-second system interactive timeout
+so slow IME startup and hierarchy capture do not erase the state being measured;
+it restores the setting and does not test default expiry. Missing dispatch,
+system IME frame, focus or notice fails the case. Screenshots and recordings
+still need visual review. Results and remaining coverage are tracked in
+[the feedback report](../../../../docs/research/android-feedback-verification.md).
 
 **Runtime recovery case (PR-03)**
 
