@@ -24,6 +24,7 @@ const config: ExpoConfig = {
     'expo-router',
     ['expo-dev-client', { toolsButton: false }],
     './plugins/withMarkdownView',
+    './plugins/withAndroidBuild',
     './plugins/withLocales',
     'expo-localization',
     [

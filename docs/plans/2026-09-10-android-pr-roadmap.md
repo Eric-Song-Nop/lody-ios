@@ -58,11 +58,11 @@ PR-01 将 Android 命令的参数、设备选择、安装、输出路径和清�
 | 阶段                  | PR    | 交付结果                                     | 直接依赖     | 状态                                                                 |
 | --------------------- | ----- | -------------------------------------------- | ------------ | -------------------------------------------------------------------- |
 | A：边界与验证基础     | PR-00 | 双平台约束、能力清单与范围决策               | 无           | [draft #1](https://github.com/Eric-Song-Nop/lody-ios/pull/1)         |
-| A                     | PR-01 | Android 原生壳、模块隔离、构建与离线验证入口 | PR-00        | [draft #1](https://github.com/Eric-Song-Nop/lody-ios/pull/1)         |
-| B：WASM 数据能力      | PR-02 | 真实 bundled JS/WASM 的离线数据链路          | PR-01        | [draft #2，验证中](https://github.com/Eric-Song-Nop/lody-ios/pull/2) |
+| A                     | PR-01 | Android 原生壳、模块隔离、构建与离线验证入口 | PR-00        | [draft #2，验证中](https://github.com/Eric-Song-Nop/lody-ios/pull/2) |
+| B：WASM 数据能力      | PR-02 | 真实 bundled JS/WASM 的离线数据链路          | PR-01        | 待开始                                                               |
 | B                     | PR-03 | 生命周期、watchdog 与受控恢复                | PR-02        | 待开始                                                               |
 | B                     | PR-04 | Keystore、SQLite 与账号上下文恢复            | PR-03        | 待开始                                                               |
-| C：平台 UI 与聊天选型 | PR-05 | 导航、系统控件、主题和本地化                 | PR-01        | [draft #2，验证中](https://github.com/Eric-Song-Nop/lody-ios/pull/2) |
+| C：平台 UI 与聊天选型 | PR-05 | 导航、系统控件、主题和本地化                 | PR-01        | 待开始                                                               |
 | C                     | PR-06 | Enriched 在真实虚拟列表中的离线原型          | PR-02、PR-05 | 待开始                                                               |
 | C                     | PR-07 | 流式调度、选择与滚动达标，渲染方案定案       | PR-06        | 待开始                                                               |
 | C                     | PR-08 | 原生输入与草稿/附件交接                      | PR-07        | 待开始                                                               |

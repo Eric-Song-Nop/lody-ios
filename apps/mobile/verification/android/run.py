@@ -24,8 +24,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--apk', type=Path, required=True)
     parser.add_argument('--case', choices=['bootstrap'], required=True)
+    parser.add_argument('--adb-port', type=int, default=5038, help='Dedicated SDK adb server; leaves the default 5037 server alone.')
     parser.add_argument('--serial', help='Caller-owned device; installs and clears only app.innei.lody.')
     parser.add_argument('--avd', default='Lody_Android_Verify_36')
+    parser.add_argument('--gpu', choices=['auto', 'host', 'software'], default='host')
     parser.add_argument('--avd-home', type=Path, help='AVD registry directory when SDK tools use a different default.')
     parser.add_argument('--output', type=Path, default=ROOT / '.artifacts/android' / time.strftime('%Y%m%d-%H%M%S'))
     args = parser.parse_args()
@@ -33,6 +35,7 @@ def main():
         parser.error('APK does not exist; run pnpm build:android first.')
     args.output.mkdir(parents=True, exist_ok=False)
     adb = SDK / 'platform-tools/adb'
+    adb_command = [str(adb), '-P', str(args.adb_port)]
     emulator = None
     emulator_log = None
     recorder_pid = None
@@ -40,7 +43,7 @@ def main():
     result = {'apkSha256': hashlib.file_digest(args.apk.open('rb'), 'sha256').hexdigest(), 'case': args.case, 'status': 'failed', 'checks': [], 'commit': command(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True, text=True).stdout.strip()}
 
     def shell(*parts):
-        return command([adb, '-s', serial, 'shell', *parts], capture_output=True, text=True).stdout.strip()
+        return command([*adb_command, '-s', serial, 'shell', *parts], capture_output=True, text=True).stdout.strip()
 
     def snapshot():
         shell('uiautomator', 'dump', '/sdcard/lody-verify.xml')
@@ -61,7 +64,7 @@ def main():
 
     def capture(name):
         with (args.output / f'{name}.png').open('wb') as file:
-            command([adb, '-s', serial, 'exec-out', 'screencap', '-p'], stdout=file)
+            command([*adb_command, '-s', serial, 'exec-out', 'screencap', '-p'], stdout=file)
         (args.output / f'{name}.xml').write_text(ET.tostring(snapshot(), encoding='unicode'))
 
     def foreground():
@@ -70,6 +73,11 @@ def main():
         shell('am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity')
 
     try:
+        command([*adb_command, 'start-server'], capture_output=True)
+        server = command([*adb_command, 'server-status'], capture_output=True, text=True).stdout
+        if str(adb.resolve()) not in server:
+            raise RuntimeError('Dedicated adb port is owned by another binary; choose --adb-port.')
+        result['adbServerPort'] = args.adb_port
         if not serial:
             avd_home = args.avd_home
             if avd_home is None and not os.environ.get('ANDROID_AVD_HOME'):
@@ -79,12 +87,13 @@ def main():
                     raise RuntimeError('Specify --avd-home: dedicated AVD registry is missing or ambiguous.')
                 avd_home = matches[0]
             emulator_env = dict(os.environ)
+            emulator_env['ANDROID_ADB_SERVER_PORT'] = str(args.adb_port)
             if avd_home:
                 emulator_env['ANDROID_AVD_HOME'] = str(avd_home.resolve())
             avds = command([SDK / 'emulator/emulator', '-list-avds'], env=emulator_env, capture_output=True, text=True).stdout.splitlines()
             if args.avd not in avds:
                 raise RuntimeError(f'Create the dedicated AVD {args.avd} as documented; existing user AVDs are never erased.')
-            devices = command([adb, 'devices'], capture_output=True, text=True).stdout
+            devices = command([*adb_command, 'devices'], capture_output=True, text=True).stdout
             for port in range(5580, 5680, 2):
                 if f'emulator-{port}' in devices:
                     continue
@@ -96,12 +105,12 @@ def main():
             else:
                 raise RuntimeError('No emulator port available.')
             emulator_log = (args.output / 'emulator.log').open('w')
-            emulator = subprocess.Popen([str(SDK / 'emulator/emulator'), '-avd', args.avd, '-port', str(port), '-no-snapshot', '-no-boot-anim', '-no-audio'], stdout=emulator_log, stderr=subprocess.STDOUT, env=emulator_env)
+            emulator = subprocess.Popen([str(SDK / 'emulator/emulator'), '-avd', args.avd, '-port', str(port), '-no-snapshot', '-gpu', args.gpu, '-no-boot-anim', '-no-audio'], stdout=emulator_log, stderr=subprocess.STDOUT, env=emulator_env)
             deadline = time.monotonic() + 180
             while time.monotonic() < deadline:
                 if emulator.poll() is not None:
                     raise RuntimeError('Emulator exited; inspect emulator.log.')
-                probe = subprocess.run([str(adb), '-s', serial, 'shell', 'getprop', 'sys.boot_completed'], capture_output=True, text=True, timeout=10)
+                probe = subprocess.run([*adb_command, '-s', serial, 'shell', 'getprop', 'sys.boot_completed'], capture_output=True, text=True, timeout=10)
                 if probe.returncode == 0 and probe.stdout.strip() == '1':
                     break
                 time.sleep(1)
@@ -109,7 +118,7 @@ def main():
                 raise TimeoutError('Emulator did not boot in 180 seconds.')
         result['serial'] = serial
         result['system'] = shell('getprop', 'ro.build.fingerprint')
-        command([adb, '-s', serial, 'install', '-r', args.apk], capture_output=True, text=True)
+        command([*adb_command, '-s', serial, 'install', '-r', args.apk], capture_output=True, text=True)
         shell('pm', 'clear', PACKAGE)
         shell('input', 'keyevent', 'KEYCODE_WAKEUP')
         shell('wm', 'dismiss-keyguard')
@@ -149,13 +158,13 @@ def main():
             try:
                 shell('kill', '-2', recorder_pid)
                 time.sleep(2)
-                command([adb, '-s', serial, 'pull', '/sdcard/lody-verify-bootstrap.mp4', args.output / 'bootstrap.mp4'], capture_output=True)
+                command([*adb_command, '-s', serial, 'pull', '/sdcard/lody-verify-bootstrap.mp4', args.output / 'bootstrap.mp4'], capture_output=True)
             except Exception as error:
                 result['videoError'] = str(error)
                 result['status'] = 'failed'
         if serial:
             with (args.output / 'logcat.txt').open('w') as file:
-                subprocess.run([str(adb), '-s', serial, 'logcat', '-d', '-t', '1500'], stdout=file, stderr=subprocess.STDOUT, timeout=20)
+                subprocess.run([*adb_command, '-s', serial, 'logcat', '-d', '-t', '1500'], stdout=file, stderr=subprocess.STDOUT, timeout=20)
         (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
         if emulator:
             if emulator.poll() is None:

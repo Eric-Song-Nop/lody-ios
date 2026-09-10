@@ -4,7 +4,7 @@ PR-01 provides an internal bootstrap entry with the actual Kotlin LodyKit module
 
 **Requirements**
 
-Use JDK 17 and the SDK versions resolved by the pinned Expo/RN dependencies. Current RN/Expo native defaults are minSdk 24 and compile/target SDK 36. The generated Expo project uses Gradle 9.3.1; generated files are not the configuration source. Set `ANDROID_HOME` to your SDK (on macOS the build helper defaults to `~/Library/Android/sdk`).
+Use JDK 17 and the SDK versions resolved by the pinned Expo/RN dependencies. Current RN/Expo native defaults are minSdk 24 and compile/target SDK 36. The generated Expo project uses Gradle 9.3.1. `withAndroidBuild` persists 4 GiB heap, 2 GiB metaspace and four Gradle workers after the default 512 MiB metaspace failed during Expo Updates KSP. The build targets `:app:assembleRelease` rather than also assembling every library; generated files are not the configuration source. Set `ANDROID_HOME` to your SDK (on macOS the build helper defaults to `~/Library/Android/sdk`).
 
 Create a dedicated verification AVD once, with the installed matching image:
 
@@ -30,6 +30,10 @@ pnpm verify:android --case bootstrap \
 ```
 
 The release variant currently uses Expo's generated development signing key for internal testing only. It is not a production signing configuration. `build:android` embeds the internal entry and disables OTA for that build using `EXPO_PUBLIC_ANDROID_VERIFY=1`. `pnpm android` starts the same internal entry in a developer build. Android builds without this explicit internal flag reject the unavailable product entry.
+
+Verification uses the SDK adb server on port 5038 (`--adb-port` overrides it), leaving any user service on port 5037 untouched. This avoids older adb servers bundled with phone connection apps.
+
+The default GPU mode is `host` on this local Mac; override `--gpu auto` or `--gpu software` for another environment. The initial software renderer produced a system-UI ANR on the local API 36 image, which is an environment failure rather than an application result.
 
 The runner starts the named dedicated AVD on a free emulator port, waits for boot, installs the supplied APK, clears only `app.innei.lody`, and shuts down only the emulator it started. With `--serial`, the caller owns device startup/shutdown and authorizes installation and app-data reset. Do not target a user's signed-in installation. No device-wide wipe is performed.
 

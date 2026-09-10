@@ -8,7 +8,7 @@ if (!existsSync(sdk))
   throw new Error('Set ANDROID_HOME to an installed Android SDK.');
 const result = spawnSync(
   './gradlew',
-  ['assembleRelease', '--no-daemon', '--console=plain'],
+  [':app:assembleRelease', '--no-daemon', '--console=plain'],
   {
     cwd: new URL('../android/', import.meta.url),
     stdio: 'inherit',
