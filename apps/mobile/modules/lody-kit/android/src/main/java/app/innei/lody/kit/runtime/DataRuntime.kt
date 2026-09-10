@@ -75,7 +75,7 @@ internal class DataRuntime(
       }
 
       override fun onPageFinished(view: WebView, url: String) {
-        if (alive.get()) onEvent(JSONObject().put("type", "hostPageLoaded"))
+        if (alive.get() && !failed.get()) onEvent(JSONObject().put("type", "hostPageLoaded"))
       }
 
       override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
@@ -133,7 +133,9 @@ internal class DataRuntime(
   }
 
   private fun receive(value: String) {
-    if (!alive.get()) return
+    // A fatal bridge error can precede already-admitted messages on main.
+    // Fence them immediately, before the asynchronous WebView teardown runs.
+    if (!alive.get() || failed.get()) return
     val event = try { JSONObject(value) } catch (_: Exception) {
       fail("invalid_host_message")
       return
