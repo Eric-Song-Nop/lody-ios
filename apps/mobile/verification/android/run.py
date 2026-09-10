@@ -10,6 +10,7 @@ import socket
 import subprocess
 import time
 import xml.etree.ElementTree as ET
+import gesture
 
 ROOT = Path(__file__).resolve().parents[4]
 SDK = Path(os.environ.get('ANDROID_HOME', Path.home() / 'Library/Android/sdk'))
@@ -23,7 +24,7 @@ def command(args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--apk', type=Path, required=True)
-    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage'], required=True)
+    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption', 'navigation-teardown'], required=True)
     parser.add_argument('--adb-port', type=int, default=5038, help='Dedicated SDK adb server; leaves the default 5037 server alone.')
     parser.add_argument('--serial', help='Caller-owned device; installs and clears only app.innei.lody.')
     parser.add_argument('--avd', default='Lody_Android_Verify_36')
@@ -44,6 +45,8 @@ def main():
     adb_command = [str(adb), '-P', str(args.adb_port)]
     emulator = None
     emulator_log = None
+    logcat_process = None
+    logcat_file = None
     recorder_pid = None
     serial = args.serial
     result = {'apkSha256': hashlib.file_digest(args.apk.open('rb'), 'sha256').hexdigest(), 'case': args.case, 'status': 'failed', 'checks': [], 'commit': command(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True, text=True).stdout.strip()}
@@ -72,9 +75,12 @@ def main():
             time.sleep(0.5)
         raise AssertionError(f'Missing UI state: {expected}')
 
-    def capture(name):
+    def screenshot(name):
         with (args.output / f'{name}.png').open('wb') as file:
             command([*adb_command, '-s', serial, 'exec-out', 'screencap', '-p'], stdout=file)
+
+    def capture(name):
+        screenshot(name)
         (args.output / f'{name}.xml').write_text(ET.tostring(snapshot(), encoding='unicode'))
 
     def foreground():
@@ -83,13 +89,14 @@ def main():
         shell('am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity')
 
     def tap_button(tree, title):
-        button = next(node for node in tree.iter('node') if node.get('text', '').lower() == title.lower())
+        button = next(node for node in tree.iter('node') if title.lower() in (node.get('text', '').lower(), node.get('content-desc', '').lower()))
         x1, y1, x2, y2 = map(int, re.findall(r'\d+', button.attrib['bounds']))
         x, y = str((x1 + x2) // 2), str((y1 + y2) // 2)
         result.setdefault('inputs', []).append({'title': title, 'bounds': button.attrib['bounds'], 'durationMs': 100})
         shell('input', 'touchscreen', 'swipe', x, y, x, y, '100')
 
     try:
+        gesture_dex = gesture.build(SDK, args.output) if args.case == 'navigation-interruption' else None
         command([*adb_command, 'start-server'], capture_output=True)
         server = command([*adb_command, 'server-status'], capture_output=True, text=True).stdout
         if str(adb.resolve()) not in server:
@@ -144,13 +151,126 @@ def main():
         shell('pm', 'clear', PACKAGE)
         shell('input', 'keyevent', 'KEYCODE_WAKEUP')
         shell('wm', 'dismiss-keyguard')
+        logcat_file = (args.output / 'logcat.txt').open('w')
+        logcat_process = subprocess.Popen([*adb_command, '-s', serial, 'logcat', '-v', 'threadtime', '-T', '1'], stdout=logcat_file, stderr=subprocess.STDOUT)
         recorder_pid = shell('sh', '-c', f"'screenrecord --time-limit 180 /sdcard/lody-verify-{args.case}.mp4 >/dev/null 2>&1 & echo $!'")
         if not recorder_pid.isdigit():
             raise RuntimeError(f'Could not start screenrecord: {recorder_pid}')
         shell('am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity')
         tree = wait_text('LodyKit: Android')
         capture('boot')
-        if args.case == 'storage':
+        if args.case == 'navigation-teardown':
+            result['fixtureVersion'] = 'navigation-teardown-v1'
+            for cycle in range(1, 3):
+                tap_button(tree, 'Open navigation verification')
+                tap_button(wait_text('Offline navigation: projects'), 'Settings')
+                tap_button(wait_text('Offline navigation: settings'), 'Open form sheet')
+                tap_button(wait_text('Offline navigation: sheet'), 'Push sheet child')
+                tree = wait_text('Offline navigation: sheet child')
+                capture(f'teardown-nested-{cycle}')
+                tap_button(tree, 'Dismiss entire navigation')
+                tree = wait_text('Navigation audit: mounted=0 pending=0 retained=0 observed=1 settled=2 cancelled=2')
+                capture(f'teardown-released-{cycle}')
+            result['checks'].append({'id': 'A-NAV-03-teardown', 'status': 'pass', 'detail': 'Two complete host dismissals release mounted pages, both pending results and the observed presentation session'})
+        elif args.case == 'navigation-interruption':
+            result['fixtureVersion'] = 'navigation-interruption-v4'
+            result['gestureDriverSha256'] = hashlib.file_digest(gesture_dex.open('rb'), 'sha256').hexdigest()
+            mode = shell('settings', 'get', 'secure', 'navigation_mode')
+            if mode != '2':
+                raise AssertionError(f'Gesture navigation is required for interruption evidence; actual mode={mode}')
+            tap_button(tree, 'Open navigation verification')
+            tap_button(wait_text('Offline navigation: projects'), 'Open offline project')
+            tree = wait_text('Offline navigation: sessions')
+            bounds = list(map(int, re.findall(r'\d+', next(tree.iter('node')).attrib['bounds'])))
+            width, height = bounds[2], bounds[3]
+            y = str(height // 2)
+            gesture.cancel(adb_command, serial, gesture_dex, args.output, width, height, screenshot)
+            wait_text('Offline navigation: sessions')
+            capture('back-gesture-cancelled')
+            shell('input', 'touchscreen', 'swipe', '1', y, str(width // 2), y, '300')
+            tree = wait_text('Project returns: 1')
+            for count in range(2, 5):
+                tap_button(tree, 'Open offline project')
+                shell('input', 'keyevent', 'KEYCODE_BACK')
+                tree = wait_text(f'Project returns: {count}')
+            tap_button(tree, 'Open offline project')
+            tap_button(wait_text('Offline navigation: sessions'), 'Settings')
+            tap_button(wait_text('Offline navigation: settings'), 'Projects')
+            wait_text('Offline navigation: sessions')
+            shell('input', 'keyevent', 'KEYCODE_BACK')
+            tree = wait_text('Project returns: 5')
+            capture('navigation-interruption-passed')
+            tap_button(tree, 'Return to runtime verification')
+            tree = wait_text('Navigation audit: mounted=0 pending=0 retained=0')
+            if 'settled=5 cancelled=5' not in texts(tree):
+                raise AssertionError('Rapid return did not release all five presentation results')
+            capture('rapid-return-released')
+            result['checks'].append({'id': 'A-NAV-03-rapid-return', 'status': 'pass', 'detail': 'Committed edge gesture, three immediate returns, retained tab stacks and all five presentation results released'})
+            result['visualReviewRequired'] = ['Confirm the system recognized the held edge gesture in back-gesture-preview.png/video, then retained Sessions after cancellation. This is not a claim of a page-level predictive transition animation.']
+        elif args.case == 'navigation':
+            result['fixtureVersion'] = 'navigation-v3'
+            tap_button(tree, 'Open navigation verification')
+            tap_button(wait_text('Offline navigation: projects'), 'Open offline project')
+            tap_button(wait_text('Offline navigation: sessions'), 'Open offline session')
+            wait_text('Offline navigation: messages')
+            capture('messages')
+            shell('input', 'keyevent', 'KEYCODE_BACK')
+            wait_text('Offline navigation: sessions')
+            shell('input', 'keyevent', 'KEYCODE_BACK')
+            tree = wait_text('Project returns: 1')
+            result['checks'].append({'id': 'A-NAV-01', 'status': 'pass'})
+            tap_button(tree, 'Settings')
+            tap_button(wait_text('Offline navigation: settings'), 'Open form sheet')
+            tap_button(wait_text('Offline navigation: sheet'), 'Complete sheet')
+            tree = wait_text('Settled sheets: 1')
+            if 'Sheet result: completed' not in texts(tree):
+                raise AssertionError('Sheet completion result was lost')
+            tap_button(tree, 'Open page sheet')
+            wait_text('Offline navigation: sheet')
+            shell('input', 'keyevent', 'KEYCODE_BACK')
+            tree = wait_text('Settled sheets: 2')
+            if 'Sheet result: cancelled' not in texts(tree):
+                raise AssertionError('System back did not cancel the sheet')
+            tap_button(tree, 'Open form sheet')
+            tap_button(wait_text('Offline navigation: sheet'), 'Push sheet child')
+            wait_text('Offline navigation: sheet child')
+            shell('input', 'keyevent', 'KEYCODE_BACK')
+            tree = wait_text('Child result: cancelled')
+            capture('nested-return')
+            tap_button(tree, 'Close Navigation sheet')
+            tree = wait_text('Settled sheets: 3')
+            if 'Sheet result: cancelled' not in texts(tree):
+                raise AssertionError('Native close did not settle cancellation')
+            tap_button(tree, 'Open form sheet')
+            tap_button(wait_text('Offline navigation: sheet'), 'Cancel sheet')
+            tree = wait_text('Settled sheets: 4')
+            if 'Sheet result: cancelled' not in texts(tree):
+                raise AssertionError('Explicit cancellation result was lost')
+            tap_button(tree, 'Open form sheet')
+            tap_button(wait_text('Offline navigation: sheet'), 'Push sheet child')
+            tap_button(wait_text('Offline navigation: sheet child'), 'Complete child')
+            tree = wait_text('Child result: completed')
+            capture('nested-completed')
+            header = next(node for node in tree.iter('node') if node.get('text') == 'Navigation sheet')
+            x1, y1, x2, y2 = map(int, re.findall(r'\d+', header.attrib['bounds']))
+            _, _, _, height = map(int, re.findall(r'\d+', next(tree.iter('node')).attrib['bounds']))
+            shell('input', 'touchscreen', 'swipe', str((x1 + x2) // 2), str((y1 + y2) // 2), str((x1 + x2) // 2), str(height - 50), '350')
+            tree = wait_text('Settled sheets: 5')
+            if 'Sheet result: cancelled' not in texts(tree):
+                raise AssertionError('Downward sheet dismissal did not settle cancellation')
+            tap_button(tree, 'Open form sheet')
+            tap_button(wait_text('Offline navigation: sheet'), 'Push sheet child')
+            tap_button(wait_text('Offline navigation: sheet child'), 'Navigate up')
+            tree = wait_text('Child result: cancelled')
+            capture('toolbar-nested-return')
+            tap_button(tree, 'Navigate up')
+            tree = wait_text('Settled sheets: 6')
+            if 'Sheet result: cancelled' not in texts(tree):
+                raise AssertionError('Sheet toolbar return did not settle cancellation')
+            result['checks'].append({'id': 'A-NAV-02', 'status': 'pass'})
+            result['checks'].append({'id': 'A-NAV-03-nested-return', 'status': 'pass', 'detail': 'Nested system/toolbar return and completion retain their parent; all six outer results settle once'})
+            capture('navigation-passed')
+        elif args.case == 'storage':
             tap_button(tree, 'Run storage verification')
             wait_text('Storage prepared: restart required', timeout=180)
             capture('prepared')
@@ -247,7 +367,15 @@ def main():
             except Exception as error:
                 result['videoPullError'] = str(error)
                 result['status'] = 'failed'
-        if serial:
+        if logcat_process:
+            logcat_process.terminate()
+            try:
+                logcat_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                logcat_process.kill()
+                logcat_process.wait(timeout=5)
+            logcat_file.close()
+        elif serial:
             with (args.output / 'logcat.txt').open('w') as file:
                 subprocess.run([*adb_command, '-s', serial, 'logcat', '-d', '-t', '1500'], stdout=file, stderr=subprocess.STDOUT, timeout=20)
         (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')

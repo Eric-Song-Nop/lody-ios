@@ -12,7 +12,7 @@ import {
   useState,
 } from 'react';
 
-import type { ColorValue } from 'react-native';
+import { Platform, type ColorValue } from 'react-native';
 import { softScrollEdgeEffects } from '@/ui/Screen';
 import { isIOS26 } from '@/ui/platform';
 
@@ -69,6 +69,7 @@ function nativePresentationStyle(style: PagePresentationStyle) {
       return 'transparentModal' as const;
     }
     case 'pageSheet': {
+      if (Platform.OS === 'android') return 'formSheet' as const;
       return 'pageSheet' as const;
     }
   }
@@ -115,8 +116,11 @@ export function nativePresentationOptions(
 
   const { animationType, dismissible, headerShown, headerVariant, style } =
     session.presentation;
-  const formSheet = style === 'formSheet';
-  const transparentHeader = headerVariant === 'transparent';
+  const formSheet =
+    style === 'formSheet' ||
+    (Platform.OS === 'android' && style === 'pageSheet');
+  const transparentHeader =
+    Platform.OS === 'ios' && headerVariant === 'transparent';
 
   return {
     animation: style === 'push' ? 'default' : nativeAnimation(animationType),
@@ -133,8 +137,9 @@ export function nativePresentationOptions(
     headerShown: style === 'push' && headerShown,
     headerLargeTitle: false,
     headerTransparent: transparentHeader,
-    headerShadowVisible: false,
-    scrollEdgeEffects: softScrollEdgeEffects,
+    headerShadowVisible: Platform.OS === 'android',
+    scrollEdgeEffects:
+      Platform.OS === 'ios' ? softScrollEdgeEffects : undefined,
     presentation: nativePresentationStyle(style),
     sheetAllowedDetents: formSheet
       ? session.presentation.sheetAllowedDetents
