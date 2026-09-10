@@ -1,4 +1,7 @@
-import type { NativeListRow, NativeListSection } from '@lody-ios/kit';
+import type {
+  GroupedListRowProjection as NativeListRow,
+  GroupedListSectionProjection as NativeListSection,
+} from '@lody-ios/kit';
 import type { Catalog, Project, Session } from '../../models/catalog.ts';
 import type { SessionState } from './status.ts';
 import { agentName, sessionState, stateTint } from './status.ts';

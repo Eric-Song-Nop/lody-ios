@@ -133,3 +133,7 @@ export {
 } from './diff/NativeDiffToolbar';
 
 export * from './notifications/notifications';
+export type {
+  NativeListRow as GroupedListRowProjection,
+  NativeListSection as GroupedListSectionProjection,
+} from './list/NativeGroupedList';

@@ -39,6 +39,13 @@ export {
   type NativeListSection,
 } from './list/AndroidGroupedList';
 
+// Data projections may contain future display fields. These types do not widen
+// NativeGroupedListProps; the Android view still rejects unsupported fields.
+export type {
+  NativeListRow as GroupedListRowProjection,
+  NativeListSection as GroupedListSectionProjection,
+} from './list/NativeGroupedList';
+
 export {
   initialInboxView,
   saveInboxView,

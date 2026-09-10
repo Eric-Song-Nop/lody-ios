@@ -195,7 +195,7 @@ def main():
             result['fixtureVersion'] = 'system-v1'
             system_api.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
         elif args.case == 'locale-switch':
-            result['fixtureVersion'] = 'locale-switch-v4'
+            result['fixtureVersion'] = 'locale-switch-v5'
             locale_switch.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.locale_host)
         elif args.case == 'locales':
             result['fixtureVersion'] = 'locales-v1'
