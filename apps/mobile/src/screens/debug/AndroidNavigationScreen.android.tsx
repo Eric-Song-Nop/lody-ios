@@ -15,6 +15,7 @@ import {
 } from '@/features/sessions/sessionNav';
 import type { Session } from '@/models/catalog';
 import { androidSystemPage } from './AndroidSystemScreen.android';
+import { androidFeedbackPage } from './AndroidFeedbackScreen.android';
 import { androidLocalesPage } from './AndroidLocalesScreen.android';
 import { androidListsPage } from './AndroidListsScreen.android';
 import { androidControlsPage } from './AndroidControlsScreen.android';
@@ -106,6 +107,12 @@ function ProjectsScreen() {
         }}
       />
       <Action
+        title="Open feedback page"
+        onPress={() => {
+          void present(androidFeedbackPage, undefined, { style: 'push' });
+        }}
+      />
+      <Action
         title="Open native languages"
         onPress={() => {
           void present(androidLocalesPage, undefined, { style: 'push' });
@@ -179,6 +186,15 @@ function SettingsScreen() {
       <Copy>Settled sheets: {settled}</Copy>
       <Action title="Open form sheet" onPress={() => open('formSheet')} />
       <Action title="Open page sheet" onPress={() => open('pageSheet')} />
+      <Action
+        title="Open feedback sheet"
+        onPress={() => {
+          void present(androidFeedbackPage, undefined, {
+            style: 'formSheet',
+            sheetAllowedDetents: [1],
+          });
+        }}
+      />
       <Action
         title="Open lists sheet"
         onPress={() => {

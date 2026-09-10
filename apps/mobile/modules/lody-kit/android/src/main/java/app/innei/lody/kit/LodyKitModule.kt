@@ -15,6 +15,7 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 class LodyKitModule : Module() {
+  internal val feedback = app.innei.lody.kit.feedback.LodyFeedback()
   private val inboxPreferences by lazy {
     app.innei.lody.kit.preferences.InboxPreferences(requireNotNull(appContext.reactContext))
   }
@@ -56,6 +57,10 @@ class LodyKitModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("LodyKit")
+    View(app.innei.lody.kit.feedback.LodyFeedbackHost::class) {}
+    Function("showToast") { text: String, kind: String -> feedback.showToast(text, kind) }
+    Function("showSessionBanner") { text: String, kind: String -> feedback.showBanner(text, kind) }
+    Function("dismissSessionBanner") { feedback.dismissBanner() }
     View(app.innei.lody.kit.chrome.LodySymbolView::class) {
       Prop("symbol") { view: app.innei.lody.kit.chrome.LodySymbolView, value: String -> view.setSymbol(value) }
       Prop("pointSize") { view: app.innei.lody.kit.chrome.LodySymbolView, value: Float -> view.setPointSize(value) }
@@ -122,7 +127,7 @@ class LodyKitModule : Module() {
     }
     AsyncFunction("selectionFeedback") {
       val activity = requireNotNull(appContext.currentActivity) { "Haptic activity unavailable" }
-      activity.window.decorView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+      (feedback.activeView() ?: activity.window.decorView).performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
       Unit
     }.runOnQueue(expo.modules.kotlin.functions.Queues.MAIN)
     Constants {
@@ -217,18 +222,19 @@ class LodyKitModule : Module() {
       }
     }
     OnActivityEntersBackground {
-      Handler(Looper.getMainLooper()).post { recovery?.enterBackground() }
+      Handler(Looper.getMainLooper()).post { recovery?.enterBackground(); feedback.enterBackground() }
     }
     OnStartObserving { observing = true }
     OnStopObserving { observing = false }
     OnActivityEntersForeground {
-      Handler(Looper.getMainLooper()).post { recovery?.enterForeground() }
+      Handler(Looper.getMainLooper()).post { recovery?.enterForeground(); feedback.enterForeground() }
       if (observing) sendEvent("onAppActive", emptyMap<String, Any>())
     }
     OnDestroy {
       observing = false
       Handler(Looper.getMainLooper()).post {
         destroyed = true
+        feedback.close()
         storageWorker.execute { localStore?.close() }
         storageWorker.shutdown()
         recovery?.close()

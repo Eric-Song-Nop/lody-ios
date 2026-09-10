@@ -17,6 +17,7 @@ import menu_edges
 import lists
 import locales
 import system_api
+import feedback
 
 ROOT = Path(__file__).resolve().parents[4]
 SDK = Path(os.environ.get('ANDROID_HOME', Path.home() / 'Library/Android/sdk'))
@@ -30,7 +31,7 @@ def command(args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--apk', type=Path, required=True)
-    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption', 'navigation-teardown', 'controls', 'menus', 'menu-edges', 'lists', 'locales', 'system'], required=True)
+    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption', 'navigation-teardown', 'controls', 'menus', 'menu-edges', 'lists', 'locales', 'system', 'feedback'], required=True)
     parser.add_argument('--appearance', choices=['light', 'dark'], default='light', help='System appearance for control/menu cases; restored after verification.')
     parser.add_argument('--adb-port', type=int, default=5038, help='Dedicated SDK adb server; leaves the default 5037 server alone.')
     parser.add_argument('--serial', help='Caller-owned device; installs and clears only app.innei.lody.')
@@ -155,7 +156,7 @@ def main():
         result['serial'] = serial
         result['system'] = shell('getprop', 'ro.build.fingerprint')
         result['abi'] = shell('getprop', 'ro.product.cpu.abi')
-        if args.case in ('controls', 'menus', 'menu-edges', 'lists', 'locales', 'system'):
+        if args.case in ('controls', 'menus', 'menu-edges', 'lists', 'locales', 'system', 'feedback'):
             mode = shell('cmd', 'uimode', 'night')
             match = re.search(r'\b(auto|yes|no|custom)\b', mode)
             if not match:
@@ -180,6 +181,9 @@ def main():
         elif args.case == 'menus':
             result['fixtureVersion'] = 'menus-v1'
             menus.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
+        elif args.case == 'feedback':
+            result['fixtureVersion'] = 'feedback-v1'
+            feedback.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
         elif args.case == 'system':
             result['fixtureVersion'] = 'system-v1'
             system_api.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)

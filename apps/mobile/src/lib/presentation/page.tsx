@@ -8,6 +8,7 @@ import {
 } from 'react';
 
 import { present, type PresentPage } from './presentationStore';
+import { FeedbackBoundary } from './FeedbackBoundary';
 
 /** Same contract as `present`, but the page opens inside the current sheet. */
 export type PushPage = PresentPage;
@@ -153,7 +154,7 @@ export function PageRuntimeProvider<TParams, TResult>({
 }) {
   return (
     <PageRuntimeContext value={value as PageRuntime<unknown, unknown>}>
-      {children}
+      <FeedbackBoundary>{children}</FeedbackBoundary>
     </PageRuntimeContext>
   );
 }

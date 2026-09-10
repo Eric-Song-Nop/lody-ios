@@ -46,4 +46,10 @@ export {
   saveInboxExpansion,
   copyText,
   selectionFeedback,
+  showToast,
+  showSessionBanner,
+  dismissSessionBanner,
+  type ToastKind,
+  type SessionBannerKind,
 } from './runtime/System.android';
+export { NativeFeedbackHost } from './feedback/NativeFeedbackHost.android';
