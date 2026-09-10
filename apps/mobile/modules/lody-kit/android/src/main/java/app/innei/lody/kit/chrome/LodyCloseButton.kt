@@ -2,6 +2,7 @@ package app.innei.lody.kit.chrome
 
 import android.content.Context
 import android.content.res.ColorStateList
+import android.content.res.Configuration
 import android.util.TypedValue
 import android.widget.ImageButton
 import expo.modules.kotlin.AppContext
@@ -23,12 +24,17 @@ class LodyCloseButton(context: Context, appContext: AppContext) : ExpoView(conte
     val ripple = TypedValue()
     context.theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, ripple, true)
     button.setBackgroundResource(ripple.resourceId)
-    val colors = context.obtainStyledAttributes(intArrayOf(android.R.attr.textColorPrimary))
-    button.imageTintList = colors.getColorStateList(0) ?: ColorStateList.valueOf(android.graphics.Color.DKGRAY)
-    colors.recycle()
+    updateColors()
     button.setOnClickListener { onClose(emptyMap<String, Any>()) }
     addView(button, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
   }
 
   fun setLabel(label: String?) { button.contentDescription = label }
+  private fun updateColors() {
+    button.imageTintList = ColorStateList.valueOf(LodyUiColors.text(context))
+  }
+  override fun onConfigurationChanged(configuration: Configuration) {
+    super.onConfigurationChanged(configuration)
+    updateColors()
+  }
 }

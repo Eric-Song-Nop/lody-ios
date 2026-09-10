@@ -32,6 +32,7 @@ import { PageRuntimeProvider } from './page';
 import type { PresentationResult } from './presentationStore';
 import { present, type PresentationSession } from './presentationStore';
 import { t } from '../i18n/index.ts';
+import { usePalette } from '../theme/palette';
 
 export type HeaderItems =
   ScreenStackHeaderConfigProps['headerRightBarButtonItems'];
@@ -86,6 +87,7 @@ export function SheetStack({
 }) {
   const [headerItems, setHeaderItems] = useState<SheetHeaderItems>();
   const backgroundColor = useSheetHeaderBackground();
+  const colors = usePalette();
   const [levels, setLevels] = useState<readonly Level[]>([]);
   const nextKey = useRef(1);
   const pendingLevels = useRef(levels);
@@ -187,6 +189,8 @@ export function SheetStack({
           ),
           headerRightBarButtonItems: headerItems?.right,
           headerLeftBarButtonItems: headerItems?.left,
+          color: Platform.OS === 'android' ? colors.accent : undefined,
+          titleColor: Platform.OS === 'android' ? colors.label : undefined,
         }}
       >
         <SheetHeaderContext value={setHeaderItems}>
@@ -213,6 +217,7 @@ function PushedLevel({
 }) {
   const [headerItems, setHeaderItems] = useState<SheetHeaderItems>();
   const backgroundColor = useSheetHeaderBackground();
+  const colors = usePalette();
   const cancel = useCallback(
     () => onDrop(level.key, { status: 'cancelled' }),
     [level.key, onDrop],
@@ -247,6 +252,8 @@ function PushedLevel({
         ),
         headerRightBarButtonItems: headerItems?.right,
         headerLeftBarButtonItems: headerItems?.left,
+        color: Platform.OS === 'android' ? colors.accent : undefined,
+        titleColor: Platform.OS === 'android' ? colors.label : undefined,
       }}
       gestureEnabled={level.presentation.dismissible}
       onDismissed={cancel}

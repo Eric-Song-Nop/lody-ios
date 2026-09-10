@@ -46,9 +46,11 @@ export function usePalette() {
   const value = colors[theme];
   return {
     theme,
-    label: PlatformColor('?android:attr/textColorPrimary'),
-    secondaryLabel: PlatformColor('?android:attr/textColorSecondary'),
-    tertiaryLabel: PlatformColor('?android:attr/textColorSecondary'),
+    // RN's theme-attribute converter returns TypedValue.data, which is a
+    // resource ID for ColorStateLists. Resource paths resolve the actual color.
+    label: PlatformColor(`@android:color/primary_text_${theme}`),
+    secondaryLabel: PlatformColor(`@android:color/secondary_text_${theme}`),
+    tertiaryLabel: PlatformColor(`@android:color/secondary_text_${theme}`),
     accent: value.accent,
     warning: value.warning,
     danger: value.danger,

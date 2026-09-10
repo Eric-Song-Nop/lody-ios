@@ -29,6 +29,12 @@ class LodyPressable(context: Context, appContext: AppContext) : ExpoView(context
     if (value) isPressed = false
   }
   override fun performClick(): Boolean = isEnabled && super.performClick()
+  // Yoga owns all React children, including the absolute background surface.
+  // ExpoView is a LinearLayout; its default pass would overwrite those bounds.
+  override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+    setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec))
+  }
+  override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) = Unit
   override fun setPressed(pressed: Boolean) {
     super.setPressed(pressed)
     val scale = if (pressed && isEnabled) pressScale else 1f

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView, StatusBar, View } from 'react-native';
 import {
   NativeSymbol,
   NativeSymbolButton,
@@ -21,6 +21,9 @@ function AndroidControlsScreen() {
       style={{ backgroundColor: colors.background }}
       contentContainerStyle={{ padding: 24, gap: 16 }}
     >
+      <StatusBar
+        barStyle={colors.theme === 'dark' ? 'light-content' : 'dark-content'}
+      />
       <AppText variant="title">Native Android controls</AppText>
       <AppText>Appearance: {colors.theme}</AppText>
       <AppText>
