@@ -16,6 +16,10 @@ import {
   addRecoveryPhaseListener,
   runStorageVerification,
 } from '@lody-ios/kit';
+import {
+  resetNavigationAudit,
+  useNavigationAudit,
+} from '@/features/debug/androidNavigationAudit';
 
 if (process.env.EXPO_PUBLIC_ANDROID_VERIFY !== '1') {
   throw new Error(
@@ -47,6 +51,7 @@ function ProbeButton({
 }
 
 function BootstrapProbe() {
+  const navigationAudit = useNavigationAudit();
   const [subscribed, setSubscribed] = useState(true);
   const [events, setEvents] = useState(0);
   const [wasm, setWasm] = useState('WASM not run');
@@ -160,8 +165,12 @@ function BootstrapProbe() {
         />
         <ProbeButton
           title="Open navigation verification"
-          onPress={() => router.push('/android-navigation/projects' as never)}
+          onPress={() => {
+            resetNavigationAudit();
+            router.push('/android-navigation/projects' as never);
+          }}
         />
+        <Text>{navigationAudit}</Text>
         <Text testID="storage-result">{storage}</Text>
         <Text testID="recovery-result">{recovery}</Text>
         <Text testID="wasm-result">{wasm}</Text>

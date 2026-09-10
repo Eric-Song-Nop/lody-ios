@@ -10,6 +10,7 @@ import socket
 import subprocess
 import time
 import xml.etree.ElementTree as ET
+import gesture
 
 ROOT = Path(__file__).resolve().parents[4]
 SDK = Path(os.environ.get('ANDROID_HOME', Path.home() / 'Library/Android/sdk'))
@@ -23,7 +24,7 @@ def command(args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--apk', type=Path, required=True)
-    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption'], required=True)
+    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption', 'navigation-teardown'], required=True)
     parser.add_argument('--adb-port', type=int, default=5038, help='Dedicated SDK adb server; leaves the default 5037 server alone.')
     parser.add_argument('--serial', help='Caller-owned device; installs and clears only app.innei.lody.')
     parser.add_argument('--avd', default='Lody_Android_Verify_36')
@@ -74,9 +75,12 @@ def main():
             time.sleep(0.5)
         raise AssertionError(f'Missing UI state: {expected}')
 
-    def capture(name):
+    def screenshot(name):
         with (args.output / f'{name}.png').open('wb') as file:
             command([*adb_command, '-s', serial, 'exec-out', 'screencap', '-p'], stdout=file)
+
+    def capture(name):
+        screenshot(name)
         (args.output / f'{name}.xml').write_text(ET.tostring(snapshot(), encoding='unicode'))
 
     def foreground():
@@ -92,6 +96,7 @@ def main():
         shell('input', 'touchscreen', 'swipe', x, y, x, y, '100')
 
     try:
+        gesture_dex = gesture.build(SDK, args.output) if args.case == 'navigation-interruption' else None
         command([*adb_command, 'start-server'], capture_output=True)
         server = command([*adb_command, 'server-status'], capture_output=True, text=True).stdout
         if str(adb.resolve()) not in server:
@@ -154,8 +159,21 @@ def main():
         shell('am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity')
         tree = wait_text('LodyKit: Android')
         capture('boot')
-        if args.case == 'navigation-interruption':
-            result['fixtureVersion'] = 'navigation-interruption-v2'
+        if args.case == 'navigation-teardown':
+            result['fixtureVersion'] = 'navigation-teardown-v1'
+            for cycle in range(1, 3):
+                tap_button(tree, 'Open navigation verification')
+                tap_button(wait_text('Offline navigation: projects'), 'Settings')
+                tap_button(wait_text('Offline navigation: settings'), 'Open form sheet')
+                tap_button(wait_text('Offline navigation: sheet'), 'Push sheet child')
+                tree = wait_text('Offline navigation: sheet child')
+                capture(f'teardown-nested-{cycle}')
+                tap_button(tree, 'Dismiss entire navigation')
+                tree = wait_text('Navigation audit: mounted=0 pending=0 retained=0 observed=1 settled=2 cancelled=2')
+                capture(f'teardown-released-{cycle}')
+            result['checks'].append({'id': 'A-NAV-03-teardown', 'status': 'pass', 'detail': 'Two complete host dismissals release mounted pages, both pending results and the observed presentation session'})
+        elif args.case == 'navigation-interruption':
+            result['fixtureVersion'] = 'navigation-interruption-v3'
             mode = shell('settings', 'get', 'secure', 'navigation_mode')
             if mode != '2':
                 raise AssertionError(f'Gesture navigation is required for interruption evidence; actual mode={mode}')
@@ -165,11 +183,7 @@ def main():
             bounds = list(map(int, re.findall(r'\d+', next(tree.iter('node')).attrib['bounds'])))
             width, height = bounds[2], bounds[3]
             y = str(height // 2)
-            shell('input', 'touchscreen', 'motionevent', 'DOWN', '1', y)
-            shell('input', 'touchscreen', 'motionevent', 'MOVE', str(width // 4), y)
-            capture('back-gesture-preview')
-            shell('input', 'touchscreen', 'motionevent', 'MOVE', '1', y)
-            shell('input', 'touchscreen', 'motionevent', 'UP', '1', y)
+            gesture.cancel(adb_command, serial, gesture_dex, args.output, width, height, screenshot)
             wait_text('Offline navigation: sessions')
             capture('back-gesture-cancelled')
             shell('input', 'touchscreen', 'swipe', '1', y, str(width // 2), y, '300')

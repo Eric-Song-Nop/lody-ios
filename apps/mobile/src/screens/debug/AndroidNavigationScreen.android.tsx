@@ -14,6 +14,10 @@ import {
   subscribeSessionNav,
 } from '@/features/sessions/sessionNav';
 import type { Session } from '@/models/catalog';
+import {
+  trackNavigationResult,
+  useNavigationPageAudit,
+} from '@/features/debug/androidNavigationAudit';
 
 const fixtureSession: Session = {
   id: 'navigation-session',
@@ -28,6 +32,7 @@ const fixtureSession: Session = {
 const pushPath = '/android-navigation/projects/presented/[presentationId]';
 
 function Scene({ children }: PropsWithChildren) {
+  useNavigationPageAudit();
   const dark = useColorScheme() === 'dark';
   return (
     <ScrollView
@@ -66,7 +71,9 @@ function ProjectsScreen() {
       subscribeSessionNav(async (intent) => {
         if (intent.kind !== 'open')
           throw new Error('This offline scene only opens sessions');
-        await present(messagesPage, { session: intent.session });
+        await trackNavigationResult(
+          present(messagesPage, { session: intent.session }),
+        );
       }),
     [],
   );
@@ -77,7 +84,7 @@ function ProjectsScreen() {
       <Action
         title="Open offline project"
         onPress={() => {
-          void present(sessionsPage).then(() =>
+          void trackNavigationResult(present(sessionsPage)).then(() =>
             setReturns((value) => value + 1),
           );
         }}
@@ -116,10 +123,12 @@ function SettingsScreen() {
   const [result, setResult] = useState('No sheet result');
   const [settled, setSettled] = useState(0);
   const open = (style: 'formSheet' | 'pageSheet') => {
-    void present(sheetPage, undefined, { style }).then((value) => {
-      setResult(value.status);
-      setSettled((count) => count + 1);
-    });
+    void trackNavigationResult(present(sheetPage, undefined, { style })).then(
+      (value) => {
+        setResult(value.status);
+        setSettled((count) => count + 1);
+      },
+    );
   };
   return (
     <Scene>
@@ -143,9 +152,9 @@ function SheetScreen() {
       <Action
         title="Push sheet child"
         onPress={() => {
-          void runtime
-            .push(childPage)
-            .then((result) => setChildResult(result.status));
+          void trackNavigationResult(runtime.push(childPage)).then((result) =>
+            setChildResult(result.status),
+          );
         }}
       />
     </Scene>
@@ -157,6 +166,10 @@ function ChildScreen() {
     <Scene>
       <Copy>Offline navigation: sheet child</Copy>
       <Action title="Complete child" onPress={() => runtime.finish()} />
+      <Action
+        title="Dismiss entire navigation"
+        onPress={() => router.dismissAll()}
+      />
     </Scene>
   );
 }
