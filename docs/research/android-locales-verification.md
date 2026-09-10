@@ -106,3 +106,20 @@ The installed React Compiler transform of `useInboxSections` explains the stale 
 Release build `e9f5e18` passes in 5m05s; APK SHA-256 is `57d3e05169e95dee5c291d045e18c60720a0de4f57030d1a08a40344fa06b7d7`. The first repaired v5 case, `locale-switch-compiler-page-light`, passes with clean runner checkout `82f68bb`. Its four language-state and dismissal screenshots were reviewed: projected category/badge switch to Chinese, user title remains literal, and draft/counter survive. Boot screenshot/video review and the remaining matrix are not yet complete, so full repair acceptance remains pending.
 
 The follow-up compiler audit found the same hidden dependency in Archived Sessions rows and License sections. Project rows already include the bound translator in their compiled cache dependency; the inspected Inbox view did not hoist its search call. `933fe7e` passes the render translator into archived row badge/action/menu projections and license headers/footers. The installed compiler now includes that translator in both caches. The archived-row behavior test checks English/Chinese badges and all action labels while preserving the user title. `pnpm check` and the targeted Inbox test pass. These later source changes are not present in the current Android APK; the sequential iOS Metro run will consume the current source and must record its own provenance.
+
+### Completed compiler-repair matrix (v5)
+
+All four `locale-switch-compiler-{page,sheet}-{light,dark}` cases pass on the same API 36 ARM64 release APK built from `e9f5e18`, SHA-256 `57d3e05169e95dee5c291d045e18c60720a0de4f57030d1a08a40344fa06b7d7`. All 24 screenshots were individually reviewed, together with 5-second samples spanning all four recordings. Each case checks the real en → zh → unsupported-language fallback/background return → en sequence, production Inbox projection copy, unchanged user title, retained draft/counter/process, native title/close label, status-bar appearance and actual dismissal. Original empty app locales and system night mode `no` were restored.
+
+| Case        | Runner checkout (clean) | Video duration | Behavior / scoped visual review |
+| ----------- | ----------------------- | -------------- | ------------------------------- |
+| page light  | `82f68bb`               | 80.423111 s    | pass                            |
+| sheet light | `933fe7e`               | 81.425700 s    | pass                            |
+| page dark   | `3005a2e`               | 79.798111 s    | pass                            |
+| sheet dark  | `3005a2e`               | 81.966289 s    | pass                            |
+
+Runner checkout changes do not change the installed APK: this proves the Inbox compiler repair, not the later Archived Sessions/License product-host changes. The original failed projection run remains preserved above.
+
+After Android owner cleanup, sequential iOS Home passed in light (125.91 s) and dark (122.07 s), under `ios-regression/locale-compiler-home`. It used the existing normally signed native Debug app with fresh isolated Metro. Provenance records `3005a2e` and a dirty tree containing verification work; the source includes `933fe7e`. Six compact/full/cancelled New Session screenshots were individually reviewed and recorded in `visual-review.json`: title, close control, native composer and return layout remain readable and correctly positioned. This is scoped shared UI regression, not complete Home visual/video acceptance or device-language verification of Archived Sessions/License screens.
+
+This closes the tested v5 Inbox projection repair. Remaining product-host coverage, list edge behavior, system fonts and real TalkBack checks still prevent declaring PR-05b complete. Android product entry remains closed.

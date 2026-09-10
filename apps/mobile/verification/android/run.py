@@ -17,6 +17,7 @@ import menu_edges
 import lists
 import list_fonts
 import list_focus
+import talkback
 import list_mutations
 import locales
 import locale_switch
@@ -36,8 +37,10 @@ def command(args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--apk', type=Path, required=True)
-    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption', 'navigation-teardown', 'controls', 'menus', 'menu-edges', 'lists', 'list-fonts', 'list-focus', 'list-mutations', 'locales', 'locale-switch', 'system', 'feedback', 'feedback-keyboard'], required=True)
+    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption', 'navigation-teardown', 'controls', 'menus', 'menu-edges', 'lists', 'list-fonts', 'list-focus', 'talkback', 'list-mutations', 'locales', 'locale-switch', 'system', 'feedback', 'feedback-keyboard'], required=True)
     parser.add_argument('--appearance', choices=['light', 'dark'], default='light', help='System appearance for control/menu cases; restored after verification.')
+    parser.add_argument('--talkback-host', choices=['page', 'sheet'], default='page')
+    parser.add_argument('--talkback-target', choices=['controls', 'menus', 'lists'], default='controls')
     parser.add_argument('--locale-host', choices=['page', 'sheet'], default='page', help='Host for real application language switching.')
     parser.add_argument('--feedback-host', choices=['page', 'sheet'], default='page', help='Feedback host; run both separately to keep each recording within 180 seconds.')
     parser.add_argument('--adb-port', type=int, default=5038, help='Dedicated SDK adb server; leaves the default 5037 server alone.')
@@ -163,7 +166,7 @@ def main():
         result['serial'] = serial
         result['system'] = shell('getprop', 'ro.build.fingerprint')
         result['abi'] = shell('getprop', 'ro.product.cpu.abi')
-        if args.case in ('controls', 'menus', 'menu-edges', 'lists', 'list-fonts', 'list-focus', 'list-mutations', 'locales', 'locale-switch', 'system', 'feedback', 'feedback-keyboard'):
+        if args.case in ('controls', 'menus', 'menu-edges', 'lists', 'list-fonts', 'list-focus', 'talkback', 'list-mutations', 'locales', 'locale-switch', 'system', 'feedback', 'feedback-keyboard'):
             mode = shell('cmd', 'uimode', 'night')
             match = re.search(r'\b(auto|yes|no|custom)\b', mode)
             if not match:
@@ -206,6 +209,9 @@ def main():
         elif args.case == 'list-mutations':
             result['fixtureVersion'] = 'list-mutations-v1'
             list_mutations.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
+        elif args.case == 'talkback':
+            result['fixtureVersion'] = 'talkback-v1'
+            talkback.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.talkback_host, args.talkback_target)
         elif args.case == 'list-focus':
             result['fixtureVersion'] = 'list-focus-v1'
             list_focus.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
