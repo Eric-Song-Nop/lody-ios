@@ -248,7 +248,11 @@ Controls/menus retain v5; no direct focus assignment is used by the verifier.
 
 For TalkBack lists and keyboard `list-focus-v2`, `--list-return removed|disabled`
 changes the source row through a real detail-screen action before Back. `present`
-is the default. Removal must remove the native row; disabling retains readable
+is the default. Every keyboard variant, including ordinary `present` return,
+must reach a real detail action with keyboard focus before Back. The runner records
+`detailKeyboardFocus` for both hosts; it cannot pass by retaining focus on the
+covered list. Ordinary return focuses the action without activating it.
+Removal must remove the native row; disabling retains readable
 content without navigation. Keyboard return must not restore either invalid
 navigation target. TalkBack v7 observes the platform initial-focus property (API
 34+ required by this observation) and rejects a stale return candidate. After
