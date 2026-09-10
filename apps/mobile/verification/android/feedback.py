@@ -1,5 +1,6 @@
 """Real native transient surfaces in Activity and formSheet windows."""
 import time
+import re
 
 
 def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, host):
@@ -23,6 +24,15 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
 
 
 def _run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, selected_host):
+    def header_clear(current, title):
+        header = next(node for node in current.iter('node') if node.get('text') == 'Native feedback')
+        header_bottom = list(map(int, re.findall(r'\d+', header.get('bounds'))))[3]
+        close = next(node for node in current.iter('node') if node.get('class') == 'android.widget.ImageButton' and title in node.get('content-desc', ''))
+        parents = {child: parent for parent in current.iter('node') for child in parent}
+        card_top = list(map(int, re.findall(r'\d+', parents[close].get('bounds'))))[1]
+        if card_top < header_bottom:
+            raise AssertionError(f'Banner overlaps the native header: {card_top} < {header_bottom}')
+
     def absent(value):
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
@@ -57,11 +67,13 @@ def _run(shell, wait_text, tap_button, capture, texts, result, tree, appearance,
         capture(f'feedback-{host}-burst')
         tree = absent('Burst four')
         tap_button(tree, 'Show completed banner')
-        wait_text('Offline reply completed')
+        tree = wait_text('Offline reply completed')
+        header_clear(tree, 'Offline reply completed')
         capture(f'feedback-{host}-completed')
         tree = absent('Offline reply completed')
         tap_button(tree, 'Show attention banner')
         tree = wait_text('Offline approval required')
+        header_clear(tree, 'Offline approval required')
         tap_button(tree, 'Page still interactive')
         wait_text(f'Appearance: {appearance}; presses: 1')
         time.sleep(5)

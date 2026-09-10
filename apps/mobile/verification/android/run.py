@@ -183,7 +183,7 @@ def main():
             result['fixtureVersion'] = 'menus-v1'
             menus.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
         elif args.case == 'feedback':
-            result['fixtureVersion'] = 'feedback-v2'
+            result['fixtureVersion'] = 'feedback-v3'
             feedback.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.feedback_host)
         elif args.case == 'system':
             result['fixtureVersion'] = 'system-v1'
