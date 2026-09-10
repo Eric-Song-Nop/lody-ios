@@ -1,5 +1,9 @@
 package app.innei.lody.kit
 
+import app.innei.lody.kit.storage.AuthCredentials
+import app.innei.lody.kit.storage.LocalStore
+import app.innei.lody.kit.storage.StorageVerification
+import java.util.concurrent.Executors
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -11,6 +15,38 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 class LodyKitModule : Module() {
+  private val storageWorker = Executors.newSingleThreadExecutor { task -> Thread(task, "LodyStorage") }
+  @Volatile private var localStore: LocalStore? = null
+  private var authCredentials: AuthCredentials? = null
+  private var destroyed = false
+
+  private fun storageOperation(promise: Promise, clearContext: Boolean = false, action: (LocalStore, AuthCredentials, android.content.Context, Long) -> Any?) {
+    Handler(Looper.getMainLooper()).post {
+      val context = appContext.reactContext
+      if (context == null || destroyed) {
+        promise.reject("storage_unavailable", "Storage is unavailable", null)
+        return@post
+      }
+      if (clearContext) {
+        recovery?.close()
+        verification?.close()
+        localStore?.invalidate()
+      }
+      val generation = localStore?.generation ?: 0L
+      storageWorker.execute {
+        try {
+          val store = localStore ?: LocalStore(context).also { localStore = it }
+          val credentials = authCredentials ?: AuthCredentials(context).also { authCredentials = it }
+          promise.resolve(action(store, credentials, context, generation))
+        } catch (error: Exception) {
+          val allowed = setOf("credential_reauthorization_required", "storage_context_replaced", "storage_value_limit")
+          val code = error.message?.takeIf { it in allowed } ?: "storage_failed"
+          promise.reject(code, code, null)
+        }
+      }
+    }
+  }
+
   private var recovery: RuntimeRecoveryVerification? = null
   private var observing = false
   private var verification: DataRuntimeVerification? = null
@@ -79,6 +115,35 @@ class LodyKitModule : Module() {
         }
       }
     }
+    AsyncFunction("readAuthToken") { promise: Promise ->
+      storageOperation(promise) { _, auth, _, _ -> auth.read() }
+    }
+    AsyncFunction("saveAuthToken") { token: String, promise: Promise ->
+      storageOperation(promise) { _, auth, _, _ -> auth.save(token); null }
+    }
+    AsyncFunction("clearAuthToken") { promise: Promise ->
+      storageOperation(promise, clearContext = true) { store, auth, _, _ -> auth.clear(); store.clear(); null }
+    }
+    AsyncFunction("readLocalStartup") { promise: Promise ->
+      storageOperation(promise) { store, _, _, _ -> store.startup() }
+    }
+    AsyncFunction("readLocalValue") { key: String, promise: Promise ->
+      storageOperation(promise) { store, _, _, _ -> store.read(key) }
+    }
+    AsyncFunction("writeLocalValue") { key: String, value: String, promise: Promise ->
+      storageOperation(promise) { store, _, _, generation -> store.write(key, value, generation); null }
+    }
+    AsyncFunction("clearLocalValues") { promise: Promise ->
+      storageOperation(promise, clearContext = true) { store, _, _, _ -> store.clear(); null }
+    }
+    AsyncFunction("runStorageVerification") { seedCatalog: String?, promise: Promise ->
+      storageOperation(promise) { _, _, context, _ ->
+        val report = StorageVerification(context).run(seedCatalog)
+        val output = context.getExternalFilesDir(null) ?: error("evidence_storage_unavailable")
+        File(output, "lody-storage-verification.json").writeText(report)
+        report
+      }
+    }
     OnActivityEntersBackground {
       Handler(Looper.getMainLooper()).post { recovery?.enterBackground() }
     }
@@ -91,6 +156,9 @@ class LodyKitModule : Module() {
     OnDestroy {
       observing = false
       Handler(Looper.getMainLooper()).post {
+        destroyed = true
+        storageWorker.execute { localStore?.close() }
+        storageWorker.shutdown()
         recovery?.close()
         recovery = null
         verification?.close()

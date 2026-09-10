@@ -71,3 +71,14 @@ pnpm verify:android --case recovery \
 The internal page runs the actual bundled WASM in real WebViews. The runner waits for the native readiness phase, presses Home, and returns to the Activity. Native lifecycle callbacks pause/resume the retained owner. An injected monotonic clock advances deadlines; ready/ping callbacks can be withheld at the native boundary. Renderer failure uses `WebViewRenderProcess.terminate()` on the API 36 baseline, rather than a fabricated success event.
 
 `A-REC-01` through `A-REC-05` cover startup timeout, system background/foreground, heartbeat loss and bounded renderer recovery, stale generation callbacks, and stop without command replay. The report records state transitions, methods issued, all created/closed WebViews, restored session generations and HTTP write count. A negative `sendTurn` is issued once; this proves the supervisor does not replay commands, not the PR-10 durable dispatch/ACK-loss behavior. Real account, logout integration, background services and OEM behavior remain later-stage checks.
+
+**Storage case (PR-04)**
+
+```sh
+pnpm verify:android --case storage \
+  --apk apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+```
+
+This case uses actual AndroidKeyStore encryption and SQLite with offline fixture data. The runner waits for `Storage prepared`, force-stops the app without clearing its data, launches a new process and resumes verification. The report must contain four `A-STORE-*` passes, different process IDs, and a projection larger than 2 MiB. Key loss is injected by deleting the real fixture key. The case also verifies account/workspace isolation, reauthorization, malformed saved context, and rejected old-generation writes after clear. See `docs/architecture/android-local-storage.md` for the ownership contract and product-integration limits.
+
+When the dedicated emulator's background system services produce startup ANRs, `--settle-seconds 60` allows boot work to settle before installing the app and recording. The value is recorded in `result.json`; UI automation failures still fail the run. Do not mark an application case passed from this wait or disable system services to conceal a failure.

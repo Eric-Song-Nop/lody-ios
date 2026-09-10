@@ -1,6 +1,12 @@
 import { registerRootComponent } from 'expo';
 import { useEffect, useState } from 'react';
-import { Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  Text,
+  ScrollView,
+} from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   addAppActiveListener,
@@ -8,6 +14,7 @@ import {
   runDataRuntimeVerification,
   runRuntimeRecoveryVerification,
   addRecoveryPhaseListener,
+  runStorageVerification,
 } from '@lody-ios/kit';
 
 if (process.env.EXPO_PUBLIC_ANDROID_VERIFY !== '1') {
@@ -44,6 +51,7 @@ function BootstrapProbe() {
   const [events, setEvents] = useState(0);
   const [wasm, setWasm] = useState('WASM not run');
   const [recovery, setRecovery] = useState('Recovery not run');
+  const [storage, setStorage] = useState('Storage not run');
   const [running, setRunning] = useState(false);
   useEffect(() => {
     const subscription = addRecoveryPhaseListener(({ phase }) =>
@@ -51,6 +59,33 @@ function BootstrapProbe() {
     );
     return () => subscription.remove();
   }, []);
+  async function verifyStorage() {
+    setRunning(true);
+    setStorage('Storage running');
+    try {
+      let report = JSON.parse(await runStorageVerification());
+      if (report.status === 'needs_runtime') {
+        setStorage('Storage running: real WASM seed');
+        const wasmReport = JSON.parse(await runDataRuntimeVerification());
+        if (typeof wasmReport.verifiedCatalog !== 'string')
+          throw new Error('Missing verified runtime catalog');
+        report = JSON.parse(
+          await runStorageVerification(wasmReport.verifiedCatalog),
+        );
+      }
+      setStorage(
+        report.status === 'prepared'
+          ? 'Storage prepared: restart required'
+          : `Storage passed: ${report.cases.length} cases`,
+      );
+    } catch (error) {
+      setStorage(
+        `Storage failed: ${error instanceof Error ? error.message : 'unknown'}`,
+      );
+    } finally {
+      setRunning(false);
+    }
+  }
   async function verifyRecovery() {
     setRunning(true);
     setWasm('WASM not run');
@@ -92,11 +127,11 @@ function BootstrapProbe() {
   return (
     <SafeAreaView style={styles.page}>
       <StatusBar barStyle="dark-content" />
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
         <Text accessibilityRole="header" style={styles.title}>
           Lody Android verification
         </Text>
-        <Text>Internal native verification · PR-01/02/03</Text>
+        <Text>Internal native verification · PR-01/02/03/04</Text>
         <Text testID="native-runtime">
           {runtimeInfo.moduleName}: {runtimeInfo.systemVersion}
         </Text>
@@ -118,9 +153,15 @@ function BootstrapProbe() {
           disabled={running}
           onPress={verifyRecovery}
         />
+        <ProbeButton
+          title="Run storage verification"
+          disabled={running}
+          onPress={verifyStorage}
+        />
+        <Text testID="storage-result">{storage}</Text>
         <Text testID="recovery-result">{recovery}</Text>
         <Text testID="wasm-result">{wasm}</Text>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

@@ -26,6 +26,7 @@ internal class DataRuntimeVerification(private val context: Context) {
   private val writes = AtomicInteger(0)
   private var projectionChars = 0
   private var lastEvent = "none"
+  private var verifiedCatalog: String? = null
 
   val writeCount: Int get() = writes.get()
   val runtimeHash: String get() = manifest.getString("runtimeSha256")
@@ -72,7 +73,7 @@ internal class DataRuntimeVerification(private val context: Context) {
         .put("fixtureVersion", manifest.getString("version"))
         .put("runtimeSha256", manifest.getString("runtimeSha256"))
         .put("assetHashes", manifest.getJSONObject("assets"))
-        .put("cases", reports).toString()))
+        .put("verifiedCatalog", verifiedCatalog).put("cases", reports).toString()))
       return
     }
     projections = 0
@@ -116,6 +117,7 @@ internal class DataRuntimeVerification(private val context: Context) {
         if (normalized(JSONObject(value)) != normalized(expected.getJSONObject(projections))) {
           fail("projection_mismatch"); return
         }
+        if (fixture.getString("name") == "increment") verifiedCatalog = value
         projectionChars += value.length
         projections++
       }

@@ -15,3 +15,7 @@ iOS 输入来自 `7a79eb5` 堆叠中的源码与已生成资源。构建期间�
 本地日志：`.artifacts/android/ios-regression/native-final.log`、`build-final.log` 和 `lease-final.log`。签名构建与原生断言不能替代完整 app UI 录像或真实 Cloud 联调，本轮不声明这些额外检查已通过。
 
 远端之前的 iOS UI job 在 `chat-render` 的 Swift 编译达到 120 秒时超时，未进入该组行为断言。父 PR 的 `f8b61cf` 将编译预算独立为 300 秒，并记录实际耗时；行为执行仍为 120 秒，断言未删减。CI 复跑结果另行跟踪，不把本地通过写成远端通过。
+
+## PR-04 storage regression
+
+The managed `Android storage regression` lease completed all 14 native behavior groups and a normal-signing iOS simulator build on 2026-09-10. `codesign --verify --deep --strict` passed. Logs are `.artifacts/android/ios-regression/storage-native.log`, `storage-build.log` and `storage-lease.log`. The resulting app in `/tmp/lody-android-ios-build/Build/Products/Debug-iphonesimulator/Lody.app` contains runtime SHA-256 `0993a8efc917289e88da43d8cdcfb8b183ea60229f6e86298d6769e1138f901d`. The lease was released. This native/build check does not establish that the separately failing CI UI cases have passed.

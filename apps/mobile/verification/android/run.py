@@ -23,15 +23,18 @@ def command(args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--apk', type=Path, required=True)
-    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery'], required=True)
+    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage'], required=True)
     parser.add_argument('--adb-port', type=int, default=5038, help='Dedicated SDK adb server; leaves the default 5037 server alone.')
     parser.add_argument('--serial', help='Caller-owned device; installs and clears only app.innei.lody.')
     parser.add_argument('--avd', default='Lody_Android_Verify_36')
+    parser.add_argument('--settle-seconds', type=int, default=0, help='Optional device boot settling time before app installation and recording.')
     parser.add_argument('--gpu', choices=['auto', 'host', 'software'], default='host')
     parser.add_argument('--memory-mb', type=int, default=4096, help='RAM for the owned emulator; does not modify its saved AVD configuration.')
     parser.add_argument('--avd-home', type=Path, help='AVD registry directory when SDK tools use a different default.')
     parser.add_argument('--output', type=Path, default=ROOT / '.artifacts/android' / time.strftime('%Y%m%d-%H%M%S'))
     args = parser.parse_args()
+    if not 0 <= args.settle_seconds <= 180:
+        parser.error('--settle-seconds must be between 0 and 180.')
     if args.memory_mb < 2048:
         parser.error('--memory-mb must be at least 2048.')
     if not args.apk.is_file():
@@ -62,7 +65,7 @@ def main():
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             tree = snapshot()
-            if 'WASM failed:' in texts(tree) or 'Recovery failed:' in texts(tree):
+            if 'WASM failed:' in texts(tree) or 'Recovery failed:' in texts(tree) or 'Storage failed:' in texts(tree):
                 raise AssertionError(texts(tree))
             if expected in texts(tree):
                 return tree
@@ -82,7 +85,9 @@ def main():
     def tap_button(tree, title):
         button = next(node for node in tree.iter('node') if node.get('text', '').lower() == title.lower())
         x1, y1, x2, y2 = map(int, re.findall(r'\d+', button.attrib['bounds']))
-        shell('input', 'tap', str((x1 + x2) // 2), str((y1 + y2) // 2))
+        x, y = str((x1 + x2) // 2), str((y1 + y2) // 2)
+        result.setdefault('inputs', []).append({'title': title, 'bounds': button.attrib['bounds'], 'durationMs': 100})
+        shell('input', 'touchscreen', 'swipe', x, y, x, y, '100')
 
     try:
         command([*adb_command, 'start-server'], capture_output=True)
@@ -129,6 +134,9 @@ def main():
                 time.sleep(1)
             else:
                 raise TimeoutError('Emulator did not boot in 180 seconds.')
+        result['bootSettleSeconds'] = args.settle_seconds
+        if args.settle_seconds:
+            time.sleep(args.settle_seconds)
         result['serial'] = serial
         result['system'] = shell('getprop', 'ro.build.fingerprint')
         result['abi'] = shell('getprop', 'ro.product.cpu.abi')
@@ -142,7 +150,35 @@ def main():
         shell('am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity')
         tree = wait_text('LodyKit: Android')
         capture('boot')
-        if args.case == 'recovery':
+        if args.case == 'storage':
+            tap_button(tree, 'Run storage verification')
+            wait_text('Storage prepared: restart required', timeout=180)
+            capture('prepared')
+            command([*adb_command, '-s', serial, 'pull', f'/sdcard/Android/data/{PACKAGE}/files/lody-runtime-verification.json', args.output / 'seed-runtime.json'], capture_output=True)
+            seed = json.loads((args.output / 'seed-runtime.json').read_text())
+            required_seed = {'increment', 'compressed', 'large', 'output-limit', 'truncated-length', 'truncated-body', 'invalid-json', 'over-limit'}
+            if {case['name'] for case in seed['cases'] if case['status'] == 'pass'} != required_seed or not seed.get('verifiedCatalog'):
+                raise AssertionError('Storage seed did not come from the verified real WASM pipeline')
+            result['seedRuntimeSha256'] = seed['runtimeSha256']
+            shell('am', 'force-stop', PACKAGE)
+            shell('am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity')
+            tree = wait_text('Storage not run')
+            tap_button(tree, 'Run storage verification')
+            wait_text('Storage passed:', timeout=60)
+            command([*adb_command, '-s', serial, 'pull', f'/sdcard/Android/data/{PACKAGE}/files/lody-storage-verification.json', args.output / 'storage.json'], capture_output=True)
+            storage = json.loads((args.output / 'storage.json').read_text())
+            actual = {case['id'] for case in storage['cases'] if case['status'] == 'pass'}
+            if actual != {f'A-STORE-{number:02d}' for number in range(1, 5)}:
+                raise AssertionError(f'Storage coverage mismatch: {actual}')
+            if storage['processId'] == storage['priorProcessId'] or storage['projectionUtf8Bytes'] < 2 * 1024 * 1024 or storage.get('runtimeSeeded') is not True:
+                raise AssertionError('Storage did not cover real process restart and large projection')
+            for boundary in ('restoredEnvelopeRejected', 'tamperedEnvelopeRejected', 'backupDisabled', 'corruptDatabaseRecovered'):
+                if storage.get(boundary) is not True:
+                    raise AssertionError(f'Storage boundary was not verified: {boundary}')
+            result['fixtureVersion'] = storage['fixtureVersion']
+            result['checks'] = storage['cases']
+            capture('storage-passed')
+        elif args.case == 'recovery':
             result['webViewProvider'] = shell('dumpsys', 'webviewupdate')
             tap_button(tree, 'Run recovery verification')
             wait_text('Recovery background ready', timeout=90)
@@ -202,9 +238,14 @@ def main():
             try:
                 shell('kill', '-2', recorder_pid)
                 time.sleep(2)
-                command([*adb_command, '-s', serial, 'pull', f'/sdcard/lody-verify-{args.case}.mp4', args.output / f'{args.case}.mp4'], capture_output=True)
             except Exception as error:
                 result['videoError'] = str(error)
+                result['status'] = 'failed'
+            try:
+                # Keep partial video even if screenrecord already hit its time limit.
+                command([*adb_command, '-s', serial, 'pull', f'/sdcard/lody-verify-{args.case}.mp4', args.output / f'{args.case}.mp4'], capture_output=True)
+            except Exception as error:
+                result['videoPullError'] = str(error)
                 result['status'] = 'failed'
         if serial:
             with (args.output / 'logcat.txt').open('w') as file:

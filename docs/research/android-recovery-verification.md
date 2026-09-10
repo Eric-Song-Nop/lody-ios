@@ -36,3 +36,7 @@ This report does not prove real Cloud account restoration, logout integration, f
 ## Startup while suspended
 
 Follow-up review found a duplicate 30-second startup timer in the low-level WebView endpoint. It could expire while the supervisor deliberately retained a background startup. Startup health now belongs only to `RuntimeSupervisor`; the standalone WASM verifier still owns its explicit per-case deadline. Recovery verification also suspends/resumes the owner while it is `starting` before exercising the startup timeout. Fresh emulator evidence for this follow-up is required; the earlier ready-state background result does not cover it.
+
+## Startup-owner follow-up evidence
+
+The follow-up is now verified in the PR-04 integrated APK, SHA-256 `6ccc1dec7de4686d28f66cf539ad20e97ae2a6283e6bbcce26f2550f664844e6`, captured at clean commit `cb6d3c5`. `.artifacts/android/recovery-startup-owner/runtime.json` records STARTING → SUSPENDED → STARTING at generation 2; advancing the deterministic clock during suspension did not replace that owner. The resumed startup deadline then failed as expected. All five recovery cases passed, with real reads restored at generations 3, 4, 5 and 7, five views created and closed, and zero HTTP writes. A real system background/foreground transition and renderer termination are also included. Screenshots and sampled video frames were reviewed. This evidence is from the child integration build, not a separate build of the parent PR head.
