@@ -124,5 +124,5 @@ case does not establish whole-app language switching or TalkBack behavior.
 
 `--case system` exercises the real LodyKit clipboard and inbox preference APIs.
 It force-stops only the verification app to check persisted launch values, then
-uses the Android EditText Paste action to compare the complete clipboard fixture.
+uses the Android EditText system Paste key to compare the complete clipboard fixture.
 It also calls native selection feedback; this is not physical-haptic evidence.

@@ -1,5 +1,4 @@
 """Persist real native preferences across process death, and paste system clipboard."""
-import re
 
 
 def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance):
@@ -26,12 +25,8 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance):
     capture('system-preferences-restored')
     tap_button(tree, 'Copy fixture text')
     tree = wait_text('Native system APIs')
-    field = next(node for node in tree.iter('node') if node.get('content-desc') == 'Paste fixture here')
-    x1, y1, x2, y2 = map(int, re.findall(r'\d+', field.get('bounds')))
-    x, y = str((x1+x2)//2), str((y1+y2)//2)
-    shell('input', 'swipe', x, y, x, y, '800')
-    tree = wait_text('Paste')
-    tap_button(tree, 'Paste')
+    tap_button(tree, 'Paste fixture here')
+    shell('input', 'keyevent', 'KEYCODE_PASTE')
     shell('input', 'keyevent', 'KEYCODE_BACK')
     wait_text('Clipboard paste matches: true')
     capture('system-clipboard-pasted')
