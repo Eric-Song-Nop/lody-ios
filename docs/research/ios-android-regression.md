@@ -19,3 +19,9 @@ iOS 输入来自 `7a79eb5` 堆叠中的源码与已生成资源。构建期间�
 ## PR-04 storage regression
 
 The managed `Android storage regression` lease completed all 14 native behavior groups and a normal-signing iOS simulator build on 2026-09-10. `codesign --verify --deep --strict` passed. Logs are `.artifacts/android/ios-regression/storage-native.log`, `storage-build.log` and `storage-lease.log`. The resulting app in `/tmp/lody-android-ios-build/Build/Products/Debug-iphonesimulator/Lody.app` contains runtime SHA-256 `0993a8efc917289e88da43d8cdcfb8b183ea60229f6e86298d6769e1138f901d`. The lease was released. This native/build check does not establish that the separately failing CI UI cases have passed.
+
+## Parent PR-01 CI follow-up, 2026-09-11
+
+[Run 34431969492](https://github.com/Eric-Song-Nop/lody-ios/actions/runs/34431969492) tests the PR-01 merge commit `ab05dbd` whose parents include `f8b61cf`. Checks and Android internal build passed; iOS UI failed after native build. Downloaded artifact `offline-ui-ab05dbd11b8aca6532398c389b436434841cceb7` records two distinct failures: light Home never reached `ui-verify-ready` and its reviewed screenshot shows the Expo development launcher; dark Home entered the real offline fixture but later `axe describe-ui` timed out after 20 seconds. Its screenshot shows the Home fixture, not the launcher. Neither result proves a product behavior regression or a successful CI run.
+
+The failed iOS job has been requested for one unchanged-code rerun to distinguish a reproducible launch/driver failure from a transient CI failure. Its result remains pending. No timeout, assertion or scenario was removed, and local Home passes do not substitute for this remote result.

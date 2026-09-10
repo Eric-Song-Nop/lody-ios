@@ -163,7 +163,8 @@ global device language settings, TalkBack speech or process-death draft recovery
 uses the installed Google TalkBack service with real touch exploration. It requires
 that service to bind, performs touchscreen exploration/double-tap (and hold for
 context menus), checks production action counts and system Back, and restores the
-original accessibility settings in `finally`. It records service/package state;
+original accessibility settings in `finally`. It records service/package state around every gesture, rechecking real binding
+after hierarchy reads;
 this does not establish spoken-label quality or traversal order. The runner is
 implemented but device gesture compatibility and the complete host/theme matrix
 remain pending; tutorial overlays or failed activation fail the case.
