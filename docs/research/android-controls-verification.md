@@ -1,6 +1,6 @@
 # Android system controls verification
 
-Roadmap PR-05b is being implemented on `codex/android-05b-system-controls`, stacked on PR-05a (`codex/android-05a-navigation`, draft #6). This record describes the first control cohort, not completion of PR-05b or stage C.
+Roadmap PR-05b ([draft #7](https://github.com/Eric-Song-Nop/lody-ios/pull/7)) is being implemented on `codex/android-05b-system-controls`, stacked on PR-05a (`codex/android-05a-navigation`, draft #6). This record describes the first control cohort, not completion of PR-05b or stage C.
 
 ## Implemented first cohort
 
@@ -18,6 +18,6 @@ Each host emits an `A-UI-01-controls-*` subset result. Screenshots and video req
 
 ## Current evidence and remaining work
 
-`342d4bf` contains the first cohort; `b8fa5d3` adds native license packaging. `pnpm check` passes, including both TypeScript configurations, locale checks, generated licenses and formatting. Python compilation and local SVG conversion pass. Android build and emulator acceptance are in progress; no runtime pass is claimed yet.
+`342d4bf` contains the first cohort; `b8fa5d3` adds native license packaging. `pnpm check` passes, including both TypeScript configurations, locale checks, generated licenses and formatting. Python compilation and local SVG conversion pass. The Android build passes; the follow-up license build also passes and the APK license entry matches the source text byte-for-byte. Emulator acceptance is in progress; no runtime pass is claimed yet.
 
 PR-05b still requires native menus/context actions, grouped rows and their selection behavior, the remaining system APIs and semantic icons, generated Android strings/plurals, Chinese/English coverage, TalkBack and the final shared-host/iOS regressions. Those capabilities are not exported as placeholder native APIs.
