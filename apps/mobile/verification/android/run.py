@@ -28,9 +28,12 @@ def main():
     parser.add_argument('--serial', help='Caller-owned device; installs and clears only app.innei.lody.')
     parser.add_argument('--avd', default='Lody_Android_Verify_36')
     parser.add_argument('--gpu', choices=['auto', 'host', 'software'], default='host')
+    parser.add_argument('--memory-mb', type=int, default=4096, help='RAM for the owned emulator; does not modify its saved AVD configuration.')
     parser.add_argument('--avd-home', type=Path, help='AVD registry directory when SDK tools use a different default.')
     parser.add_argument('--output', type=Path, default=ROOT / '.artifacts/android' / time.strftime('%Y%m%d-%H%M%S'))
     args = parser.parse_args()
+    if args.memory_mb < 2048:
+        parser.error('--memory-mb must be at least 2048.')
     if not args.apk.is_file():
         parser.error('APK does not exist; run pnpm build:android first.')
     args.output.mkdir(parents=True, exist_ok=False)
@@ -41,6 +44,8 @@ def main():
     recorder_pid = None
     serial = args.serial
     result = {'apkSha256': hashlib.file_digest(args.apk.open('rb'), 'sha256').hexdigest(), 'case': args.case, 'status': 'failed', 'checks': [], 'commit': command(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True, text=True).stdout.strip()}
+    result['workingTreeDirty'] = bool(command(['git', 'status', '--porcelain'], cwd=ROOT, capture_output=True, text=True).stdout.strip())
+    result['fixtureVersion'] = 'bootstrap-v1'
 
     def shell(*parts):
         return command([*adb_command, '-s', serial, 'shell', *parts], capture_output=True, text=True).stdout.strip()
@@ -105,7 +110,8 @@ def main():
             else:
                 raise RuntimeError('No emulator port available.')
             emulator_log = (args.output / 'emulator.log').open('w')
-            emulator = subprocess.Popen([str(SDK / 'emulator/emulator'), '-avd', args.avd, '-port', str(port), '-no-snapshot', '-gpu', args.gpu, '-no-boot-anim', '-no-audio'], stdout=emulator_log, stderr=subprocess.STDOUT, env=emulator_env)
+            result['emulator'] = {'avd': args.avd, 'gpu': args.gpu, 'memoryMb': args.memory_mb}
+            emulator = subprocess.Popen([str(SDK / 'emulator/emulator'), '-avd', args.avd, '-port', str(port), '-no-snapshot', '-gpu', args.gpu, '-memory', str(args.memory_mb), '-no-boot-anim', '-no-audio'], stdout=emulator_log, stderr=subprocess.STDOUT, env=emulator_env)
             deadline = time.monotonic() + 180
             while time.monotonic() < deadline:
                 if emulator.poll() is not None:
@@ -118,6 +124,7 @@ def main():
                 raise TimeoutError('Emulator did not boot in 180 seconds.')
         result['serial'] = serial
         result['system'] = shell('getprop', 'ro.build.fingerprint')
+        result['abi'] = shell('getprop', 'ro.product.cpu.abi')
         command([*adb_command, '-s', serial, 'install', '-r', args.apk], capture_output=True, text=True)
         shell('pm', 'clear', PACKAGE)
         shell('input', 'keyevent', 'KEYCODE_WAKEUP')

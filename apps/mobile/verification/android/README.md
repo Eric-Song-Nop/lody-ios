@@ -33,7 +33,7 @@ The release variant currently uses Expo's generated development signing key for 
 
 Verification uses the SDK adb server on port 5038 (`--adb-port` overrides it), leaving any user service on port 5037 untouched. This avoids older adb servers bundled with phone connection apps.
 
-The default GPU mode is `host` on this local Mac; override `--gpu auto` or `--gpu software` for another environment. The initial software renderer produced a system-UI ANR on the local API 36 image, which is an environment failure rather than an application result.
+The default GPU mode is `host` on this local Mac; override `--gpu auto` or `--gpu software` for another environment. Owned emulators receive 4096 MiB RAM (`--memory-mb` overrides it) without changing the saved AVD configuration. The initial lower-memory API 36 runs produced system-UI ANRs with both software and host rendering; these are recorded as environment failures, not application passes. Avoid running memory-heavy native builds during emulator acceptance on limited-memory hosts.
 
 The runner starts the named dedicated AVD on a free emulator port, waits for boot, installs the supplied APK, clears only `app.innei.lody`, and shuts down only the emulator it started. With `--serial`, the caller owns device startup/shutdown and authorizes installation and app-data reset. Do not target a user's signed-in installation. No device-wide wipe is performed.
 

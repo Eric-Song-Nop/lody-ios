@@ -1,6 +1,6 @@
 import { registerRootComponent } from 'expo';
 import { useEffect, useState } from 'react';
-import { Button, StyleSheet, Text, View } from 'react-native';
+import { Button, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { addAppActiveListener, runtimeInfo } from '@lody-ios/kit';
 
@@ -22,6 +22,7 @@ function BootstrapProbe() {
   }, [subscribed]);
   return (
     <SafeAreaView style={styles.page}>
+      <StatusBar barStyle="dark-content" />
       <View style={styles.content}>
         <Text accessibilityRole="header" style={styles.title}>
           Lody Android verification
