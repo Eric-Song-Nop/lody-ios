@@ -61,12 +61,13 @@ class Driver:
         rpc = channel.unary_unary('/android.emulation.control.EmulatorController/sendTouch',
                                  request_serializer=self.messages.TouchEvent.SerializeToString)
 
-        def send(pressure):
+        def send(pressure, touch_x=None):
+            current_x = x if touch_x is None else touch_x
             event = self.messages.TouchEvent(display=0, touches=[
-                self.messages.Touch(x=x, y=y, identifier=1, pressure=pressure,
+                self.messages.Touch(x=current_x, y=y, identifier=1, pressure=pressure,
                                     touch_major=8, touch_minor=8)])
             rpc(event, timeout=5, metadata=(('authorization', 'Bearer ' + self.token),))
-            events.append({'at': time.monotonic(), 'pressure': pressure})
+            events.append({'at': time.monotonic(), 'pressure': pressure, 'point': [current_x, y]})
 
         def tap(duration):
             try:
@@ -77,7 +78,17 @@ class Driver:
 
         try:
             if mode == 'explore':
-                tap(0.15)
+                # Explore by touch is sustained contact with slow movement,
+                # not a short tap that can remain in gesture recognition.
+                # Stay within eight pixels of the already measured target center.
+                try:
+                    send(1, x - 8)
+                    time.sleep(0.45)
+                    for offset in (-6, -4, -2, 0):
+                        send(1, x + offset)
+                        time.sleep(0.04)
+                finally:
+                    send(0)
             else:
                 tap(0.06)
                 time.sleep(0.08)

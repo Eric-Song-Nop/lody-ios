@@ -250,7 +250,7 @@ def main():
             result['fixtureVersion'] = 'list-mutations-v1'
             list_mutations.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
         elif args.case == 'talkback':
-            result['fixtureVersion'] = 'talkback-v2'
+            result['fixtureVersion'] = 'talkback-v3'
             talkback.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.talkback_host, args.talkback_target, snapshot,
                          touch_driver.run)
         elif args.case == 'symbols':
