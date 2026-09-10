@@ -18,6 +18,7 @@ import lists
 import locales
 import system_api
 import feedback
+import feedback_keyboard
 
 ROOT = Path(__file__).resolve().parents[4]
 SDK = Path(os.environ.get('ANDROID_HOME', Path.home() / 'Library/Android/sdk'))
@@ -31,7 +32,7 @@ def command(args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--apk', type=Path, required=True)
-    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption', 'navigation-teardown', 'controls', 'menus', 'menu-edges', 'lists', 'locales', 'system', 'feedback'], required=True)
+    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption', 'navigation-teardown', 'controls', 'menus', 'menu-edges', 'lists', 'locales', 'system', 'feedback', 'feedback-keyboard'], required=True)
     parser.add_argument('--appearance', choices=['light', 'dark'], default='light', help='System appearance for control/menu cases; restored after verification.')
     parser.add_argument('--feedback-host', choices=['page', 'sheet'], default='page', help='Feedback host; run both separately to keep each recording within 180 seconds.')
     parser.add_argument('--adb-port', type=int, default=5038, help='Dedicated SDK adb server; leaves the default 5037 server alone.')
@@ -157,7 +158,7 @@ def main():
         result['serial'] = serial
         result['system'] = shell('getprop', 'ro.build.fingerprint')
         result['abi'] = shell('getprop', 'ro.product.cpu.abi')
-        if args.case in ('controls', 'menus', 'menu-edges', 'lists', 'locales', 'system', 'feedback'):
+        if args.case in ('controls', 'menus', 'menu-edges', 'lists', 'locales', 'system', 'feedback', 'feedback-keyboard'):
             mode = shell('cmd', 'uimode', 'night')
             match = re.search(r'\b(auto|yes|no|custom)\b', mode)
             if not match:
@@ -185,6 +186,9 @@ def main():
         elif args.case == 'feedback':
             result['fixtureVersion'] = 'feedback-v3'
             feedback.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.feedback_host)
+        elif args.case == 'feedback-keyboard':
+            result['fixtureVersion'] = 'feedback-keyboard-v1'
+            feedback_keyboard.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.feedback_host)
         elif args.case == 'system':
             result['fixtureVersion'] = 'system-v1'
             system_api.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
