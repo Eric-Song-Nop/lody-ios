@@ -83,6 +83,33 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
                 raise AssertionError('Real TalkBack did not bind with touch exploration enabled')
             time.sleep(0.5)
 
+    def wait_popup_focus(title):
+        # Popup text can precede TalkBack's initial focus assignment. Observe
+        # that assignment before exploring; never set focus or retry input.
+        deadline = time.monotonic() + 10
+        previous = None
+        stable_since = None
+        samples = []
+        while time.monotonic() < deadline:
+            current = snapshot()
+            geometry = [(node.get('text'), node.get('content-desc'), node.get('bounds'),
+                         node.get('accessibility-focused')) for node in current.iter('node')]
+            focused = [node for node in current.iter('node')
+                       if node.get('accessibility-focused') == 'true']
+            ready = title in texts(current) and any(
+                node.get('clickable') == 'true' for node in focused)
+            samples.append({'at': time.monotonic(), 'ready': ready,
+                            'focusedBounds': [node.get('bounds') for node in focused]})
+            if not ready or geometry != previous:
+                stable_since = time.monotonic() if ready else None
+            elif stable_since is not None and time.monotonic() - stable_since >= 0.5:
+                result.setdefault('popupFocusReadiness', []).append({'title': title, 'samples': samples})
+                return current
+            previous = geometry
+            time.sleep(0.1)
+        result.setdefault('popupFocusReadiness', []).append({'title': title, 'samples': samples})
+        raise AssertionError(f'Popup initial accessibility focus did not settle: {title}')
+
     def activate(tree, title, hold=False):
         before = wait_bound()
         # Native adapter updates may finish after the RN counter used by
@@ -197,12 +224,12 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
                 raise AssertionError('Disabled native control is exposed as enabled')
         elif target == 'menus':
             activate(tree, 'Choose item filter')
-            tree = wait_text('Recent items')
+            tree = wait_popup_focus('Recent items')
             capture('talkback-menu-open')
             activate(tree, 'Recent items')
             tree = wait_text('Selected: recent; selections: 1')
             activate(tree, 'Context item', hold=True)
-            tree = wait_text('Remove item')
+            tree = wait_popup_focus('Remove item')
             capture('talkback-context-open')
             activate(tree, 'Remove item')
             tree = wait_text('Action: remove; actions: 1; child presses: 0')
