@@ -91,21 +91,40 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
         result['activeAccessibilityState'] = wait_bound()
         result['talkBackPackage'] = shell('dumpsys', 'package', 'com.google.android.marvin.talkback')
         capture('talkback-enabled')
-        tree = snapshot()
-        # First launch of the installed screen reader can request its own
-        # notification permission. Dismiss that observed system prompt through
-        # TalkBack; unrelated overlays still fail the fixture readiness check.
-        permission = next((node for node in tree.iter('node')
-                           if node.get('resource-id') == 'com.android.permissioncontroller:id/permission_message'
-                           and 'Android Accessibility Suite' in node.get('text', '')), None)
-        if permission is not None:
-            deny = next(node for node in tree.iter('node')
-                        if node.get('resource-id') == 'com.android.permissioncontroller:id/permission_deny_button')
-            activate(tree, deny.get('text'))
-            result['talkBackNotificationPromptActionAttempted'] = True
-        tree = wait_text(headings[target])
-        if permission is not None:
+        # The first-run prompt can appear asynchronously after the service binds.
+        # Observe readiness and the exact prompt together, not in a one-shot check.
+        ready_since = None
+        prompt_attempts = 0
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            tree = snapshot()
+            permission = next((node for node in tree.iter('node')
+                               if node.get('resource-id') == 'com.android.permissioncontroller:id/permission_message'
+                               and 'Android Accessibility Suite' in node.get('text', '')), None)
+            if permission is not None:
+                ready_since = None
+                deny = next((node for node in tree.iter('node')
+                             if node.get('resource-id') == 'com.android.permissioncontroller:id/permission_deny_button'), None)
+                if deny is not None:
+                    if prompt_attempts == 2:
+                        raise AssertionError('TalkBack notification prompt did not dismiss')
+                    capture(f'talkback-permission-{prompt_attempts}')
+                    activate(tree, deny.get('text'))
+                    prompt_attempts += 1
+                    result['talkBackNotificationPromptActionAttempts'] = prompt_attempts
+            elif headings[target] in texts(tree):
+                if ready_since is None:
+                    ready_since = time.monotonic()
+                elif time.monotonic() - ready_since >= 2:
+                    break
+            else:
+                ready_since = None
+            time.sleep(0.5)
+        else:
+            raise AssertionError('TalkBack fixture did not become stable after service startup')
+        if prompt_attempts:
             result['talkBackNotificationPromptDismissed'] = True
+            capture('talkback-permission-dismissed')
         if target == 'controls':
             activate(tree, 'Increment native counter')
             tree = wait_text('Icon presses: 1; long presses: 0')
