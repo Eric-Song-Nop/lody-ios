@@ -6,6 +6,7 @@ import platform
 import subprocess
 import sys
 import tempfile
+import time
 from simulator import run_with_simulator, SimulatorPool
 
 root = Path(__file__).resolve().parents[3]
@@ -16,7 +17,11 @@ parser.add_argument(
     default=os.environ.get('LODY_VERIFY_UDID') or None,
     help='Existing Simulator; omit to lease a clean Lody Verify Simulator',
 )
+parser.add_argument('--compile-timeout', type=int, default=300,
+                    help='Per-check Swift compilation deadline; behavior execution remains bounded at 120 seconds.')
 args = parser.parse_args()
+if args.compile_timeout <= 0:
+    parser.error('--compile-timeout must be positive')
 if args.udid is None:
     command = [sys.executable, __file__, *sys.argv[1:]]
     raise SystemExit(run_with_simulator(SimulatorPool(), 'Native', command))
@@ -63,5 +68,8 @@ with tempfile.TemporaryDirectory(prefix='lody-native-verify-') as output:
             command += ['-lsqlite3']
         command += [str(kit / 'ios' / file) for file in files]
         command += [str(kit / 'verification' / name / 'main.swift'), '-o', binary]
-        subprocess.run(command, check=True, timeout=120)
+        started = time.monotonic()
+        print(f'Compiling {name} (deadline {args.compile_timeout}s)', flush=True)
+        subprocess.run(command, check=True, timeout=args.compile_timeout)
+        print(f'Compiled {name} in {time.monotonic() - started:.1f}s; running behavior checks', flush=True)
         subprocess.run(['xcrun', 'simctl', 'spawn', args.udid, binary] if simulator else [binary], check=True, timeout=120)
