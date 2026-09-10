@@ -23,7 +23,7 @@ def command(args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--apk', type=Path, required=True)
-    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation'], required=True)
+    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption'], required=True)
     parser.add_argument('--adb-port', type=int, default=5038, help='Dedicated SDK adb server; leaves the default 5037 server alone.')
     parser.add_argument('--serial', help='Caller-owned device; installs and clears only app.innei.lody.')
     parser.add_argument('--avd', default='Lody_Android_Verify_36')
@@ -154,7 +154,39 @@ def main():
         shell('am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity')
         tree = wait_text('LodyKit: Android')
         capture('boot')
-        if args.case == 'navigation':
+        if args.case == 'navigation-interruption':
+            result['fixtureVersion'] = 'navigation-interruption-v1'
+            mode = shell('settings', 'get', 'secure', 'navigation_mode')
+            if mode != '2':
+                raise AssertionError(f'Gesture navigation is required for interruption evidence; actual mode={mode}')
+            tap_button(tree, 'Open navigation verification')
+            tap_button(wait_text('Offline navigation: projects'), 'Open offline project')
+            tree = wait_text('Offline navigation: sessions')
+            bounds = list(map(int, re.findall(r'\d+', next(tree.iter('node')).attrib['bounds'])))
+            width, height = bounds[2], bounds[3]
+            y = str(height // 2)
+            shell('input', 'touchscreen', 'motionevent', 'DOWN', '1', y)
+            shell('input', 'touchscreen', 'motionevent', 'MOVE', str(width // 4), y)
+            capture('back-gesture-preview')
+            shell('input', 'touchscreen', 'motionevent', 'MOVE', '1', y)
+            shell('input', 'touchscreen', 'motionevent', 'UP', '1', y)
+            wait_text('Offline navigation: sessions')
+            capture('back-gesture-cancelled')
+            shell('input', 'touchscreen', 'swipe', '1', y, str(width // 2), y, '300')
+            tree = wait_text('Project returns: 1')
+            for count in range(2, 5):
+                tap_button(tree, 'Open offline project')
+                shell('input', 'keyevent', 'KEYCODE_BACK')
+                tree = wait_text(f'Project returns: {count}')
+            tap_button(tree, 'Open offline project')
+            tap_button(wait_text('Offline navigation: sessions'), 'Settings')
+            tap_button(wait_text('Offline navigation: settings'), 'Projects')
+            wait_text('Offline navigation: sessions')
+            shell('input', 'keyevent', 'KEYCODE_BACK')
+            wait_text('Project returns: 5')
+            result['checks'].append({'id': 'A-NAV-03', 'status': 'pass', 'detail': 'Cancelled/committed edge gestures, three immediate return cycles and retained tab stacks'})
+            capture('navigation-interruption-passed')
+        elif args.case == 'navigation':
             result['fixtureVersion'] = 'navigation-v1'
             tap_button(tree, 'Open navigation verification')
             tap_button(wait_text('Offline navigation: projects'), 'Open offline project')
