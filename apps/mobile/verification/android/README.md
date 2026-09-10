@@ -138,6 +138,10 @@ case does not establish whole-app language switching or TalkBack behavior.
 
 ### Runtime application language changes
 
+The current fixture also requires translated native page titles and sheet close
+labels. WindowManager appearance regions independently assert status-bar icon
+contrast at each checkpoint; screenshots still require visual review.
+
 `--case locale-switch --locale-host page` uses real Android app locale overrides
 (en-US → zh-Hans-CN → es-ES fallback → en-US), including a change while the app
 is backgrounded. Run again with `--locale-host sheet` and repeat both with
