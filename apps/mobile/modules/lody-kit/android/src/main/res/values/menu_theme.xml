@@ -1,0 +1,7 @@
+<resources>
+  <color name="lody_menu_action">#1565C0</color>
+  <style name="LodyMenuTheme" parent="ThemeOverlay.AppCompat">
+    <item name="colorAccent">@color/lody_menu_action</item>
+    <item name="colorControlActivated">@color/lody_menu_action</item>
+  </style>
+</resources>

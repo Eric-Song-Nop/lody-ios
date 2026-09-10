@@ -86,6 +86,13 @@ function AndroidMenusScreen() {
         </>
       )}
       <Button
+        label="Change filter after delay"
+        onPress={() => {
+          clearTimeout(timer.current);
+          timer.current = setTimeout(() => setSelected('all'), 5000);
+        }}
+      />
+      <Button
         label="Remove anchors after delay"
         onPress={() => {
           clearTimeout(timer.current);

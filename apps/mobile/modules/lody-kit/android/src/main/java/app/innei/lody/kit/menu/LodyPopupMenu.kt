@@ -9,6 +9,8 @@ import android.text.style.ForegroundColorSpan
 import android.view.Menu
 import android.view.View
 import androidx.appcompat.widget.PopupMenu
+import androidx.appcompat.view.ContextThemeWrapper
+import app.innei.lody.kit.R
 import app.innei.lody.kit.chrome.LodySymbols
 import app.innei.lody.kit.chrome.LodyUiColors
 import expo.modules.kotlin.records.Field
@@ -31,6 +33,7 @@ class LodyPopupMenu(private val anchor: View, private val select: (String) -> Un
     require(value.all { it.id.isNotBlank() && it.title.isNotBlank() }) { "Menu IDs and titles must not be empty" }
     require(value.map { it.id }.toSet().size == value.size) { "Menu IDs must be unique" }
     value.forEach { it.symbol?.takeIf(String::isNotBlank)?.let(LodySymbols::resource) }
+    require(value.count { it.selected == true } <= 1) { "Only one menu item may be selected" }
     dismiss()
     entries = value.toList()
   }
@@ -39,12 +42,12 @@ class LodyPopupMenu(private val anchor: View, private val select: (String) -> Un
     if (entries.isEmpty() || !anchor.isAttachedToWindow || !anchor.isShown || !anchor.isEnabled) return false
     if (popup != null) return true
     val snapshot = entries
-    val current = PopupMenu(anchor.context, anchor)
+    val current = PopupMenu(ContextThemeWrapper(anchor.context, R.style.LodyMenuTheme), anchor)
     snapshot.forEachIndexed { index, entry ->
       val title = if (entry.destructive) SpannableString(entry.title).apply {
         setSpan(ForegroundColorSpan(dangerColor(anchor.context)), 0, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
       } else entry.title
-      current.menu.add(Menu.NONE, index + 1, index, title).apply {
+      current.menu.add(if (entry.selected != null) 1 else Menu.NONE, index + 1, index, title).apply {
         isCheckable = entry.selected != null
         isChecked = entry.selected == true
         entry.symbol?.takeIf(String::isNotBlank)?.let {
@@ -54,6 +57,7 @@ class LodyPopupMenu(private val anchor: View, private val select: (String) -> Un
         }
       }
     }
+    current.menu.setGroupCheckable(1, true, true)
     current.setForceShowIcon(snapshot.any { !it.symbol.isNullOrBlank() })
     current.setOnMenuItemClickListener { item ->
       if (popup !== current || !anchor.isAttachedToWindow || !anchor.isShown) return@setOnMenuItemClickListener false
