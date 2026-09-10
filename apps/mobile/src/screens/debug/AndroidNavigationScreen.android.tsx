@@ -17,6 +17,7 @@ import type { Session } from '@/models/catalog';
 import { androidSystemPage } from './AndroidSystemScreen.android';
 import { androidFeedbackPage } from './AndroidFeedbackScreen.android';
 import { androidFeedbackKeyboardPage } from './AndroidFeedbackKeyboardScreen.android';
+import { androidLocaleSwitchPage } from './AndroidLocaleSwitchScreen.android';
 import { androidLocalesPage } from './AndroidLocalesScreen.android';
 import { androidListsPage } from './AndroidListsScreen.android';
 import { androidControlsPage } from './AndroidControlsScreen.android';
@@ -122,6 +123,12 @@ function ProjectsScreen() {
         }}
       />
       <Action
+        title="Open language switching page"
+        onPress={() => {
+          void present(androidLocaleSwitchPage, undefined, { style: 'push' });
+        }}
+      />
+      <Action
         title="Open native languages"
         onPress={() => {
           void present(androidLocalesPage, undefined, { style: 'push' });
@@ -208,6 +215,15 @@ function SettingsScreen() {
         title="Open keyboard feedback sheet"
         onPress={() => {
           void present(androidFeedbackKeyboardPage, undefined, {
+            style: 'formSheet',
+            sheetAllowedDetents: [1],
+          });
+        }}
+      />
+      <Action
+        title="Open language switching sheet"
+        onPress={() => {
+          void present(androidLocaleSwitchPage, undefined, {
             style: 'formSheet',
             sheetAllowedDetents: [1],
           });

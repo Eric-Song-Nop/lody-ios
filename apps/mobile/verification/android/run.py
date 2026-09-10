@@ -16,6 +16,7 @@ import menus
 import menu_edges
 import lists
 import locales
+import locale_switch
 import system_api
 import feedback
 import feedback_keyboard
@@ -32,8 +33,9 @@ def command(args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--apk', type=Path, required=True)
-    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption', 'navigation-teardown', 'controls', 'menus', 'menu-edges', 'lists', 'locales', 'system', 'feedback', 'feedback-keyboard'], required=True)
+    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption', 'navigation-teardown', 'controls', 'menus', 'menu-edges', 'lists', 'locales', 'locale-switch', 'system', 'feedback', 'feedback-keyboard'], required=True)
     parser.add_argument('--appearance', choices=['light', 'dark'], default='light', help='System appearance for control/menu cases; restored after verification.')
+    parser.add_argument('--locale-host', choices=['page', 'sheet'], default='page', help='Host for real application language switching.')
     parser.add_argument('--feedback-host', choices=['page', 'sheet'], default='page', help='Feedback host; run both separately to keep each recording within 180 seconds.')
     parser.add_argument('--adb-port', type=int, default=5038, help='Dedicated SDK adb server; leaves the default 5037 server alone.')
     parser.add_argument('--serial', help='Caller-owned device; installs and clears only app.innei.lody.')
@@ -158,7 +160,7 @@ def main():
         result['serial'] = serial
         result['system'] = shell('getprop', 'ro.build.fingerprint')
         result['abi'] = shell('getprop', 'ro.product.cpu.abi')
-        if args.case in ('controls', 'menus', 'menu-edges', 'lists', 'locales', 'system', 'feedback', 'feedback-keyboard'):
+        if args.case in ('controls', 'menus', 'menu-edges', 'lists', 'locales', 'locale-switch', 'system', 'feedback', 'feedback-keyboard'):
             mode = shell('cmd', 'uimode', 'night')
             match = re.search(r'\b(auto|yes|no|custom)\b', mode)
             if not match:
@@ -192,6 +194,9 @@ def main():
         elif args.case == 'system':
             result['fixtureVersion'] = 'system-v1'
             system_api.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
+        elif args.case == 'locale-switch':
+            result['fixtureVersion'] = 'locale-switch-v1'
+            locale_switch.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.locale_host)
         elif args.case == 'locales':
             result['fixtureVersion'] = 'locales-v1'
             locales.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)

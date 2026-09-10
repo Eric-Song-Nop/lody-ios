@@ -31,7 +31,7 @@ import type {
 import { PageRuntimeProvider } from './page';
 import type { PresentationResult } from './presentationStore';
 import { present, type PresentationSession } from './presentationStore';
-import { t } from '../i18n/index.ts';
+import { useTranslations } from '../i18n/useTranslations';
 import { usePalette } from '../theme/palette';
 
 export type HeaderItems =
@@ -85,6 +85,7 @@ export function SheetStack({
   session: PresentationSession;
   runtime: PageRuntime<unknown, unknown>;
 }) {
+  const { t } = useTranslations();
   const [headerItems, setHeaderItems] = useState<SheetHeaderItems>();
   const backgroundColor = useSheetHeaderBackground();
   const colors = usePalette();
@@ -215,6 +216,7 @@ function PushedLevel({
   push: PushPage;
   onDrop: (key: number, result: PresentationResult<unknown>) => void;
 }) {
+  const { t } = useTranslations();
   const [headerItems, setHeaderItems] = useState<SheetHeaderItems>();
   const backgroundColor = useSheetHeaderBackground();
   const colors = usePalette();
