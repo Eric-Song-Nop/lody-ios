@@ -31,3 +31,9 @@ Full-recording 5-second samples show the app returning to the runtime verificati
 Release build `64bc5ab` succeeds in 5m04s. APK SHA-256 `4b60c958c389a329676c906f992cac865845c66db9198e65da47190c1fd6d3aa` passes `list-fonts` in both page and sheet with light appearance on API 36 ARM64; runner checkout `a41b9fe` is clean. In each host, the native long-title height changes from 122 to 216 pixels at system scale 1.3 and returns at 1.0, while process/counter survive and system Back actually dismisses the host. Original font scale 1.0 and night mode `no` are restored.
 
 All nine screenshots and 5-second samples spanning the 92.555011-second recording were reviewed under `list-font-repair-list-fonts-light`. The title wraps without clipping and remains readable in both hosts. This accepts the tested light-appearance font repair only. Dark fonts, mutation/focus/basic-list cases and the normally signed iOS build for this configuration change remain pending. `pnpm check` and iOS bundle pass; the new Android matrix continues sequentially.
+
+### Light mutation result
+
+On the same `4b60c958…` APK, `list-mutations-v1` passes both hosts with clean runner checkout `856f450`. The page preserves `row-15` at 52 pixels from the RecyclerView top; the sheet preserves `row-7` at 47 pixels. Inserting/removing 20 rows above each anchor keeps its offset within the 2-pixel bound, and subsequent taps dispatch that same current row identity with counts 1 then 2. Both hosts close through system Back and original night mode `no` is restored.
+
+All nine screenshots and 5-second samples spanning the complete 122.671311-second recording were reviewed under `list-font-repair-list-mutations-light`. This accepts light-appearance anchor/identity behavior, not keyboard or TalkBack focus. The rest of the matrix is still running.
