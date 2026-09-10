@@ -57,7 +57,7 @@ function View() {
 
 export const TurnChangesScreen = definePage<TurnChangesParams>({
   id: 'turn-changes',
-  title: t('changes.title'),
+  title: (t) => t('changes.title'),
   Component: View,
   parseRouteParams: () => {
     throw new Error('请从会话打开');

@@ -508,7 +508,7 @@ function View() {
 
 export const CreateSessionScreen = definePage<Params, CreatedSession>({
   id: 'create-session',
-  title: t('create.title'),
+  title: (t) => t('create.title'),
   Component: View,
   parseRouteParams: () => {
     throw new Error('请从会话列表打开');

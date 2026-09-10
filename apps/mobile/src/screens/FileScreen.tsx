@@ -94,7 +94,7 @@ function View() {
 
 export const FileScreen = definePage<FileParams>({
   id: 'file',
-  title: t('file.title'),
+  title: (t) => t('file.title'),
   Component: View,
   parseRouteParams: () => {
     throw new Error('请从项目文件打开');

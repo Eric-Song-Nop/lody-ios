@@ -55,7 +55,7 @@ function View() {
 
 export const OnboardingPreviewScreen = definePage({
   id: 'onboarding-preview',
-  title: t('onboarding.title'),
+  title: (t) => t('onboarding.title'),
   Component: View,
   presentation: OnboardingScreen.presentation,
 });

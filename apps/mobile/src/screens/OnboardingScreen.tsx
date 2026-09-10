@@ -253,7 +253,7 @@ function SheetButton({
 
 export const OnboardingScreen = definePage({
   id: 'onboarding',
-  title: t('onboarding.title'),
+  title: (t) => t('onboarding.title'),
   Component: View,
   presentation: {
     style: 'pageSheet',

@@ -135,7 +135,7 @@ function View() {
 
 export const ItemDetailScreen = definePage<ItemDetailParams>({
   id: 'session-item-detail',
-  title: t('detail.title'),
+  title: (t) => t('detail.title'),
   Component: View,
   parseRouteParams: () => {
     throw new Error('请从会话页打开');

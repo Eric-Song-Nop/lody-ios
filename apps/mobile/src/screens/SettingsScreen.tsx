@@ -207,7 +207,7 @@ function View() {
 
 export const SettingsScreen = definePage({
   id: 'settings',
-  title: t('tabs.settings'),
+  title: (t) => t('tabs.settings'),
   Component: View,
   presentation: {
     style: 'formSheet',

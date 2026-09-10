@@ -211,7 +211,7 @@ function View() {
 
 export const PermissionScreen = definePage<PermissionParams, PermissionResult>({
   id: 'session-permission',
-  title: t('permission.title'),
+  title: (t) => t('permission.title'),
   Component: View,
   parseRouteParams: () => {
     throw new Error('请从会话页打开');

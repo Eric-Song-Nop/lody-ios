@@ -164,7 +164,7 @@ function View() {
 
 export const InboxScreen = definePage({
   id: 'inbox',
-  title: t('tabs.sessions'),
+  title: (t) => t('tabs.sessions'),
   Component: View,
   presentation: { style: 'push', headerVariant: 'transparent' },
 });

@@ -58,9 +58,12 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
                 raise AssertionError('Editable draft was lost during locale change')
             if not any(node.get('content-desc') == close and node.get('clickable') == 'true' for node in tree.iter('node')):
                 raise AssertionError(f'Native default accessibility label did not update: {close}')
+            title = '设置' if language == 'zh-Hans' else 'Settings'
+            if not any(node.get('class') == 'android.widget.TextView' and node.get('text') == title for node in tree.iter('node')):
+                raise AssertionError(f'Native page title did not update: {title}')
             if host == 'sheet':
                 prefix = '关闭' if language == 'zh-Hans' else 'Close '
-                expected_header = prefix + 'Language switching'
+                expected_header = prefix + title
                 if not any(node.get('content-desc') == expected_header for node in tree.iter('node')):
                     raise AssertionError(f'Sheet close label did not update: {expected_header}')
             if shell('pidof', PACKAGE) != process:

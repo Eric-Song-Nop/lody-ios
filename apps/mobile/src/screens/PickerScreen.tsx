@@ -50,7 +50,7 @@ function View() {
 
 export const PickerScreen = definePage<Params, string>({
   id: 'picker',
-  title: t('picker.title'),
+  title: (t) => t('picker.title'),
   Component: View,
   parseRouteParams: () => {
     throw new Error('请从表单打开');

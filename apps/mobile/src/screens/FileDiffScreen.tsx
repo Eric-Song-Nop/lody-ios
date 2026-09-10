@@ -245,7 +245,7 @@ function Notice({ text, children }: { text: string; children?: ReactNode }) {
 
 export const FileDiffScreen = definePage<FileDiffParams>({
   id: 'file-diff',
-  title: t('diff.title'),
+  title: (t) => t('diff.title'),
   Component: View,
   parseRouteParams: () => {
     throw new Error('请从本轮改动打开');

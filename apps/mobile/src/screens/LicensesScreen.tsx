@@ -85,7 +85,7 @@ function View() {
 
 export const LicensesScreen = definePage({
   id: 'licenses',
-  title: t('settings.licenses.title'),
+  title: (t) => t('settings.licenses.title'),
   Component: View,
   presentation: { style: 'push', headerVariant: 'transparent' },
 });

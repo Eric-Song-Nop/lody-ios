@@ -145,7 +145,7 @@ function View() {
 
 export const ModelScreen = definePage<Params>({
   id: 'model',
-  title: t('model.title'),
+  title: (t) => t('model.title'),
   Component: View,
   parseRouteParams: () => {
     throw new Error('请从新建会话打开');

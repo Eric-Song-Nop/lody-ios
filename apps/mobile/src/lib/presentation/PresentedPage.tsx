@@ -1,6 +1,7 @@
 import {
   type NativeStackNavigationOptions,
   router,
+  Stack,
   useLocalSearchParams,
   useNavigation,
 } from 'expo-router';
@@ -15,6 +16,8 @@ import {
 import { Platform, type ColorValue } from 'react-native';
 import { softScrollEdgeEffects } from '@/ui/Screen';
 import { isIOS26 } from '@/ui/platform';
+import { useTranslations } from '../i18n/useTranslations';
+import { resolvePageTitle } from './title';
 
 import {
   type PageDefinitionBase,
@@ -150,7 +153,7 @@ export function nativePresentationOptions(
     sheetInitialDetentIndex: formSheet
       ? session.presentation.sheetInitialDetentIndex
       : undefined,
-    title: session.presentation.title ?? session.page.title,
+    title: resolvePageTitle(session.presentation.title ?? session.page.title),
   };
 }
 
@@ -229,11 +232,20 @@ export function PresentedPageProvider({
 }
 
 export function PresentedPageRoute() {
+  const { t } = useTranslations();
   const { runtime, session } = usePresentedPageSession();
   if (!runtime || !session) return null;
   if (session.presentation.style === 'push')
     return (
       <PageRuntimeProvider value={runtime}>
+        <Stack.Screen
+          options={{
+            title: resolvePageTitle(
+              session.presentation.title ?? session.page.title,
+              t,
+            ),
+          }}
+        />
         <session.page.Component />
       </PageRuntimeProvider>
     );

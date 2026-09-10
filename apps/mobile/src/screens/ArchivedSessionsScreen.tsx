@@ -42,7 +42,7 @@ function View() {
 
 export const ArchivedSessionsScreen = definePage({
   id: 'archived-sessions',
-  title: t('settings.archived.title'),
+  title: (t) => t('settings.archived.title'),
   Component: View,
   presentation: { style: 'push', headerVariant: 'transparent' },
 });

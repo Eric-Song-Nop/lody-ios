@@ -33,6 +33,7 @@ import type { PresentationResult } from './presentationStore';
 import { present, type PresentationSession } from './presentationStore';
 import { useTranslations } from '../i18n/useTranslations';
 import { usePalette } from '../theme/palette';
+import { resolvePageTitle } from './title';
 
 export type HeaderItems =
   ScreenStackHeaderConfigProps['headerRightBarButtonItems'];
@@ -50,13 +51,13 @@ type Level = {
 };
 
 function headerConfig(
-  page: PageDefinitionBase,
+  title: string,
   presentation: PagePresentationOptions,
   right?: React.ReactNode,
   backgroundColor = 'transparent',
 ): ScreenStackHeaderConfigProps {
   return {
-    title: presentation.title ?? page.title,
+    title,
     hidden: !presentation.headerShown,
     topInsetEnabled: false,
     backButtonDisplayMode: 'minimal',
@@ -171,12 +172,18 @@ export function SheetStack({
         style={StyleSheet.absoluteFill}
         headerConfig={{
           ...headerConfig(
-            session.page,
+            resolvePageTitle(
+              session.presentation.title ?? session.page.title,
+              t,
+            ),
             session.presentation,
             showClose && !headerItems ? (
               <NativeCloseButton
                 label={t('accessibility.closeSheet', {
-                  title: session.page.title,
+                  title: resolvePageTitle(
+                    session.presentation.title ?? session.page.title,
+                    t,
+                  ),
                 })}
                 onPress={runtime.cancel}
                 style={
@@ -247,7 +254,7 @@ function PushedLevel({
       style={StyleSheet.absoluteFill}
       headerConfig={{
         ...headerConfig(
-          level.page,
+          resolvePageTitle(level.presentation.title ?? level.page.title, t),
           level.presentation,
           undefined,
           backgroundColor,

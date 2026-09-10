@@ -57,6 +57,6 @@ function AndroidLocaleSwitchScreen() {
 
 export const androidLocaleSwitchPage = definePage({
   id: 'android-locale-switch',
-  title: 'Language switching',
+  title: (t) => t('tabs.settings'),
   Component: AndroidLocaleSwitchScreen,
 });

@@ -304,7 +304,7 @@ function View() {
 
 export const DirectoryScreen = definePage<Params, Project>({
   id: 'directory',
-  title: t('directory.title'),
+  title: (t) => t('directory.title'),
   Component: View,
   parseRouteParams: () => {
     throw new Error('请从选择项目打开');

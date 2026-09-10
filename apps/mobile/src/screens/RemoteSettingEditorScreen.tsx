@@ -188,7 +188,7 @@ function View() {
 }
 export const RemoteSettingEditorScreen = definePage<Params>({
   id: 'remote-setting-editor',
-  title: t('settings.remote.edit'),
+  title: (t) => t('settings.remote.edit'),
   Component: View,
   parseRouteParams: () => {
     throw new Error('Open from remote settings');

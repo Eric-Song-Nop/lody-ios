@@ -65,7 +65,7 @@ function View() {
 }
 export const ProjectPickerScreen = definePage<Params, Project>({
   id: 'project-picker',
-  title: t('create.row.selectProject'),
+  title: (t) => t('create.row.selectProject'),
   Component: View,
   parseRouteParams: () => {
     throw new Error('请从新建会话打开');

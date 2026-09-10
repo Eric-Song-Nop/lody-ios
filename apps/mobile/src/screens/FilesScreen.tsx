@@ -113,7 +113,7 @@ function View() {
 
 export const FilesScreen = definePage<FilesParams>({
   id: 'files',
-  title: t('files.title'),
+  title: (t) => t('files.title'),
   Component: View,
   parseRouteParams: () => {
     throw new Error('请从会话打开');

@@ -72,7 +72,7 @@ function View() {
 }
 export const AccountScreen = definePage({
   id: 'account',
-  title: t('account.title'),
+  title: (t) => t('account.title'),
   Component: View,
   presentation: { style: 'push', headerVariant: 'transparent' },
 });
