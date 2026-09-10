@@ -1,5 +1,6 @@
 """Real Android application locale changes without resetting the active route."""
 import re
+import time
 
 PACKAGE = 'app.innei.lody'
 
@@ -57,6 +58,11 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
                 raise AssertionError('Editable draft was lost during locale change')
             if not any(node.get('content-desc') == close and node.get('clickable') == 'true' for node in tree.iter('node')):
                 raise AssertionError(f'Native default accessibility label did not update: {close}')
+            if host == 'sheet':
+                prefix = '关闭' if language == 'zh-Hans' else 'Close '
+                expected_header = prefix + 'Language switching'
+                if not any(node.get('content-desc') == expected_header for node in tree.iter('node')):
+                    raise AssertionError(f'Sheet close label did not update: {expected_header}')
             if shell('pidof', PACKAGE) != process:
                 raise AssertionError('App process restarted during language switch')
             capture(name)
@@ -70,9 +76,25 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
         check('en', 'Close', '1 computer', '2 computers', 'language-fallback-return')
         set_locales('en-US')
         check('en', 'Close', '1 computer', '2 computers', 'language-en-return')
+        ime_shown = 'mInputShown=true' in shell('dumpsys', 'input_method')
+        result['imeShownBeforeReturn'] = ime_shown
+        if ime_shown:
+            shell('input', 'keyevent', 'KEYCODE_BACK')
+            wait_text('Runtime language verification')
+            if 'mInputShown=true' in shell('dumpsys', 'input_method'):
+                raise AssertionError('First back did not dismiss the keyboard')
         shell('input', 'keyevent', 'KEYCODE_BACK')
-        wait_text(f'Offline navigation: {"settings" if host == "sheet" else "projects"}')
-        result['checks'].append({'id': f'A-UI-01-language-switch-{host}', 'status': 'pass', 'detail': 'Real app locale en→zh→es fallback→en; independently subscribed memoized text and native close label update; draft, counter, process and return destination retained, including background/foreground'})
+        destination = f'Offline navigation: {"settings" if host == "sheet" else "projects"}'
+        deadline = time.monotonic() + 30
+        while True:
+            returned = wait_text(destination)
+            if 'Runtime language verification' not in texts(returned):
+                break
+            if time.monotonic() >= deadline:
+                raise AssertionError('Destination is behind an undismissed language page')
+            time.sleep(0.5)
+        capture('language-dismissed')
+        result['checks'].append({'id': f'A-UI-01-language-switch-{host}', 'status': 'pass', 'detail': 'Real app locale en→zh→es fallback→en; independently subscribed memoized text and native close label update; draft, counter, process and return destination retained, including background/foreground; translated sheet close label and active route removal after IME-aware back'})
     finally:
         set_locales(original)
         result['appLocalesRestored'] = original
