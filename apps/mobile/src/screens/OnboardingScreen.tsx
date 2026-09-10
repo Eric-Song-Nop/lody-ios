@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { useEffect } from 'react';
 import {
   ActivityIndicator,
@@ -37,6 +38,7 @@ function useRise() {
 }
 
 function View() {
+  const { t } = useTranslations();
   const auth = useAuth();
   const { finish } = usePageRuntime();
   const colors = usePalette();
@@ -171,6 +173,7 @@ function View() {
 }
 
 function Waiting() {
+  const { t } = useTranslations();
   const auth = useAuth();
   const colors = usePalette();
   return (

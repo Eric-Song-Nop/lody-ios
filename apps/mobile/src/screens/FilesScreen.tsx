@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { useEffect, useState } from 'react';
 import {
   NativeGroupedList,
@@ -22,6 +23,7 @@ export type FilesParams = {
 const join = (base: string, name: string) => (base ? `${base}/${name}` : name);
 
 function View() {
+  const { t } = useTranslations();
   const { params, push } = usePageRuntime<FilesParams>();
   const colors = usePalette();
   const [entries, setEntries] = useState<DirectoryEntry[]>();

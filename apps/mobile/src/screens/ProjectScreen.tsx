@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { Stack } from 'expo-router';
 import { NativeGroupedList } from '@lody-ios/kit';
 import { definePage } from '@/lib/presentation';
@@ -12,6 +13,7 @@ import { t } from '../lib/i18n/index.ts';
 import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 
 function View() {
+  const { t } = useTranslations();
   const {
     params: { projectId },
   } = usePageRuntime<{ projectId: string }>();

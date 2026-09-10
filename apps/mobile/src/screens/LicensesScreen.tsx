@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import {
   NativeGroupedList,
   type NativeListRow,
@@ -62,6 +63,7 @@ function licenseSections(): NativeListSection[] {
 }
 
 function View() {
+  const { t } = useTranslations();
   const colors = usePalette();
   const { push } = usePageRuntime();
   const sections = licenseSections();

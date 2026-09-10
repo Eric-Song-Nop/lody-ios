@@ -1,15 +1,16 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { useMemo, useRef } from 'react';
 import { NativeGroupedList } from '@lody-ios/kit';
 import { definePage } from '@/lib/presentation';
 import type { Project } from '@/models/catalog';
 import { usePalette } from '@/lib/theme/palette';
 import { DirectoryScreen } from './DirectoryScreen';
-import { t } from '../lib/i18n/index.ts';
 import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 import { useSheetHeader } from '@/hooks/screens/useSheetHeader';
 
 type Params = { workspaceId: string; projects: Project[]; selectedId: string };
 function View() {
+  const { t } = useTranslations();
   const { params, finish, present } = usePageRuntime<Params, Project>();
   const colors = usePalette();
   const opening = useRef(false);
@@ -34,7 +35,7 @@ function View() {
         },
       },
     ],
-    [params.workspaceId, present, finish],
+    [params.workspaceId, present, finish, t],
   );
   useSheetHeader(items);
   return (

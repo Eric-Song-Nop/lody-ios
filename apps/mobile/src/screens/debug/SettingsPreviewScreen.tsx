@@ -80,7 +80,7 @@ function View() {
         void push(
           SettingsListPreviewScreen,
           { kind, service },
-          { title: settingsTitle(kind) },
+          { title: (t) => settingsTitle(kind, t) },
         );
       }}
     />

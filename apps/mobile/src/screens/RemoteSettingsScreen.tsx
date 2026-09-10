@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { useEffect, useRef, useState } from 'react';
 import { NativeGroupedList } from '@lody-ios/kit';
 import { useCatalog } from '@/cloud/catalog/CatalogProvider';
@@ -13,8 +14,8 @@ export type SettingsService = (
   request: SettingsRequest,
 ) => Promise<RemoteSetting[]>;
 type Params = { kind: RemoteSetting['kind'] };
-export const settingsTitle = (kind: RemoteSetting['kind']) =>
-  t(`settings.remote.${kind}`);
+export const settingsTitle = (kind: RemoteSetting['kind'], translate = t) =>
+  translate(`settings.remote.${kind}`);
 
 const settingId = (item: RemoteSetting) =>
   `setting:${item.kind}:${item.machineId ?? ''}:${item.id}`;
@@ -33,6 +34,7 @@ export function RemoteSettingsView({
   workspaceId,
   service = requestSettings,
 }: Params & { workspaceId: string; service?: SettingsService }) {
+  const { t } = useTranslations();
   const colors = usePalette();
   const { present } = usePageRuntime();
   const [items, setItems] = useState<RemoteSetting[]>([]);
@@ -125,7 +127,7 @@ export function RemoteSettingsView({
             service,
           },
           {
-            title: t(`settings.remote.edit${kind}`),
+            title: (t) => t(`settings.remote.edit${kind}`),
             sheetAllowedDetents: kind === 'agent' ? [1] : [0.5, 1],
             sheetGrabberVisible: kind !== 'agent',
           },

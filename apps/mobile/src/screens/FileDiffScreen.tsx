@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
@@ -46,6 +47,7 @@ function reasonText(reason: string, message?: string) {
 }
 
 function View() {
+  const { t } = useTranslations();
   const { params } = usePageRuntime<FileDiffParams>();
   const colors = usePalette();
   const [diff, setDiff] = useState<DiffContent>();

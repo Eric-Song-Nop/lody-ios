@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   PlatformColor,
@@ -15,7 +16,6 @@ import { useSheetHeader } from '@/hooks/screens/useSheetHeader';
 import { showToast } from '@/ui/toast';
 import type { RemoteSetting } from '@/models/settings';
 import type { SettingsService } from './RemoteSettingsScreen';
-import { t } from '../lib/i18n/index.ts';
 
 type Params = {
   workspaceId: string;
@@ -61,6 +61,7 @@ function Group({
 }
 
 function View() {
+  const { t } = useTranslations();
   const { params, finish, cancel } = usePageRuntime<Params>();
   const { item, workspaceId, service } = params;
   const colors = usePalette();
@@ -99,7 +100,7 @@ function View() {
       saving.current = false;
       setBusy(false);
     }
-  }, [name, prompt, enabledByDefault, workspaceId, item, service, finish]);
+  }, [name, prompt, enabledByDefault, workspaceId, item, service, finish, t]);
   const actions = useMemo(
     () => [
       {
@@ -112,7 +113,7 @@ function View() {
         onPress: () => void save(),
       },
     ],
-    [busy, name, save],
+    [busy, name, save, t],
   );
   const dismiss = useMemo(
     () => [
@@ -124,7 +125,7 @@ function View() {
         onPress: cancel,
       },
     ],
-    [busy, cancel],
+    [busy, cancel, t],
   );
   useSheetHeader(actions, dismiss);
   return (

@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { useEffect } from 'react';
 import { Alert } from 'react-native';
 import { NativeGroupedList } from '@lody-ios/kit';
@@ -7,6 +8,7 @@ import { usePalette } from '@/lib/theme/palette';
 import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 import { t } from '../lib/i18n/index.ts';
 function View() {
+  const { t } = useTranslations();
   const auth = useAuth();
   const colors = usePalette();
   const { cancel } = usePageRuntime();

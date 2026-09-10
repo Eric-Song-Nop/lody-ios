@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { NativeGroupedList } from '@lody-ios/kit';
 import { definePage } from '@/lib/presentation';
 import { useAuth } from '@/cloud/auth/AuthProvider';
@@ -9,6 +10,7 @@ import { openCatalogRow } from '@/hooks/screens/openCatalogRow';
 import { t } from '../lib/i18n/index.ts';
 
 function View() {
+  const { t } = useTranslations();
   const { catalog, selected, loading } = useCatalog();
   const { account } = useAuth();
   const colors = usePalette();

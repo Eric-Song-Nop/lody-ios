@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { NotificationSettingsScreen } from '@/screens/NotificationSettingsScreen';
 import { useRouter } from 'expo-router';
 import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
@@ -16,7 +17,6 @@ import { relativeTime } from '@/ui/time';
 import { showToast } from '@/ui/toast';
 import { definePage } from '@/lib/presentation';
 import type { RemoteSetting } from '@/models/settings';
-import { t, tp } from '../lib/i18n/index.ts';
 
 const connectionRow = {
   live: { symbol: 'circle.fill', label: 'settings.connection.live' },
@@ -28,6 +28,7 @@ const connectionRow = {
 } as const;
 
 function View() {
+  const { t, tp } = useTranslations();
   const auth = useAuth();
   const router = useRouter();
   const { push, cancel } = usePageRuntime();
@@ -182,7 +183,7 @@ function View() {
           void push(
             RemoteSettingsScreen,
             { kind },
-            { title: settingsTitle(kind) },
+            { title: (t) => settingsTitle(kind, t) },
           );
         }
         if (nativeEvent.id === 'notifications')

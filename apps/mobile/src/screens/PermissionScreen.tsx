@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View as RNView } from 'react-native';
 import { Screen } from '@/ui/Screen';
@@ -96,6 +97,7 @@ function useTarget(params: PermissionParams, giveUp: () => void) {
 }
 
 function View() {
+  const { t } = useTranslations();
   const { params, finish } = usePageRuntime<
     PermissionParams,
     PermissionResult

@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { setPushVisibleRoute } from '@lody-ios/kit';
 import { useFocusEffect } from 'expo-router';
 import { Stack } from 'expo-router';
@@ -68,6 +69,7 @@ type SessionParams = {
 };
 
 function View() {
+  const { t } = useTranslations();
   const {
     params: { session, modelId, effort, modeId },
   } = usePageRuntime<SessionParams>();

@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { useOpenFile } from '@/hooks/screens/useOpenFile';
 import { useSyncExternalStore } from 'react';
 import { NativeChat } from '@lody-ios/kit';
@@ -35,6 +36,7 @@ export function createProcessSource(initial: string) {
 }
 
 function View() {
+  const { t } = useTranslations();
   const { params } = usePageRuntime<ProcessParams>();
   const openFile = useOpenFile(params.sessionId ?? '');
   const entriesJSON = useSyncExternalStore(

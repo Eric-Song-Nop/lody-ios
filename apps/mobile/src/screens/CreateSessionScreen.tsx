@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { ProjectPickerScreen } from './ProjectPickerScreen';
 import { useEffect, useRef, useState } from 'react';
 import { PlatformColor, TextInput, View as RNView } from 'react-native';
@@ -74,6 +75,7 @@ function createNotice({
 const creatable = (project: Project) => !project.id.endsWith(':unassigned');
 
 function View() {
+  const { t } = useTranslations();
   const { params, finish, push } = usePageRuntime<Params, CreatedSession>();
   const { account } = useAuth();
   const colors = usePalette();
@@ -355,7 +357,7 @@ function View() {
         placeholder: t('create.picker.machine.placeholder'),
         options: machines.map((m) => ({ id: m.id, title: m.name })),
       },
-      { title: t('create.row.selectMachine') },
+      { title: (t) => t('create.row.selectMachine') },
     );
     if (result.status !== 'completed') return;
     setMachineId(result.value);
@@ -403,7 +405,7 @@ function View() {
           subtitle: a.machineName,
         })),
       },
-      { title: t('create.row.selectAgent') },
+      { title: (t) => t('create.row.selectAgent') },
     );
     if (result.status !== 'completed') return;
     setAgentKey(result.value);

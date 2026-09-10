@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { Stack, useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
 import {
@@ -24,7 +25,6 @@ import { requestNewSession } from '@/features/sessions/sessionNav';
 import { listRowAction } from '@/features/sessions/sessionActions';
 import { definePage, present } from '@/lib/presentation';
 import { showToast } from '@/ui/toast';
-import { t } from '../lib/i18n/index.ts';
 import { SettingsScreen } from './SettingsScreen';
 
 const inboxViews = [
@@ -33,6 +33,7 @@ const inboxViews = [
 ] as const;
 
 function View() {
+  const { t } = useTranslations();
   const router = useRouter();
   const { account, localReady } = useAuth();
   const colors = usePalette();
@@ -48,7 +49,7 @@ function View() {
       mode === 0
         ? projectSections(catalog, colors.accent, expanded)
         : inboxSections(catalog, { accent: colors.accent }),
-    [mode, catalog, colors.accent, expanded],
+    [mode, catalog, colors.accent, expanded, t],
   );
   if (!localReady || !account) return <Screen />;
   const workspaceName = selected?.name ?? t('common.workspace');
