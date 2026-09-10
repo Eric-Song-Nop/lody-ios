@@ -80,3 +80,5 @@ pnpm verify:android --case storage \
 ```
 
 This case uses actual AndroidKeyStore encryption and SQLite with offline fixture data. The runner waits for `Storage prepared`, force-stops the app without clearing its data, launches a new process and resumes verification. The report must contain four `A-STORE-*` passes, different process IDs, and a projection larger than 2 MiB. Key loss is injected by deleting the real fixture key. The case also verifies account/workspace isolation, reauthorization, malformed saved context, and rejected old-generation writes after clear. See `docs/architecture/android-local-storage.md` for the ownership contract and product-integration limits.
+
+When the dedicated emulator's background system services produce startup ANRs, `--settle-seconds 60` allows boot work to settle before installing the app and recording. The value is recorded in `result.json`; UI automation failures still fail the run. Do not mark an application case passed from this wait or disable system services to conceal a failure.
