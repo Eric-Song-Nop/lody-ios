@@ -205,3 +205,16 @@ APK `ff7d1ae0b4e4d8256760e77db3adeb036340e7297b3b29f5c24e567812b7e6b5` includes 
 All 31 PNGs were individually reviewed. Five-second samples across each complete video and each final decoded Settings frame were reviewed; the per-run visual-review record lists the inspected screenshots. All six host/source checks pass, night mode restores to `no`, row updates retain focus, and counters end at actions two / returns one. Present-source return restores actual keyboard focus to Open list detail. Removed-source return has no source row. Disabled-source return retains readable Navigation unavailable content with `clickable=false`, `focusable=false`, and `focused=false` in both native hierarchies. These results supersede the ordinary-return failure only for this light-appearance keyboard matrix; the original failed runs remain retained.
 
 `pnpm check`, `pnpm test`, `pnpm bundle`, Android release build, and normally signed iOS simulator build with strict codesign verification pass for the combined implementation. Dark keyboard cases, updated-APK TalkBack cases, competing-focus races and remaining PR-05b gates are not inferred from this matrix.
+
+## TalkBack regression after the combined keyboard repair
+
+The same `ff7d1ae0…` APK passes source-present TalkBack return in both light-appearance hosts on the owned API 36 arm64 emulator. The page run uses clean runner `f7b4da5`, the sheet run clean runner `3a2f694`; their intervening changes are reports only. Both use `talkback-v7` and actual exploration/double-tap input with the non-suppressing observer.
+
+| Run under `.artifacts/android/`             | Reviewed PNGs | Video seconds | Observer requests | Events / dropped | Post-return focus samples |
+| ------------------------------------------- | ------------- | ------------- | ----------------- | ---------------- | ------------------------- |
+| `talkback-lists-page-light-host-return-v7`  | 11            | 31.642678     | 54                | 53 / 0           | 12                        |
+| `talkback-lists-sheet-light-host-return-v7` | 11            | 43.641122     | 48                | 50 / 0           | 9                         |
+
+All 22 PNGs were opened individually. Five-second samples across both recordings and each final decoded frame were reviewed. The page boot PNG captures the launcher before app startup and is setup evidence only; subsequent captures show the actual fixture. Detail has TalkBack focus on its Back control. Returning restores the originating Open list detail row before another exploration. A subsequent real Count action reaches two and retains its own accessibility focus across all recorded hold samples; returns stays one. Outer Back reaches Projects or Settings respectively. Both observers close, accessibility settings restore exactly to `null`/`0`, and night mode restores to `no`.
+
+This closes the two light/source-present TalkBack regressions for the combined keyboard fix. The later user action does not establish competing focus during the return transition. Current-APK dark and removed/disabled TalkBack cases, remaining keyboard cases, spoken output, full traversal and the other PR-05b gates remain separately required. Local screenshot/video/state evidence is complete for this subset; acceptance-service publication remains unavailable because the `lh` CLI is absent.
