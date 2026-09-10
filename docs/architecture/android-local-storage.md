@@ -1,6 +1,6 @@
 # Android local storage
 
-Roadmap PR-04. Implementation is under `modules/lody-kit/android/.../storage`, registered through `LodyKitModule`, and exported through the Android typed facade. Product auth/catalog routes remain gated by PR-09. Emulator acceptance is pending until the storage case report exists.
+Roadmap PR-04. Implementation is under `modules/lody-kit/android/.../storage`, registered through `LodyKitModule`, and exported through the Android typed facade. Product auth/catalog routes remain gated by PR-09. The first local storage case passed; integrated WASM-to-storage verification is being completed. See [the evidence index](../research/android-storage-verification.md).
 
 ## Credentials
 
@@ -20,6 +20,6 @@ Clear invalidates the native storage generation before queued work, closes the c
 
 ## Offline verification
 
-`runStorageVerification` invokes the actual production storage classes with isolated fixture filenames and aliases. The first invocation generates a synthetic credential and saves a projection over 2 MiB. The Android runner force-stops the app and relaunches it; the second invocation requires a different PID, verifies the encrypted credential and full Unicode projection, switches account/workspace, deletes the actual Keystore key, saves with a new key, and rejects an old-generation write after clear.
+`runStorageVerification` invokes the actual production storage classes with isolated fixture filenames and aliases. The initial flow obtains a catalog from the real WASM verifier, generates a synthetic credential and saves both the verified catalog and a separate Unicode stress projection over 2 MiB. The Android runner force-stops the app and relaunches it; the second invocation requires a different PID, verifies the encrypted credential and full Unicode projection, switches account/workspace, deletes the actual Keystore key, saves with a new key, and rejects an old-generation write after clear.
 
 Only non-secret case metadata, process IDs, projection size and restore duration are written to the external evidence report. A synthetic credential hash stays in the private fixture database only until the case clears it. Fixtures never use desktop credentials or a real Cloud account. The large projection is a storage stress fixture, not proof that a product screen has rendered that catalog.

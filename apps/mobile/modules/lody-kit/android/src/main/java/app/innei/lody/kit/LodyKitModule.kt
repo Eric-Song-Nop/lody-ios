@@ -136,9 +136,9 @@ class LodyKitModule : Module() {
     AsyncFunction("clearLocalValues") { promise: Promise ->
       storageOperation(promise, clearContext = true) { store, _, _, _ -> store.clear(); null }
     }
-    AsyncFunction("runStorageVerification") { promise: Promise ->
+    AsyncFunction("runStorageVerification") { seedCatalog: String?, promise: Promise ->
       storageOperation(promise) { _, _, context, _ ->
-        val report = StorageVerification(context).run()
+        val report = StorageVerification(context).run(seedCatalog)
         val output = context.getExternalFilesDir(null) ?: error("evidence_storage_unavailable")
         File(output, "lody-storage-verification.json").writeText(report)
         report

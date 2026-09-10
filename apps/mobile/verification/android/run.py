@@ -146,6 +146,12 @@ def main():
             tap_button(tree, 'Run storage verification')
             wait_text('Storage prepared: restart required', timeout=60)
             capture('prepared')
+            command([*adb_command, '-s', serial, 'pull', f'/sdcard/Android/data/{PACKAGE}/files/lody-runtime-verification.json', args.output / 'seed-runtime.json'], capture_output=True)
+            seed = json.loads((args.output / 'seed-runtime.json').read_text())
+            required_seed = {'increment', 'compressed', 'large', 'output-limit', 'truncated-length', 'truncated-body', 'invalid-json', 'over-limit'}
+            if {case['name'] for case in seed['cases'] if case['status'] == 'pass'} != required_seed or not seed.get('verifiedCatalog'):
+                raise AssertionError('Storage seed did not come from the verified real WASM pipeline')
+            result['seedRuntimeSha256'] = seed['runtimeSha256']
             shell('am', 'force-stop', PACKAGE)
             shell('am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity')
             tree = wait_text('Storage not run')
@@ -156,7 +162,7 @@ def main():
             actual = {case['id'] for case in storage['cases'] if case['status'] == 'pass'}
             if actual != {f'A-STORE-{number:02d}' for number in range(1, 5)}:
                 raise AssertionError(f'Storage coverage mismatch: {actual}')
-            if storage['processId'] == storage['priorProcessId'] or storage['projectionUtf8Bytes'] < 2 * 1024 * 1024:
+            if storage['processId'] == storage['priorProcessId'] or storage['projectionUtf8Bytes'] < 2 * 1024 * 1024 or storage.get('runtimeSeeded') is not True:
                 raise AssertionError('Storage did not cover real process restart and large projection')
             result['fixtureVersion'] = storage['fixtureVersion']
             result['checks'] = storage['cases']

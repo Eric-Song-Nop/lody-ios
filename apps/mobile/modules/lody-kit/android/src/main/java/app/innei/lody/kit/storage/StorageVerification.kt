@@ -8,12 +8,14 @@ import org.json.JSONObject
 
 /** Two invocations separated by a real force-stop; only non-secret fixture data is reported. */
 internal class StorageVerification(private val context: Context) {
-  fun run(): String {
+  fun run(seedCatalog: String?): String {
     val store = LocalStore(context, "verification-catalog")
     val auth = AuthCredentials(context, "verification-session")
     try {
       val prepared = store.read("verification:prepared")
       if (prepared == null) {
+        if (seedCatalog == null) return JSONObject().put("status", "needs_runtime").toString()
+        val runtimeCatalog = JSONObject().put("catalog", JSONObject(seedCatalog)).put("syncedAt", 1).toString()
         store.clear()
         auth.clear()
         val token = "offline-storage-fixture-" + java.util.UUID.randomUUID()
@@ -23,8 +25,9 @@ internal class StorageVerification(private val context: Context) {
         store.write("account", account("a"))
         store.write("workspace:a", "\"a-two\"")
         store.write("catalog:a:a-one", "{\"fixture\":\"wrong-workspace\"}")
-        store.write("catalog:a:a-two", largeCatalog())
-        store.write("verification:prepared", JSONObject().put("pid", Process.myPid()).put("tokenHash", hash(token)).toString())
+        store.write("catalog:a:a-two", runtimeCatalog)
+        store.write("verification:large", largeCatalog())
+        store.write("verification:prepared", JSONObject().put("pid", Process.myPid()).put("tokenHash", hash(token)).put("catalogHash", hash(runtimeCatalog)).toString())
         return JSONObject().put("status", "prepared").put("fixtureVersion", "storage-v1").put("processId", Process.myPid()).toString()
       }
       val prior = JSONObject(prepared)
@@ -32,10 +35,10 @@ internal class StorageVerification(private val context: Context) {
       val checks = JSONArray()
       val started = SystemClock.elapsedRealtime()
       val startup = store.startup()
-      check(startup["workspace"] == "a-two" && startup["catalog"] == largeCatalog()) { "offline_projection_mismatch" }
+      check(startup["workspace"] == "a-two" && hash(startup["catalog"] ?: "") == prior.getString("catalogHash") && store.read("verification:large") == largeCatalog()) { "offline_projection_mismatch" }
       check(hash(auth.read() ?: error("credential_missing")) == prior.getString("tokenHash")) { "credential_restore_mismatch" }
       val restoreMs = SystemClock.elapsedRealtime() - started
-      pass(checks, "A-STORE-01", "Real process restart restored encrypted credentials and a complete projection larger than CursorWindow's usual row budget")
+      pass(checks, "A-STORE-01", "Real process restart restored encrypted credentials, an actual WASM catalog, and a separate large Unicode projection")
 
       store.write("account", account("b"))
       check(store.startup()["workspace"] == "b-one" && store.startup()["catalog"] == "null")
@@ -65,6 +68,7 @@ internal class StorageVerification(private val context: Context) {
       return JSONObject().put("status", "pass").put("fixtureVersion", "storage-v1")
         .put("cases", checks).put("priorProcessId", prior.getInt("pid")).put("processId", Process.myPid())
         .put("projectionUtf8Bytes", largeCatalog().toByteArray().size).put("restoreMs", restoreMs)
+        .put("runtimeCatalogSha256", prior.getString("catalogHash")).put("runtimeSeeded", true)
         .put("credentialPlaintextPersisted", false).toString()
     } finally { store.close() }
   }

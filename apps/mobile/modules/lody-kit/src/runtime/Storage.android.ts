@@ -8,7 +8,7 @@ declare class StorageModule extends NativeModule {
   readLocalValue(key: string): Promise<string | null>;
   writeLocalValue(key: string, value: string): Promise<void>;
   clearLocalValues(): Promise<void>;
-  runStorageVerification(): Promise<string>;
+  runStorageVerification(seedCatalog: string | null): Promise<string>;
 }
 const native = requireNativeModule<StorageModule>('LodyKit');
 export const readAuthToken = () => native.readAuthToken();
@@ -19,4 +19,5 @@ export const readLocalValue = (key: string) => native.readLocalValue(key);
 export const writeLocalValue = (key: string, value: string) =>
   native.writeLocalValue(key, value);
 export const clearLocalValues = () => native.clearLocalValues();
-export const runStorageVerification = () => native.runStorageVerification();
+export const runStorageVerification = (seedCatalog: string | null = null) =>
+  native.runStorageVerification(seedCatalog);

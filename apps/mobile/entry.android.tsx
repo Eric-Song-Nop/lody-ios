@@ -63,7 +63,16 @@ function BootstrapProbe() {
     setRunning(true);
     setStorage('Storage running');
     try {
-      const report = JSON.parse(await runStorageVerification());
+      let report = JSON.parse(await runStorageVerification());
+      if (report.status === 'needs_runtime') {
+        setStorage('Storage running: real WASM seed');
+        const wasmReport = JSON.parse(await runDataRuntimeVerification());
+        if (typeof wasmReport.verifiedCatalog !== 'string')
+          throw new Error('Missing verified runtime catalog');
+        report = JSON.parse(
+          await runStorageVerification(wasmReport.verifiedCatalog),
+        );
+      }
       setStorage(
         report.status === 'prepared'
           ? 'Storage prepared: restart required'
