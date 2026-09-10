@@ -28,6 +28,7 @@ import system_api
 import feedback
 import feedback_default
 import feedback_keyboard
+import png_capture
 
 ROOT = Path(__file__).resolve().parents[4]
 SDK = Path(os.environ.get('ANDROID_HOME', Path.home() / 'Library/Android/sdk'))
@@ -108,6 +109,11 @@ def main():
         raise AssertionError(f'Missing UI state: {expected}')
 
     def screenshot(name):
+        if args.case == 'feedback-default':
+            timing = png_capture.capture([*adb_command, '-s', serial, 'exec-out', 'screencap', '-p'],
+                                         args.output / f'{name}.png')
+            result.setdefault('screenshotTimings', {})[name] = timing
+            return timing
         with (args.output / f'{name}.png').open('wb') as file:
             command([*adb_command, '-s', serial, 'exec-out', 'screencap', '-p'], stdout=file)
 
