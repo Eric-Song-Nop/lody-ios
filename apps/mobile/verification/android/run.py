@@ -70,6 +70,7 @@ def main():
     logcat_file = None
     recorder_pid = None
     original_night_mode = None
+    observer_remote = None
     serial = args.serial
     result = {'apkSha256': hashlib.file_digest(args.apk.open('rb'), 'sha256').hexdigest(), 'case': args.case, 'status': 'failed', 'checks': [], 'commit': command(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True, text=True).stdout.strip()}
     result['workingTreeDirty'] = bool(command(['git', 'status', '--porcelain'], cwd=ROOT, capture_output=True, text=True).stdout.strip())
@@ -79,7 +80,10 @@ def main():
         return command([*adb_command, '-s', serial, 'shell', *parts], capture_output=True, text=True).stdout.strip()
 
     def snapshot():
-        shell('uiautomator', 'dump', '/sdcard/lody-verify.xml')
+        if observer_remote:
+            shell(f'CLASSPATH={observer_remote}', 'app_process', '/', 'AccessibilityDump', '/sdcard/lody-verify.xml')
+        else:
+            shell('uiautomator', 'dump', '/sdcard/lody-verify.xml')
         xml = shell('cat', '/sdcard/lody-verify.xml')
         return ET.fromstring(xml)
 
@@ -119,7 +123,7 @@ def main():
 
     try:
         gesture_dex = gesture.build(SDK, args.output) if args.case == 'navigation-interruption' else None
-        talkback_dex = gesture.build(SDK, args.output, 'TalkBackInput') if args.case == 'talkback' else None
+        talkback_dex = gesture.build(SDK, args.output, 'TalkBackInput', ('AccessibilityDump',)) if args.case == 'talkback' else None
         command([*adb_command, 'start-server'], capture_output=True)
         server = command([*adb_command, 'server-status'], capture_output=True, text=True).stdout
         if str(adb.resolve()) not in server:
@@ -181,6 +185,10 @@ def main():
         shell('pm', 'clear', PACKAGE)
         shell('input', 'keyevent', 'KEYCODE_WAKEUP')
         shell('wm', 'dismiss-keyguard')
+        if talkback_dex:
+            observer_remote = '/data/local/tmp/lody-verify-observer.dex'
+            command([*adb_command, '-s', serial, 'push', talkback_dex, observer_remote], capture_output=True)
+            result['hierarchyObserver'] = 'UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES'
         logcat_file = (args.output / 'logcat.txt').open('w')
         logcat_process = subprocess.Popen([*adb_command, '-s', serial, 'logcat', '-v', 'threadtime', '-T', '1'], stdout=logcat_file, stderr=subprocess.STDOUT)
         recorder_pid = shell('sh', '-c', f"'screenrecord --time-limit 180 /sdcard/lody-verify-{args.case}.mp4 >/dev/null 2>&1 & echo $!'")
@@ -422,7 +430,10 @@ def main():
             result['checks'].append({'id': 'A-BOOT-02', 'status': 'pass', 'before': before, 'after': after})
         result['status'] = 'pass'
     except Exception as error:
-        result['error'] = str(error)
+        result['error'] = f'{type(error).__name__}: {error}'
+        if isinstance(error, subprocess.CalledProcessError):
+            stderr = error.stderr
+            result['commandStderr'] = stderr.decode('utf-8', errors='replace') if isinstance(stderr, bytes) else stderr
         if serial:
             try:
                 capture('failure')
@@ -430,6 +441,12 @@ def main():
                 result['captureError'] = str(capture_error)
         raise
     finally:
+        if observer_remote:
+            try:
+                shell('rm', '-f', observer_remote)
+            except Exception as error:
+                result['observerCleanupError'] = str(error)
+                result['status'] = 'failed'
         if recorder_pid and recorder_pid.isdigit():
             try:
                 shell('kill', '-2', recorder_pid)

@@ -5,15 +5,17 @@ import subprocess
 import time
 
 
-def build(sdk, output, class_name='GestureInput'):
+def build(sdk, output, class_name='GestureInput', additional_classes=()):
     directory = output / 'gesture-driver'
     directory.mkdir()
-    source = Path(__file__).with_name(f'{class_name}.java')
+    classes = (class_name, *additional_classes)
+    sources = [str(Path(__file__).with_name(f'{name}.java')) for name in classes]
     android_jar = sdk / 'platforms/android-36/android.jar'
     java_home = os.environ.get('JAVA_HOME')
     javac = str(Path(java_home) / 'bin/javac') if java_home else 'javac'
-    subprocess.run([javac, '-source', '8', '-target', '8', '-classpath', str(android_jar), '-d', str(directory), str(source)], check=True, timeout=60)
-    subprocess.run([str(sdk / 'build-tools/36.0.0/d8'), '--lib', str(android_jar), '--output', str(directory), str(directory / f'{class_name}.class')], check=True, timeout=60)
+    subprocess.run([javac, '-source', '8', '-target', '8', '-classpath', str(android_jar), '-d', str(directory), *sources], check=True, timeout=60)
+    subprocess.run([str(sdk / 'build-tools/36.0.0/d8'), '--lib', str(android_jar), '--output', str(directory),
+                    *[str(directory / f'{name}.class') for name in classes]], check=True, timeout=60)
     return directory / 'classes.dex'
 
 

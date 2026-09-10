@@ -164,7 +164,7 @@ uses the installed Google TalkBack service with real touch exploration. It requi
 that service to bind, builds a shell-only API 36 gesture driver with JDK 17, performs touchscreen exploration/double-tap (and hold for
 context menus), checks production action counts and system Back, and restores the
 original accessibility settings in `finally`. Both taps run in one device process and their MotionEvent times are recorded. It records service/package state around every gesture, rechecking real binding
-after hierarchy reads;
+after hierarchy reads. TalkBack cases use a shell-only `AccessibilityDump` with `FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES`; its Dex is removed in cleanup. Observer failure fails the case, with no fallback to the default service-suppressing UI Automator dump;
 this does not establish spoken-label quality or traversal order. The runner is
 implemented but device gesture compatibility and the complete host/theme matrix
 remain pending. Before service activation, the internal fixture entry may be reached by at most five scrolls using observed container bounds. The first-run Android Accessibility Suite notification prompt is dismissed through TalkBack when its exact system resource IDs and message are present; unrelated tutorial overlays or failed activation still fail the case. The bound service label and enabled component are checked separately, and the last observed accessibility dump is retained on timeout.
