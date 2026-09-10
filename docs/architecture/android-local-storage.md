@@ -1,6 +1,6 @@
 # Android local storage
 
-Roadmap PR-04. Implementation is under `modules/lody-kit/android/.../storage`, registered through `LodyKitModule`, and exported through the Android typed facade. Product auth/catalog routes remain gated by PR-09. The first local storage case passed; integrated WASM-to-storage verification is being completed. See [the evidence index](../research/android-storage-verification.md).
+Roadmap PR-04. Implementation is under `modules/lody-kit/android/.../storage`, registered through `LodyKitModule`, and exported through the Android typed facade. Product auth/catalog routes remain gated by PR-09. Integrated WASM-to-storage verification passed; additional corruption and transferred-envelope checks are being completed. See [the evidence index](../research/android-storage-verification.md).
 
 ## Credentials
 
@@ -16,7 +16,7 @@ All Keystore and database operations use the module's serial storage worker. The
 
 Large values are reconstructed through 65,536-character SQLite substrings so a complete catalog does not need to fit inside one CursorWindow row. A single storage owner serializes reads and writes; startup restores the account, validates the selected workspace against that account's workspace list, and reads only its corresponding catalog key. Saved projections carry their prior sync timestamp and are not evidence of a live connection. Credentials and CRDT state do not belong in this table.
 
-Clear invalidates the native storage generation before queued work, closes the currently owned internal runtime probes, and deletes cached values on the worker. Native delayed writers carry the generation captured before queuing; a replaced context rejects that write. A malformed account fails startup explicitly. Explicit cache clearing can recover a corrupted database. Full logout/account-switch UI integration and session runtime persistence are completed when PR-09 opens those capabilities; the shared JS generation/abort contracts remain necessary for callbacks that have not yet reached native code.
+Clear invalidates the native storage generation before queued work, closes the currently owned internal runtime probes, and deletes cached values on the worker. Native delayed writers carry the generation captured before queuing; a replaced context rejects that write. A malformed account fails startup explicitly. A custom SQLite corruption handler preserves the file and reports failure, preventing the default handler from silently deleting and reopening an empty store. Explicit cache clearing can recover a corrupted database. Full logout/account-switch UI integration and session runtime persistence are completed when PR-09 opens those capabilities; the shared JS generation/abort contracts remain necessary for callbacks that have not yet reached native code.
 
 ## Offline verification
 
