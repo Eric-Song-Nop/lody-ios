@@ -209,7 +209,7 @@ def main():
             result['fixtureVersion'] = 'list-fonts-v1'
             list_fonts.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
         elif args.case == 'lists':
-            result['fixtureVersion'] = 'lists-v1'
+            result['fixtureVersion'] = 'lists-v2'
             lists.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
         elif args.case == 'menu-edges':
             result['fixtureVersion'] = 'menu-edges-v1'

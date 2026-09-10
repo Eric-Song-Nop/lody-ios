@@ -159,6 +159,14 @@ global device language settings, TalkBack speech or process-death draft recovery
 
 ### Clipboard and display preferences
 
+`--case list-mutations --appearance light|dark` requires the fixture added in
+`674cff2` or later. It scrolls into history, records a fully visible row's offset,
+prepends/removes 20 rows above it, and requires the same row to retain that offset
+and dispatch its current ID on both taps. Run both themes; each includes page and
+sheet. It does not establish keyboard/TalkBack focus retention. The expanded list
+fixture is `lists-v2` for the existing basic list case and needs a fresh APK;
+older APKs cannot run the new mutation case.
+
 `--case list-fonts --appearance light|dark` uses the production grouped list in
 page and sheet hosts. It changes the real system `font_scale` from 1.0 to 1.3 and
 back while the list is mounted, compares the long title's rendered height and row
