@@ -102,3 +102,12 @@ Current navigation fixture v3 also exercises explicit cancellation, nested compl
 `pnpm verify:android --case menus --appearance light|dark --apk <internal.apk>` exercises the actual native filter menu and context menu in a page and a sheet. It checks selection IDs/counts and checked state, system-back cancellation, ordinary child taps versus long presses, destructive action dispatch, and removal/recreation of an anchor while its menu is open. Each host saves menu and final-state screenshots plus the shared recording. This touch-driven case does not establish TalkBack behavior or complete PR-05b acceptance.
 
 `pnpm verify:android --case menu-edges --appearance light|dark --apk <internal.apk>` checks the native menu button with a long Chinese/English title, its 200 dp width cap and 48 dp touch target, empty-menu disabled state, appearance changes while a popup is open, and keyboard Tab/Enter/Back focus restoration in both hosts. Keyboard focus evidence is separate from TalkBack.
+
+### Native grouped list subset
+
+`--case lists --appearance light|dark` runs production LodyKit grouped rows in
+page and sheet hosts. It checks a 48 dp native row, action/static behavior,
+stable-ID updates, navigation return, a real pull-to-refresh gesture, scrolling,
+and empty/restore snapshots. Screenshots and the recording require visual review.
+This subset does not establish TalkBack, arbitrary advanced iOS row features,
+insert/delete anchor preservation or the complete PR-05 gate.

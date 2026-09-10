@@ -1,0 +1,13 @@
+# Android grouped list verification
+
+PR-05b remains draft #7, stacked on PR-05a. The new list host is a subset of A-UI-01; it does not complete the platform UI stage.
+
+The typed Android facade exposes basic section headers/footers, title/subtitle/value rows, known semantic icons, action/navigation rows, transparent surfaces, bottom insets and controlled refresh. Unsupported advanced row/section props fail explicitly at the facade instead of being silently discarded. The complete iOS contract is unchanged; richer Android rows will be introduced with their owning product stages.
+
+LodyKit owns a RecyclerView and SwipeRefreshLayout. Immutable presentation items are diffed by section/row identity through AndroidX ListAdapter. Row actions resolve the current adapter position, so a recycled holder does not dispatch an old captured ID. Normal Android ripple/focus feedback replaces persistent UIKit row selection. Text uses sp sizing and naturally wrapping titles. Refresh invokes the caller's actual callback and waits for its controlled refreshing state.
+
+References: [AndroidX ListAdapter](https://developer.android.com/reference/androidx/recyclerview/widget/ListAdapter), [SwipeRefreshLayout](https://developer.android.com/reference/androidx/swiperefreshlayout/widget/SwipeRefreshLayout). Explicit dependencies are RecyclerView 1.4.0 and SwipeRefreshLayout 1.1.0; the latter matches the installed RN version.
+
+`pnpm verify:android --case lists --appearance light|dark --apk <internal.apk>` opens production rows in page and sheet hosts. It checks action/static rows, label/value updates, navigation return, actual pull refresh, scrolling and empty/restore snapshots. The fixture uses local state only. The runner captures screenshots, recording and native hierarchy, restores the prior appearance and shuts down its owned emulator.
+
+Initial implementation: `a24ad94`. Android build, `pnpm check`, `pnpm test`, and `pnpm bundle` pass. The first emulator run (`lists-first-light`, APK `6cf0ccbfe5f21aa4d7086c8e407e689e9bb270cea7978f69e81f828696456021`) stopped after a verifier mismatch: it waited for a combined accessibility description in the visible-text helper. The failure screenshot confirms the row actually updated. The corrected verifier waits for visible text and still taps the exact accessibility description. Static inspection also prompted aligned leading icons and explicit bottom safe-area clearance. Revised emulator and visual review are pending. TalkBack, insertion/removal anchor and focus cases, full language/font coverage and final navigation integration are not yet accepted. iOS signed-build regression is tracked separately. Local evidence publication remains unavailable; no remote acceptance is claimed.

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeGroupedList } from '@lody-ios/kit';
 import { AppText } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
@@ -10,6 +11,7 @@ import { usePalette } from '@/lib/theme/palette';
 function AndroidListsScreen() {
   const colors = usePalette();
   const runtime = usePageRuntime();
+  const insets = useSafeAreaInsets();
   const [actions, setActions] = useState(0);
   const [returns, setReturns] = useState(0);
   const [updated, setUpdated] = useState(false);
@@ -87,6 +89,7 @@ function AndroidListsScreen() {
         style={{ flex: 1 }}
         sections={sections}
         placeholder="No local rows"
+        bottomInset={insets.bottom}
         refreshing={refreshing}
         onRefresh={() => {
           if (timer.current) return;

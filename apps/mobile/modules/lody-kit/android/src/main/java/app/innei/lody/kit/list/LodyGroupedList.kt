@@ -10,6 +10,7 @@ import android.graphics.drawable.RippleDrawable
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.view.ViewCompat
@@ -129,6 +130,7 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
   }
 
   private inner class Holder(val box: LinearLayout) : RecyclerView.ViewHolder(box) {
+    val leading = ImageView(context)
     val title = TextView(context)
     val subtitle = TextView(context)
     val value = TextView(context)
@@ -138,6 +140,8 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
       box.gravity = Gravity.CENTER_VERTICAL
       box.setPadding(dp(16f), dp(12f), dp(16f), dp(12f))
       box.minimumHeight = dp(48f)
+      leading.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+      box.addView(leading, LinearLayout.LayoutParams(dp(24f), dp(24f)).apply { marginEnd = dp(16f) })
       copy.orientation = LinearLayout.VERTICAL
       copy.addView(title, LinearLayout.LayoutParams(-1, -2))
       copy.addView(subtitle, LinearLayout.LayoutParams(-1, -2))
@@ -176,8 +180,8 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
         setTint(if (item.destructive) danger else actionColor())
         setBounds(0, 0, dp(24f), dp(24f))
       }
-      title.setCompoundDrawablesRelative(icon, null, null, null)
-      title.compoundDrawablePadding = dp(16f)
+      leading.setImageDrawable(icon)
+      leading.visibility = if (icon == null) GONE else VISIBLE
       box.background = if (item.actionable) RippleDrawable(ColorStateList.valueOf(actionColor() and 0x00FFFFFF or 0x22000000), ColorDrawable(Color.TRANSPARENT), ColorDrawable(Color.WHITE)) else null
       box.isClickable = item.actionable
       box.isFocusable = item.actionable
