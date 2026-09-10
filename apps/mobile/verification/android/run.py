@@ -23,7 +23,7 @@ def command(args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--apk', type=Path, required=True)
-    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery'], required=True)
+    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage'], required=True)
     parser.add_argument('--adb-port', type=int, default=5038, help='Dedicated SDK adb server; leaves the default 5037 server alone.')
     parser.add_argument('--serial', help='Caller-owned device; installs and clears only app.innei.lody.')
     parser.add_argument('--avd', default='Lody_Android_Verify_36')
@@ -62,7 +62,7 @@ def main():
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             tree = snapshot()
-            if 'WASM failed:' in texts(tree) or 'Recovery failed:' in texts(tree):
+            if 'WASM failed:' in texts(tree) or 'Recovery failed:' in texts(tree) or 'Storage failed:' in texts(tree):
                 raise AssertionError(texts(tree))
             if expected in texts(tree):
                 return tree
@@ -142,7 +142,26 @@ def main():
         shell('am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity')
         tree = wait_text('LodyKit: Android')
         capture('boot')
-        if args.case == 'recovery':
+        if args.case == 'storage':
+            tap_button(tree, 'Run storage verification')
+            wait_text('Storage prepared: restart required', timeout=60)
+            capture('prepared')
+            shell('am', 'force-stop', PACKAGE)
+            shell('am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity')
+            tree = wait_text('Storage not run')
+            tap_button(tree, 'Run storage verification')
+            wait_text('Storage passed:', timeout=60)
+            command([*adb_command, '-s', serial, 'pull', f'/sdcard/Android/data/{PACKAGE}/files/lody-storage-verification.json', args.output / 'storage.json'], capture_output=True)
+            storage = json.loads((args.output / 'storage.json').read_text())
+            actual = {case['id'] for case in storage['cases'] if case['status'] == 'pass'}
+            if actual != {f'A-STORE-{number:02d}' for number in range(1, 5)}:
+                raise AssertionError(f'Storage coverage mismatch: {actual}')
+            if storage['processId'] == storage['priorProcessId'] or storage['projectionUtf8Bytes'] < 2 * 1024 * 1024:
+                raise AssertionError('Storage did not cover real process restart and large projection')
+            result['fixtureVersion'] = storage['fixtureVersion']
+            result['checks'] = storage['cases']
+            capture('storage-passed')
+        elif args.case == 'recovery':
             result['webViewProvider'] = shell('dumpsys', 'webviewupdate')
             tap_button(tree, 'Run recovery verification')
             wait_text('Recovery background ready', timeout=90)
