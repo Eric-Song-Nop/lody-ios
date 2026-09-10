@@ -23,7 +23,7 @@ def command(args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--apk', type=Path, required=True)
-    parser.add_argument('--case', choices=['bootstrap', 'wasm'], required=True)
+    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery'], required=True)
     parser.add_argument('--adb-port', type=int, default=5038, help='Dedicated SDK adb server; leaves the default 5037 server alone.')
     parser.add_argument('--serial', help='Caller-owned device; installs and clears only app.innei.lody.')
     parser.add_argument('--avd', default='Lody_Android_Verify_36')
@@ -62,7 +62,7 @@ def main():
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             tree = snapshot()
-            if 'WASM failed:' in texts(tree):
+            if 'WASM failed:' in texts(tree) or 'Recovery failed:' in texts(tree):
                 raise AssertionError(texts(tree))
             if expected in texts(tree):
                 return tree
@@ -142,7 +142,26 @@ def main():
         shell('am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity')
         tree = wait_text('LodyKit: Android')
         capture('boot')
-        if args.case == 'wasm':
+        if args.case == 'recovery':
+            result['webViewProvider'] = shell('dumpsys', 'webviewupdate')
+            tap_button(tree, 'Run recovery verification')
+            wait_text('Recovery background ready', timeout=90)
+            capture('before-background')
+            shell('input', 'keyevent', 'KEYCODE_HOME')
+            time.sleep(3)
+            shell('am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity')
+            wait_text('Recovery passed:', timeout=150)
+            command([*adb_command, '-s', serial, 'pull', f'/sdcard/Android/data/{PACKAGE}/files/lody-recovery-verification.json', args.output / 'runtime.json'], capture_output=True)
+            runtime = json.loads((args.output / 'runtime.json').read_text())
+            actual = {case['id'] for case in runtime['cases'] if case['status'] == 'pass'}
+            if actual != {f'A-REC-{number:02d}' for number in range(1, 6)}:
+                raise AssertionError(f'Recovery coverage mismatch: {actual}')
+            if runtime['httpWrites'] != 0 or runtime['createdViews'] != runtime['closedViews']:
+                raise AssertionError('Recovery leaked an owner or performed a write')
+            result['fixtureVersion'] = runtime['fixtureVersion']
+            result['checks'] = runtime['cases']
+            capture('recovery-passed')
+        elif args.case == 'wasm':
             result['webViewProvider'] = shell('dumpsys', 'webviewupdate')
             tap_button(tree, 'Run WASM verification')
             wait_text('WASM passed:', timeout=180)

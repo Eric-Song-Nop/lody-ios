@@ -6,6 +6,8 @@ import {
   addAppActiveListener,
   runtimeInfo,
   runDataRuntimeVerification,
+  runRuntimeRecoveryVerification,
+  addRecoveryPhaseListener,
 } from '@lody-ios/kit';
 
 if (process.env.EXPO_PUBLIC_ANDROID_VERIFY !== '1') {
@@ -41,7 +43,29 @@ function BootstrapProbe() {
   const [subscribed, setSubscribed] = useState(true);
   const [events, setEvents] = useState(0);
   const [wasm, setWasm] = useState('WASM not run');
+  const [recovery, setRecovery] = useState('Recovery not run');
   const [running, setRunning] = useState(false);
+  useEffect(() => {
+    const subscription = addRecoveryPhaseListener(({ phase }) =>
+      setRecovery(phase),
+    );
+    return () => subscription.remove();
+  }, []);
+  async function verifyRecovery() {
+    setRunning(true);
+    setWasm('WASM not run');
+    setRecovery('Recovery running');
+    try {
+      const report = JSON.parse(await runRuntimeRecoveryVerification());
+      setRecovery(`Recovery passed: ${report.cases.length} cases`);
+    } catch (error) {
+      setRecovery(
+        `Recovery failed: ${error instanceof Error ? error.message : 'unknown'}`,
+      );
+    } finally {
+      setRunning(false);
+    }
+  }
   async function verifyWasm() {
     setRunning(true);
     setWasm('WASM running');
@@ -72,7 +96,7 @@ function BootstrapProbe() {
         <Text accessibilityRole="header" style={styles.title}>
           Lody Android verification
         </Text>
-        <Text>Internal native verification · PR-01/02</Text>
+        <Text>Internal native verification · PR-01/02/03</Text>
         <Text testID="native-runtime">
           {runtimeInfo.moduleName}: {runtimeInfo.systemVersion}
         </Text>
@@ -89,6 +113,12 @@ function BootstrapProbe() {
           disabled={running}
           onPress={verifyWasm}
         />
+        <ProbeButton
+          title="Run recovery verification"
+          disabled={running}
+          onPress={verifyRecovery}
+        />
+        <Text testID="recovery-result">{recovery}</Text>
         <Text testID="wasm-result">{wasm}</Text>
       </View>
     </SafeAreaView>

@@ -60,3 +60,14 @@ Artifacts add `runtime.json` (runtime/fixture hashes, structural projection chec
 **Evidence limits**
 
 This runner does not prove physical haptics, 120 Hz behavior, push delivery or OEM background policy. Separate device validation remains required in the roadmap. Acceptance service publication is additional to local artifacts; if the `lh` CLI is unavailable, retain artifacts and explicitly report publication as pending.
+
+**Runtime recovery case (PR-03)**
+
+```sh
+pnpm verify:android --case recovery \
+  --apk apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+```
+
+The internal page runs the actual bundled WASM in real WebViews. The runner waits for the native readiness phase, presses Home, and returns to the Activity. Native lifecycle callbacks pause/resume the retained owner. An injected monotonic clock advances deadlines; ready/ping callbacks can be withheld at the native boundary. Renderer failure uses `WebViewRenderProcess.terminate()` on the API 36 baseline, rather than a fabricated success event.
+
+`A-REC-01` through `A-REC-05` cover startup timeout, system background/foreground, heartbeat loss and bounded renderer recovery, stale generation callbacks, and stop without command replay. The report records state transitions, methods issued, all created/closed WebViews, restored session generations and HTTP write count. A negative `sendTurn` is issued once; this proves the supervisor does not replay commands, not the PR-10 durable dispatch/ACK-loss behavior. Real account, logout integration, background services and OEM behavior remain later-stage checks.
