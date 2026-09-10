@@ -91,6 +91,16 @@ class LodyKitModule : Module() {
       Events("onAction")
       Prop("actions") { view: app.innei.lody.kit.menu.LodyContextMenu, value: List<app.innei.lody.kit.menu.LodyMenuEntry> -> view.setActions(value) }
     }
+    View(app.innei.lody.kit.list.LodyGroupedList::class) {
+      Events("onRowPress", "onRefresh")
+      Prop("sections") { view: app.innei.lody.kit.list.LodyGroupedList, value: List<app.innei.lody.kit.list.LodyListSection> -> view.setSections(value) }
+      Prop("placeholder") { view: app.innei.lody.kit.list.LodyGroupedList, value: String -> view.setPlaceholder(value) }
+      Prop("transparent") { view: app.innei.lody.kit.list.LodyGroupedList, value: Boolean -> view.setTransparent(value) }
+      Prop("accent") { view: app.innei.lody.kit.list.LodyGroupedList, value: String? -> view.setAccent(value) }
+      Prop("bottomInset") { view: app.innei.lody.kit.list.LodyGroupedList, value: Float -> view.setBottomInset(value) }
+      Prop("refreshEnabled") { view: app.innei.lody.kit.list.LodyGroupedList, value: Boolean -> view.setRefreshEnabled(value) }
+      Prop("refreshing") { view: app.innei.lody.kit.list.LodyGroupedList, value: Boolean -> view.setRefreshing(value) }
+    }
     View(app.innei.lody.kit.chrome.LodyCloseButton::class) {
       Events("onClose")
       Prop("label") { view: app.innei.lody.kit.chrome.LodyCloseButton, label: String? -> view.setLabel(label) }
