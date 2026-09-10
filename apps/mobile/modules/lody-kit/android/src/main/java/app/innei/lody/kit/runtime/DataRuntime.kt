@@ -25,7 +25,7 @@ internal class DataRuntime(
   private val onEvent: (JSONObject) -> Unit,
   private val onFailure: (String) -> Unit,
   private val intercept: ((WebResourceRequest) -> WebResourceResponse)? = null,
-) {
+) : RuntimeEndpoint {
   companion object {
     const val ORIGIN = "https://appassets.androidplatform.net"
     const val MAX_CHARS = 4 * 1024 * 1024
@@ -91,7 +91,7 @@ internal class DataRuntime(
     view.loadUrl("$ORIGIN/runtime.html")
   }
 
-  fun invoke(method: String, args: JSONArray = JSONArray(), completion: (Result<Any?>) -> Unit = {}) {
+  override fun invoke(method: String, args: JSONArray, completion: (Result<Any?>) -> Unit) {
     check(Looper.myLooper() == Looper.getMainLooper())
     if (!alive.get() || !ready) {
       completion(Result.failure(IllegalStateException("runtime_not_ready")))
@@ -110,7 +110,17 @@ internal class DataRuntime(
     view.evaluateJavascript(script, null)
   }
 
-  fun close() {
+  override fun suspend() {
+    check(Looper.myLooper() == Looper.getMainLooper())
+    if (alive.get()) view.onPause()
+  }
+
+  override fun resume() {
+    check(Looper.myLooper() == Looper.getMainLooper())
+    if (alive.get()) view.onResume()
+  }
+
+  override fun close() {
     check(Looper.myLooper() == Looper.getMainLooper())
     if (!alive.getAndSet(false)) return
     main.removeCallbacksAndMessages(null)
