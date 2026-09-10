@@ -11,10 +11,14 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
+import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -68,6 +72,12 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
   private var refreshEnabled = false
   private var navigationFocusId: String? = null
   private var restoreNavigationFocus = false
+  private var accessibilityNavigationId: String? = null
+  private var accessibilityNavigationCovered = false
+  private val returnFocusObserver = ViewTreeObserver.OnPreDrawListener {
+    observeAccessibilityReturn()
+    true
+  }
 
   init {
     orientation = VERTICAL
@@ -90,6 +100,7 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
     if (event.actionMasked == MotionEvent.ACTION_DOWN) {
       navigationFocusId = null
       restoreNavigationFocus = false
+      clearAccessibilityReturn()
       disallowAncestorIntercept(true)
     }
     return try { super.dispatchTouchEvent(event) } finally {
@@ -101,10 +112,13 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
 
   override fun onDetachedFromWindow() {
     if (navigationFocusId != null) restoreNavigationFocus = true
+    if (accessibilityNavigationId != null) accessibilityNavigationCovered = true
+    viewTreeObserver.removeOnPreDrawListener(returnFocusObserver)
     super.onDetachedFromWindow()
   }
   override fun onAttachedToWindow() {
     super.onAttachedToWindow()
+    viewTreeObserver.addOnPreDrawListener(returnFocusObserver)
     post { restoreReturningRowFocus() }
   }
   override fun onVisibilityChanged(changedView: View, visibility: Int) {
@@ -138,6 +152,58 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
       restoreNavigationFocus = false
     }
   }
+  private fun clearAccessibilityReturn() {
+    accessibilityNavigationId = null
+    accessibilityNavigationCovered = false
+  }
+  private fun availableToAccessibility(view: View): Boolean {
+    if (!view.isAttachedToWindow || !view.isShown) return false
+    var ancestor: View? = view
+    while (ancestor != null) {
+      if (ancestor.importantForAccessibility == IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS) return false
+      ancestor = ancestor.parent as? View
+    }
+    return true
+  }
+  private fun accessibilityFocus(view: View): View? {
+    if (!view.isShown || view.importantForAccessibility == IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS) return null
+    if (view.isAccessibilityFocused) return view
+    if (view is ViewGroup) {
+      for (index in 0 until view.childCount) {
+        accessibilityFocus(view.getChildAt(index))?.let { return it }
+      }
+    }
+    return null
+  }
+  private fun observeAccessibilityReturn() {
+    if (accessibilityNavigationId == null) return
+    if (!availableToAccessibility(this)) {
+      accessibilityNavigationCovered = true
+      return
+    }
+    if (!accessibilityNavigationCovered) return
+    if (accessibilityFocus(rootView) == null) return
+    // Once the service or user has chosen a view, do not offer a stale return
+    // target on a later window change. This never assigns accessibility focus.
+    clearAccessibilityReturn()
+  }
+  private inner class RowBox(context: Context) : LinearLayout(context) {
+    var rowId: String? = null
+    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
+      super.onInitializeAccessibilityNodeInfo(info)
+      val ownsReturn = rowId != null && rowId == accessibilityNavigationId
+      AccessibilityNodeInfoCompat.wrap(info).setRequestInitialAccessibilityFocus(
+        ownsReturn && accessibilityNavigationCovered && availableToAccessibility(this)
+          && accessibilityFocus(rootView) == null
+      )
+    }
+    override fun sendAccessibilityEvent(eventType: Int) {
+      super.sendAccessibilityEvent(eventType)
+      if (eventType == AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED && accessibilityNavigationCovered) {
+        clearAccessibilityReturn()
+      }
+    }
+  }
   private fun disallowAncestorIntercept(disallow: Boolean) {
     // RN sheet roots intentionally swallow propagation, so address each ancestor.
     // Only gestures beginning inside this list are claimed; sheet chrome stays native.
@@ -154,6 +220,9 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
     require(allRows.all { it.id.isNotBlank() } && allRows.map { it.id }.distinct().size == allRows.size) { "List row IDs must be nonempty and globally unique" }
     allRows.filter { it.image.isNotEmpty() }.forEach { LodySymbols.resource(it.image) }
     sections = value
+    if (accessibilityNavigationId != null && allRows.none { it.id == accessibilityNavigationId && it.navigates }) {
+      clearAccessibilityReturn()
+    }
     submit()
   }
   fun setPlaceholder(value: String) { placeholder = value; submit() }
@@ -197,7 +266,7 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
     updateColors()
   }
 
-  private inner class Holder(val box: LinearLayout) : RecyclerView.ViewHolder(box) {
+  private inner class Holder(val box: RowBox) : RecyclerView.ViewHolder(box) {
     val leading = ImageView(context)
     val title = TextView(context)
     val subtitle = TextView(context)
@@ -223,12 +292,15 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
           if (item.actionable && isShown) {
             navigationFocusId = if (item.navigates && box.hasFocus() && !box.isInTouchMode) item.id else null
             restoreNavigationFocus = false
+            accessibilityNavigationId = if (item.navigates && box.isAccessibilityFocused) item.id else null
+            accessibilityNavigationCovered = false
             onRowPress(mapOf("id" to item.id))
           }
         }
       }
     }
     fun bind(item: Item) {
+      box.rowId = if (item.navigates) item.id else null
       val dark = LodyUiColors.dark(context)
       val primary = if (dark) Color.WHITE else Color.parseColor("#1B1B1B")
       val secondary = Color.parseColor(if (dark) "#C6C6C6" else "#5E5E5E")
@@ -267,7 +339,7 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
     override fun areItemsTheSame(old: Item, new: Item) = old.section == new.section && old.id == new.id && old.kind == new.kind
     override fun areContentsTheSame(old: Item, new: Item) = old == new
   }) {
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = Holder(LinearLayout(parent.context).apply {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = Holder(RowBox(parent.context).apply {
       layoutParams = RecyclerView.LayoutParams(-1, -2)
     })
     override fun onBindViewHolder(holder: Holder, position: Int) = holder.bind(getItem(position))

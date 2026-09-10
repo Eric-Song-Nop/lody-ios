@@ -29,3 +29,7 @@ The failed iOS job has been requested for one unchanged-code rerun to distinguis
 ## PR-05b TalkBack backdrop dependency patch
 
 The managed `TalkBack backdrop iOS regression` lease completed a normally signed Debug simulator build and `codesign --verify --deep --strict` after generating native assets. Source is `d14ab0d` (including Android dependency patch `7841c7a`), with an accessibility report edit only. Logs are `.artifacts/android/ios-regression/talkback-backdrop-assets.log`, `talkback-backdrop-build.log` and `talkback-backdrop-lease.log`. The wrapper exits zero and releases the lease. The persistent react-native-screens patch changes Android's empty dimming view accessibility importance; no iOS source is patched. This build does not close the parent CI Home UI failure or claim a new iOS UI behavior run.
+
+## PR-05b list accessibility return candidate
+
+The managed `List accessibility return iOS regression` lease completed native asset generation, a normally signed Debug simulator build and `codesign --verify --deep --strict`. The process exits zero. Source is `1b8900f` plus the Android list candidate, detail fixture and verifier changes; iOS implementation remains unchanged. Logs are `.artifacts/android/ios-regression/list-return-assets.log`, `list-return-build.log` and `list-return-lease.log`. This verifies the iOS build remains valid alongside the Android changes, without claiming a new iOS UI run or resolution of the parent CI failure.

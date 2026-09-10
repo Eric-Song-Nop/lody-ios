@@ -1,8 +1,9 @@
 """Keyboard activation and focus continuity through native row updates/return."""
 
 
-def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance):
+def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, list_return='present'):
     result['appearance'] = appearance
+    result['listSourceRow'] = list_return
 
     def focused(tree, prefix):
         return any(node.get('content-desc', '').startswith(prefix)
@@ -39,16 +40,35 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance):
         shell('input', 'keyevent', 'KEYCODE_ENTER')
         wait_text('Native list detail')
         capture(f'focus-{host}-detail')
+        if list_return != 'present':
+            label = {'removed': 'Remove source row', 'disabled': 'Disable source navigation'}[list_return]
+            # Stay in keyboard mode while mutating the covered list's data.
+            for _ in range(12):
+                tree = wait_text('Native list detail')
+                if any(node.get('focused') == 'true' and label in (node.get('content-desc'), node.get('text')) for node in tree.iter('node')):
+                    break
+                shell('input', 'keyevent', 'KEYCODE_TAB')
+            else:
+                raise AssertionError(f'Cannot reach detail mutation button: {label}')
+            shell('input', 'keyevent', 'KEYCODE_ENTER')
+            wait_text(f'Source row: {list_return}')
+            capture(f'focus-{host}-source-changed')
         shell('input', 'keyevent', 'KEYCODE_BACK')
         tree = wait_text('Actions: 2; returns: 1; refreshes: 0')
-        if not focused(tree, 'Open list detail,'):
+        if list_return == 'present' and not focused(tree, 'Open list detail,'):
             raise AssertionError('Returning from detail lost the native navigation row focus')
+        if list_return != 'present' and focused(tree, 'Open list detail,'):
+            raise AssertionError('Returning from detail focused a removed or non-navigating source row')
+        if list_return == 'removed' and 'Open list detail' in texts(tree):
+            raise AssertionError('Removed source row still exists')
+        if list_return == 'disabled' and 'Navigation unavailable' not in texts(tree):
+            raise AssertionError('Source row was not changed to non-navigating content')
         capture(f'focus-{host}-returned')
         shell('input', 'keyevent', 'KEYCODE_BACK')
         tree = wait_text(root)
         if 'Native grouped rows' in texts(tree):
             raise AssertionError('Native list host remained after Back')
         result['checks'].append({
-            'id': f'A-UI-01-focus-{host}', 'status': 'pass',
-            'detail': 'Keyboard reaches native rows, repeated activation preserves focus after updates, detail Back restores navigation row focus',
+            'id': f'A-UI-01-focus-{list_return}-{host}', 'status': 'pass',
+            'detail': f'Keyboard reaches native rows and preserves focus after updates; detail Back checks source row state {list_return}',
         })

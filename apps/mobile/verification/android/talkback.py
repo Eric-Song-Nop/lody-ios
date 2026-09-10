@@ -5,7 +5,7 @@ import time
 SERVICE = 'com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService'
 
 
-def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, host, target, snapshot, gesture_input, traversal=False):
+def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, host, target, snapshot, gesture_input, traversal=False, list_return='present'):
     originals = result['originalAccessibilitySettings']
     result.update(appearance=appearance, host=host, target=target,
                   originalAccessibilitySettings=originals)
@@ -127,8 +127,24 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
         # Exploration must focus this node without activating it. Capture the
         # intermediate state before dispatching a separate hardware double tap.
         explore_log = gesture_input(x, y, 'explore')
-        time.sleep(0.8)
-        explored = snapshot()
+        # TalkBack processes hover asynchronously. Observe its actual choice
+        # within the same five-second budget used by traversal; do not resend
+        # input or assign focus when the initial snapshot precedes its response.
+        deadline = time.monotonic() + 5
+        exploration_samples = []
+        while True:
+            explored = snapshot()
+            candidates = [item for item in explored.iter('node')
+                          if item.get('accessibility-focused') == 'true']
+            exact = any(title in (item.get('text'), item.get('content-desc'))
+                        or (item.get('clickable') == 'true'
+                            and any(title in (child.get('text'), child.get('content-desc'))
+                                    for child in item.iter('node') if child is not item))
+                        for item in candidates)
+            exploration_samples.append({'at': time.monotonic(), 'focused': [item.get('content-desc') or item.get('text') for item in candidates]})
+            if exact or texts(explored) != texts(tree) or time.monotonic() >= deadline:
+                break
+            time.sleep(0.1)
         result.setdefault('talkBackExplorations', []).append({
             'title': title, 'inputEvents': explore_log,
             'focusedLabels': [item.get('content-desc') or item.get('text')
@@ -137,6 +153,7 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
             'fixtureTextUnchanged': texts(explored) == texts(tree),
             'fixtureTextBefore': texts(tree),
             'fixtureTextAfter': texts(explored),
+            'focusObservations': exploration_samples,
         })
         focused = []
         for item in explored.iter('node'):
@@ -284,6 +301,12 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
             activate(tree, 'Open list detail, 原生导航行 · Native navigation')
             wait_text('Native list detail')
             capture('talkback-detail-open')
+            result['listSourceRow'] = list_return
+            if list_return != 'present':
+                label = {'removed': 'Remove source row', 'disabled': 'Disable source navigation'}[list_return]
+                activate(snapshot(), label)
+                wait_text(f'Source row: {list_return}')
+                capture('talkback-source-changed')
             shell('input', 'keyevent', 'KEYCODE_BACK')
             tree = wait_text('Actions: 1; returns: 1; refreshes: 0')
             expected = 'Open list detail, 原生导航行 · Native navigation'
@@ -293,13 +316,57 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
                 focused = [node.get('content-desc') or node.get('text')
                            for node in tree.iter('node')
                            if node.get('accessibility-focused') == 'true']
-                if focused == [expected] or time.monotonic() >= deadline:
+                if (list_return == 'present' and focused == [expected]) or time.monotonic() >= deadline:
                     break
                 time.sleep(0.1)
-            result['listReturnFocus'] = {'expected': expected, 'observed': focused}
+            result['listReturnFocus'] = {'expected': expected if list_return == 'present' else 'No stale navigation candidate', 'observed': focused}
             capture('talkback-list-return-focus')
-            if focused != [expected]:
+            if list_return == 'present' and focused != [expected]:
                 raise AssertionError(f'List return did not restore originating accessibility focus: {focused}')
+            if list_return == 'removed' and any(node.get('text') == 'Open list detail' for node in tree.iter('node')):
+                raise AssertionError('Removed source row remains in the native list')
+            if list_return == 'disabled':
+                source = [node for node in tree.iter('node')
+                          if node.get('content-desc') == 'Open list detail, Navigation unavailable']
+                if len(source) != 1 or source[0].get('clickable') != 'false':
+                    raise AssertionError('Source navigation was not disabled in the native list')
+            if not any(node.get('initial-accessibility-focus') is not None for node in tree.iter('node')):
+                raise AssertionError('Return-candidate observation requires Android API 34 or newer')
+            candidates = [node.get('content-desc') or node.get('text') for node in tree.iter('node')
+                          if node.get('initial-accessibility-focus') == 'true']
+            result['listReturnFocus']['initialCandidates'] = candidates
+            if list_return != 'present' and candidates:
+                raise AssertionError(f'Invalid source row retained an initial focus candidate: {candidates}')
+            # A real user-selected row must retain focus through a list snapshot
+            # update. No explicit accessibility-focus action is used here.
+            activate(tree, 'Count action, 1')
+            wait_text('Actions: 2; returns: 1; refreshes: 0')
+            deadline = time.monotonic() + 5
+            while not any(node.get('content-desc') == 'Count action, 2' for node in snapshot().iter('node')):
+                if time.monotonic() >= deadline:
+                    raise AssertionError('Native action row did not apply the second count')
+                time.sleep(0.1)
+            samples = []
+            deadline = time.monotonic() + 3
+            while True:
+                observed = snapshot()
+                labels = [node.get('content-desc') or node.get('text')
+                          for node in observed.iter('node') if node.get('accessibility-focused') == 'true']
+                candidates = [node.get('content-desc') or node.get('text')
+                              for node in observed.iter('node') if node.get('initial-accessibility-focus') == 'true']
+                samples.append({'at': time.monotonic(), 'focused': labels, 'initialCandidates': candidates})
+                result['listSupersedingFocus'] = samples
+                if labels != ['Count action, 2'] or candidates:
+                    capture('talkback-superseding-focus-failure')
+                    raise AssertionError(f'List update stole user focus or retained a return candidate: {samples[-1]}')
+                if time.monotonic() >= deadline:
+                    break
+                time.sleep(0.1)
+            capture('talkback-superseding-focus')
+            result['checks'].append({
+                'id': f'A-UI-01-talkback-list-return-{list_return}-{host}', 'status': 'pass',
+                'detail': 'Source row state observed after detail Back; actual user activation of another row retains focus through its update with no stale initial candidate. Does not establish every return-time focus race.',
+            })
         capture('talkback-actions-passed')
         shell('input', 'keyevent', 'KEYCODE_BACK')
         # The parent retains its earlier scroll offset; its introductory text

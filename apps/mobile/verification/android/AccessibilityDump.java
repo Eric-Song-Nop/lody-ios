@@ -95,6 +95,9 @@ public final class AccessibilityDump {
     xml.attribute(null, "focusable", String.valueOf(node.isFocusable()));
     xml.attribute(null, "focused", String.valueOf(node.isFocused()));
     xml.attribute(null, "accessibility-focused", String.valueOf(node.isAccessibilityFocused()));
+    if (android.os.Build.VERSION.SDK_INT >= 34) {
+      xml.attribute(null, "initial-accessibility-focus", String.valueOf(node.hasRequestInitialAccessibilityFocus()));
+    }
     xml.attribute(null, "scrollable", String.valueOf(node.isScrollable()));
     xml.attribute(null, "checked", String.valueOf(node.isChecked()));
     xml.attribute(null, "checkable", String.valueOf(node.isCheckable()));

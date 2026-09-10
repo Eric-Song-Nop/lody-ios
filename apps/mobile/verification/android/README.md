@@ -240,8 +240,32 @@ Default-toast screenshots additionally record first-byte, complete-PNG, and proc
 
 `talkback-v5` adds explicit `--talkback-traversal` for `--talkback-target controls`. After the icon has actually gained focus and activated, four SDK hardware swipes require icon → disabled icon → text action → disabled icon → icon, using right/right/left/left. The gesture center comes from the display and current focus, never the next target. Each step records input coordinates/times and actual focus, captures a screenshot, and requires unchanged fixture content; focus is observed within five seconds, with no gesture retry or direct accessibility focus action. The original text-button activation and Back checks then continue. This bounded sequence does not establish full-screen reading order, spoken labels or originating-list-row focus restoration.
 
-List TalkBack cases use `talkback-v6` and require the originating navigation row's
+List TalkBack cases use `talkback-v7` and require the originating navigation row's
 actual accessibility focus within five seconds after detail Back. The runner
 records `listReturnFocus` and captures `talkback-list-return-focus` before any
 further gesture. A correct return counter alone no longer passes this case.
 Controls/menus retain v5; no direct focus assignment is used by the verifier.
+
+For TalkBack lists and keyboard `list-focus-v2`, `--list-return removed|disabled`
+changes the source row through a real detail-screen action before Back. `present`
+is the default. Removal must remove the native row; disabling retains readable
+content without navigation. Keyboard return must not restore either invalid
+navigation target. TalkBack v7 observes the platform initial-focus property (API
+34+ required by this observation) and rejects a stale return candidate. After
+return, it uses real exploration/double-tap to select and increment another row,
+then observes three seconds of focus continuity through the native list update.
+This covers a new user selection after return, not every competing-focus race
+during the transition. Each variant needs both hosts and its own evidence.
+
+`--record-input-events` optionally records `getevent -lt` device timestamps during
+an owned-emulator TalkBack run. RPC logs also include host send-start and return
+times. The recording process is stopped in teardown; an early recorder exit
+fails evidence collection. Use this to investigate a missed gesture without
+changing gesture timings, retrying activation or assigning focus directly.
+
+Exploration now observes exact focus for up to five seconds, matching the
+traversal observation budget. Each observation is retained in
+`talkBackExplorations[].focusObservations`; content changes still fail. This
+replaces a fixed 0.8-second sample that could precede delayed TalkBack hover
+processing. Input is sent once; the final target/subtree and hit bounds remain
+mandatory.

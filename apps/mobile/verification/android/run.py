@@ -47,6 +47,8 @@ def main():
     parser.add_argument('--talkback-host', choices=['page', 'sheet'], default='page')
     parser.add_argument('--talkback-target', choices=['controls', 'menus', 'lists'], default='controls')
     parser.add_argument('--talkback-traversal', action='store_true', help='Verify native control order through real TalkBack next/previous gestures.')
+    parser.add_argument('--record-input-events', action='store_true', help='Record device getevent timestamps for owned-emulator TalkBack input diagnosis.')
+    parser.add_argument('--list-return', choices=['present', 'removed', 'disabled'], default='present', help='Source navigation row state while detail is open; list-focus or TalkBack lists only.')
     parser.add_argument('--symbols-host', choices=['page', 'sheet'], default='page', help='Review one native symbol host per recording.')
     parser.add_argument('--locale-host', choices=['page', 'sheet'], default='page', help='Host for real application language switching.')
     parser.add_argument('--feedback-host', choices=['page', 'sheet'], default='page', help='Feedback host; run both separately to keep each recording within 180 seconds.')
@@ -60,6 +62,10 @@ def main():
     parser.add_argument('--avd-home', type=Path, help='AVD registry directory when SDK tools use a different default.')
     parser.add_argument('--output', type=Path, default=ROOT / '.artifacts/android' / time.strftime('%Y%m%d-%H%M%S'))
     args = parser.parse_args()
+    if args.record_input_events and args.case != 'talkback':
+        parser.error('--record-input-events requires talkback.')
+    if args.list_return != 'present' and not (args.case == 'list-focus' or (args.case == 'talkback' and args.talkback_target == 'lists')):
+        parser.error('--list-return requires list-focus or talkback lists.')
     if args.talkback_traversal and (args.case != 'talkback' or args.talkback_target != 'controls'):
         parser.error('--talkback-traversal currently requires talkback controls.')
     if args.screenshot_source == 'emulator' and (args.serial or args.case != 'feedback-default'):
@@ -77,6 +83,8 @@ def main():
     emulator_log = None
     logcat_process = None
     logcat_file = None
+    input_process = None
+    input_file = None
     recorder_pid = None
     original_night_mode = None
     observer_remote = None
@@ -232,6 +240,10 @@ def main():
             result['observerDexSha256'] = hashlib.file_digest(talkback_dex.open('rb'), 'sha256').hexdigest()
         logcat_file = (args.output / 'logcat.txt').open('w')
         logcat_process = subprocess.Popen([*adb_command, '-s', serial, 'logcat', '-v', 'threadtime', '-T', '1'], stdout=logcat_file, stderr=subprocess.STDOUT)
+        if args.record_input_events:
+            input_file = (args.output / 'input-events.txt').open('w')
+            input_process = subprocess.Popen([*adb_command, '-s', serial, 'shell', 'getevent', '-lt'], stdout=input_file, stderr=subprocess.STDOUT)
+            result['inputEventRecording'] = 'getevent -lt; device monotonic timestamps'
         recorder_pid = shell('sh', '-c', f"'screenrecord --time-limit 180 /sdcard/lody-verify-{args.case}.mp4 >/dev/null 2>&1 & echo $!'")
         if not recorder_pid.isdigit():
             raise RuntimeError(f'Could not start screenrecord: {recorder_pid}')
@@ -267,15 +279,15 @@ def main():
             result['fixtureVersion'] = 'list-mutations-v1'
             list_mutations.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
         elif args.case == 'talkback':
-            result['fixtureVersion'] = 'talkback-v6' if args.talkback_target == 'lists' else 'talkback-v5'
+            result['fixtureVersion'] = 'talkback-v7' if args.talkback_target == 'lists' else 'talkback-v5'
             talkback.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.talkback_host, args.talkback_target, snapshot,
-                         touch_driver.run, args.talkback_traversal)
+                         touch_driver.run, args.talkback_traversal, args.list_return)
         elif args.case == 'symbols':
             result['fixtureVersion'] = 'symbols-v1'
             symbols.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.symbols_host)
         elif args.case == 'list-focus':
-            result['fixtureVersion'] = 'list-focus-v1'
-            list_focus.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
+            result['fixtureVersion'] = 'list-focus-v2'
+            list_focus.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.list_return)
         elif args.case == 'list-fonts':
             result['fixtureVersion'] = 'list-fonts-v1'
             list_fonts.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
@@ -483,6 +495,18 @@ def main():
                 result['captureError'] = str(capture_error)
         raise
     finally:
+        if input_process:
+            if input_process.poll() is not None:
+                result['inputEventRecordingError'] = f'getevent exited early: {input_process.returncode}'
+                result['status'] = 'failed'
+            else:
+                input_process.terminate()
+            try:
+                input_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                input_process.kill()
+                input_process.wait(timeout=5)
+            input_file.close()
         if observer:
             try:
                 observer.save_events()

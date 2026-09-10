@@ -96,8 +96,9 @@ class Driver:
             event = self.messages.TouchEvent(display=0, touches=[
                 self.messages.Touch(x=current_x, y=y, identifier=1, pressure=pressure,
                                     touch_major=8, touch_minor=8)])
+            started = time.monotonic()
             rpc(event, timeout=5, metadata=(('authorization', 'Bearer ' + self.token),))
-            events.append({'at': time.monotonic(), 'pressure': pressure, 'point': [current_x, y]})
+            events.append({'sentAt': started, 'at': time.monotonic(), 'pressure': pressure, 'point': [current_x, y]})
 
         def tap(duration):
             try:
