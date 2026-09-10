@@ -405,4 +405,4 @@ PR-01 将 Android 命令的参数、设备选择、安装、输出路径和清�
 
 统一停止条件：出现跨账号数据、丢失权威文本、自动重复发送、无界重启/队列或 iOS 核心回归时，不将问题挪到最后一阶段；在当前 PR 修复，或保持该能力仅内部可见并阻塞依赖它的产品 PR。依赖尚未具备、真实验收没执行和候选仍待定都要明示，不能以“构建成功”替代完成。
 
-当前已创建 PR-00 与 PR-01 的 draft 堆叠。PR-01 已有真实 Kotlin bootstrap、内部入口与验证 runner，共享检查、测试及双平台 bundle 通过；Android APK、模拟器行为及 iOS 签名原生构建仍在验证。没有阶段被标记为完成，也没有真机性能或发行完成声明。
+当前已创建 PR-00 与 PR-01 的 draft 堆叠。PR-01 的 Android release APK 构建、真实 Kotlin bootstrap 与本机模拟器 A-BOOT-01/02 已通过，详见[构建与模拟器证据索引](../research/android-bootstrap-verification.md)。共享检查、测试及双平台 bundle 通过；iOS 签名原生构建仍待完成。阶段 A 继续保持验证中，没有真机性能或发行完成声明。
