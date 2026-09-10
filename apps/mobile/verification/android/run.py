@@ -27,11 +27,14 @@ def main():
     parser.add_argument('--adb-port', type=int, default=5038, help='Dedicated SDK adb server; leaves the default 5037 server alone.')
     parser.add_argument('--serial', help='Caller-owned device; installs and clears only app.innei.lody.')
     parser.add_argument('--avd', default='Lody_Android_Verify_36')
+    parser.add_argument('--settle-seconds', type=int, default=0, help='Optional device boot settling time before app installation and recording.')
     parser.add_argument('--gpu', choices=['auto', 'host', 'software'], default='host')
     parser.add_argument('--memory-mb', type=int, default=4096, help='RAM for the owned emulator; does not modify its saved AVD configuration.')
     parser.add_argument('--avd-home', type=Path, help='AVD registry directory when SDK tools use a different default.')
     parser.add_argument('--output', type=Path, default=ROOT / '.artifacts/android' / time.strftime('%Y%m%d-%H%M%S'))
     args = parser.parse_args()
+    if not 0 <= args.settle_seconds <= 180:
+        parser.error('--settle-seconds must be between 0 and 180.')
     if args.memory_mb < 2048:
         parser.error('--memory-mb must be at least 2048.')
     if not args.apk.is_file():
@@ -129,6 +132,9 @@ def main():
                 time.sleep(1)
             else:
                 raise TimeoutError('Emulator did not boot in 180 seconds.')
+        result['bootSettleSeconds'] = args.settle_seconds
+        if args.settle_seconds:
+            time.sleep(args.settle_seconds)
         result['serial'] = serial
         result['system'] = shell('getprop', 'ro.build.fingerprint')
         result['abi'] = shell('getprop', 'ro.product.cpu.abi')
