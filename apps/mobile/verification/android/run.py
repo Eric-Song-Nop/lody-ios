@@ -49,6 +49,7 @@ def main():
     parser.add_argument('--symbols-host', choices=['page', 'sheet'], default='page', help='Review one native symbol host per recording.')
     parser.add_argument('--locale-host', choices=['page', 'sheet'], default='page', help='Host for real application language switching.')
     parser.add_argument('--feedback-host', choices=['page', 'sheet'], default='page', help='Feedback host; run both separately to keep each recording within 180 seconds.')
+    parser.add_argument('--screenshot-source', choices=['adb', 'emulator'], default='adb', help='Explicit default-toast capture transport; emulator requires a runner-owned AVD and gRPC dependencies.')
     parser.add_argument('--adb-port', type=int, default=5038, help='Dedicated SDK adb server; leaves the default 5037 server alone.')
     parser.add_argument('--serial', help='Caller-owned device; installs and clears only app.innei.lody.')
     parser.add_argument('--avd', default='Lody_Android_Verify_36')
@@ -58,6 +59,8 @@ def main():
     parser.add_argument('--avd-home', type=Path, help='AVD registry directory when SDK tools use a different default.')
     parser.add_argument('--output', type=Path, default=ROOT / '.artifacts/android' / time.strftime('%Y%m%d-%H%M%S'))
     args = parser.parse_args()
+    if args.screenshot_source == 'emulator' and (args.serial or args.case != 'feedback-default'):
+        parser.error('Emulator screenshots require feedback-default on a runner-owned AVD.')
     if not 0 <= args.settle_seconds <= 180:
         parser.error('--settle-seconds must be between 0 and 180.')
     if args.memory_mb < 2048:
@@ -110,8 +113,11 @@ def main():
 
     def screenshot(name):
         if args.case == 'feedback-default':
-            timing = png_capture.capture([*adb_command, '-s', serial, 'exec-out', 'screencap', '-p'],
-                                         args.output / f'{name}.png')
+            if args.screenshot_source == 'emulator':
+                timing = touch_driver.screenshot(args.output / f'{name}.png')
+            else:
+                timing = png_capture.capture([*adb_command, '-s', serial, 'exec-out', 'screencap', '-p'],
+                                             args.output / f'{name}.png')
             result.setdefault('screenshotTimings', {})[name] = timing
             return timing
         with (args.output / f'{name}.png').open('wb') as file:
@@ -136,7 +142,8 @@ def main():
     try:
         if args.case == 'talkback' and serial:
             raise RuntimeError('TalkBack hardware verification requires a runner-owned emulator')
-        touch_prepared = hardware_touch.prepare(SDK, args.output) if args.case == 'talkback' else None
+        use_emulator_rpc = args.case == 'talkback' or args.screenshot_source == 'emulator'
+        touch_prepared = hardware_touch.prepare(SDK, args.output) if use_emulator_rpc else None
         gesture_dex = gesture.build(SDK, args.output) if args.case == 'navigation-interruption' else None
         talkback_dex = gesture.build(SDK, args.output, 'AccessibilityDump') if args.case == 'talkback' else None
         command([*adb_command, 'start-server'], capture_output=True)
@@ -238,7 +245,8 @@ def main():
             result['fixtureVersion'] = 'feedback-v3'
             feedback.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.feedback_host)
         elif args.case == 'feedback-default':
-            result['fixtureVersion'] = 'feedback-default-v2'
+            result['fixtureVersion'] = 'feedback-default-v4'
+            result['screenshotSource'] = args.screenshot_source
             feedback_default.run(shell, wait_text, tap_button, screenshot, capture, texts, result, tree, args.appearance, args.feedback_host)
         elif args.case == 'feedback-keyboard':
             result['fixtureVersion'] = 'feedback-keyboard-v2'

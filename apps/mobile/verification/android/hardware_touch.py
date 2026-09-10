@@ -3,6 +3,7 @@ import hashlib
 import importlib
 from pathlib import Path
 import subprocess
+import struct
 import sys
 import tempfile
 import time
@@ -49,6 +50,35 @@ class Driver:
 
     def close(self):
         self.token = None
+
+    def screenshot(self, destination):
+        started = time.monotonic()
+        channel = self.grpc.insecure_channel(
+            f'127.0.0.1:{self.port}',
+            options=[('grpc.max_receive_message_length', 64 * 1024 * 1024)])
+        try:
+            rpc = channel.unary_unary(
+                '/android.emulation.control.EmulatorController/getScreenshot',
+                request_serializer=self.messages.ImageFormat.SerializeToString,
+                response_deserializer=self.messages.Image.FromString)
+            reply = rpc(self.messages.ImageFormat(format=self.messages.ImageFormat.PNG, display=0),
+                        timeout=15, metadata=(('authorization', 'Bearer ' + self.token),))
+        finally:
+            channel.close()
+        received = time.monotonic() - started
+        data = reply.image
+        width, height = reply.format.width, reply.format.height
+        if width <= 0 or height <= 0 or reply.format.format != self.messages.ImageFormat.PNG:
+            raise ValueError('Emulator returned an inactive display or wrong screenshot format')
+        if (len(data) < 45 or data[:16] != b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR'
+                or data[-12:] != b'\x00\x00\x00\x00IEND\xaeB`\x82'
+                or struct.unpack('>II', data[16:24]) != (width, height)):
+            raise ValueError('Emulator returned an invalid or mismatched PNG')
+        destination.write_bytes(data)
+        return {'transport': 'emulator-grpc-getScreenshot', 'display': 0,
+                'protoSha256': self.proto_hash, 'width': width, 'height': height,
+                'frameTimestampUs': reply.timestampUs, 'receiptSeconds': received,
+                'completeSeconds': time.monotonic() - started, 'bytes': len(data)}
 
     def run(self, x, y, mode):
         if mode not in ('explore', 'activate', 'hold'):

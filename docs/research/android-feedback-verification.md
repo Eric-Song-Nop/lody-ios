@@ -77,3 +77,22 @@ The sheet/light diagnostic `feedback-default-sheet-light-png-diagnostic` uses th
 The helper records first byte, complete PNG receipt, and process completion without modifying image bytes. For the visible capture these are 0.652613, 1.364376, and 1.382577 seconds from screenshot invocation. The approximately 18 ms process tail does not support attributing earlier deadline failures to process shutdown. This passing diagnostic does not establish that intermittent capture latency has been fixed; both previous deadline failures remain valid. The two dark combinations still require evidence. Exact production toast lifetime is not measured.
 
 The instrumented page/dark run `feedback-default-page-dark-png-observed` exits with the existing capture-deadline failure on the same APK and dirty `cc3d635` runner. Capture begins 0.302622 seconds after input and completes at 2.228191 seconds. Relative to screenshot invocation, first byte arrives at 0.730602 seconds, complete PNG at 1.878185 seconds, and process completion at 1.925343 seconds. The individually reviewed visible PNG contains the correctly positioned, readable dark Unicode toast. Most elapsed screenshot time precedes full PNG receipt; this observation does not isolate device capture, encoding or transport as the cause. Expiry and Back checks do not execute. Timeout and night mode restore, and the owned emulator stops. Sheet/dark remains unrun; no full dark default-timeout acceptance is claimed.
+
+### Direct emulator capture experiment
+
+`feedback-default-page-dark-grpc-v3` uses the installed Emulator SDK's authenticated display-0 `getScreenshot` RPC, with no scaling or pixel transformation. The same APK `553d7744…` and dirty runner `3e5b281` complete the programmed checks, but visual acceptance **fails**: the designated visible screenshot contains no toast. All five PNGs were individually reviewed, together with three-second samples spanning the 31.442756-second recording; the recording later shows the toast. The visible RPC finishes in 0.297988 seconds and the overall capture completes 0.597358 seconds after input begins, which is too early in this observed run. This is retained as a visual failure even though `result.json` records passing programmatic checks.
+
+The v4 experiment schedules one direct screenshot at one second after input begins, while retaining the two-second completion deadline and unchanged product timeout. It does not retry the input or sample repeatedly until a desired image appears. This must be visually verified on each host/theme before claiming default-timeout acceptance. The adb transport remains available for comparison.
+
+### Scheduled direct capture results
+
+Both v4 dark-host runs pass behavior and visual review on the same API 36 arm64 emulator and APK `553d7744…`. Runner source is `3e5b281` plus the direct capture and scheduled-sample changes.
+
+| Directory under `.artifacts/android/` | Capture complete after input | Absence observed after input | Recording   | Result        |
+| ------------------------------------- | ---------------------------- | ---------------------------- | ----------- | ------------- |
+| `feedback-default-page-dark-grpc-v4`  | 1.365200 s                   | 8.816916 s                   | 30.700411 s | Reviewed pass |
+| `feedback-default-sheet-dark-grpc-v4` | 1.363601 s                   | 8.889713 s                   | 36.048189 s | Reviewed pass |
+
+All ten PNGs were individually reviewed. Full recordings were sampled every five seconds, with additional half-second samples over the toast interval (page 10–18 seconds; sheet 15–23 seconds). The Unicode toast is readable and clears the gesture area, later disappears, and Back returns to Projects or Settings respectively. Each run restores the original timeout (`null`) and night mode (`yes`), and stops its owned emulator.
+
+Together with the earlier reviewed adb page/light v2 and sheet/light timing diagnostic, the unchanged APK now has default-timeout appearance, later-absence and Back evidence in all four host/theme combinations. Capture transports and runner revisions differ and are recorded explicitly; this is not a four-case v4 transport matrix or an exact 3.2-second duration measurement. Earlier deadline and visual failures remain retained. PR-05b still requires the remaining accessibility, focus and final integration work.

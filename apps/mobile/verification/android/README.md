@@ -181,7 +181,7 @@ python3 -m venv /tmp/lody-android-verification-python
 The runner generates protobuf bindings from the installed emulator's own `.proto`
 into the evidence directory and records its hash. Authentication is read from the
 exact owned process's discovery file, used only in RPC metadata and never copied
-to results. Other cases require neither gRPC nor these Python dependencies.
+to results. Other cases require neither gRPC nor these Python dependencies, unless the explicit emulator screenshot option below is selected.
 
 `--case list-focus --appearance light|dark` uses TAB, Enter, directional input
 and system Back on production native rows. It requires repeated action updates
@@ -233,3 +233,7 @@ The TalkBack fixture-menu search, before enabling the service, waits for observe
 `feedback-default-v2` captures immediately after the synchronous input command, recording screenshot start and completion offsets. The two-second completion deadline and six-second absence check are unchanged. The earlier v1 page/light screenshot visibly contained the toast but missed the capture deadline at 2.062039 seconds; that failed run is retained. Product timing and system timeout settings are unchanged.
 
 Default-toast screenshots additionally record first-byte, complete-PNG, and process-completion timing. The capture helper checks chunk checksums, complete output, process success and bounded receipt time, preserves original bytes, and leaves the existing two-second completion gate unchanged. Run its pipe-behavior checks with `python3 apps/mobile/verification/android/png_capture_test.py`. These timings diagnose capture latency; they do not measure when Android originally captured the displayed pixels.
+
+`feedback-default-v3` adds `--screenshot-source emulator` for a runner-owned AVD. Invoke it with the isolated Python and gRPC dependencies above. It calls the installed SDK protocol's authenticated `getScreenshot` for display 0, omits scaling dimensions, writes the returned PNG without transforming pixels, and records dimensions, frame timestamp, protocol hash and host receipt/completion times. Inactive displays, wrong formats and mismatched PNG dimensions fail. Channels close before subsequent adb subprocesses. `--serial` and other cases reject this option; default `--screenshot-source adb` retains the original measured path. There is no automatic transport fallback or retry. The two-second deadline and production toast lifetime remain unchanged. Device results belong in the feedback report; adding this option alone does not establish acceptance.
+
+`feedback-default-v4` schedules the single emulator screenshot at one second after input begins; the completion gate is still two seconds. The v3 immediate direct capture returned before the toast appeared and failed visual review despite passing programmatic checks. The adb path remains immediate. Retain both the PNG and recording: a successful capture or returned input command never establishes visible toast presence by itself.

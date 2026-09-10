@@ -27,6 +27,11 @@ def run(shell, wait_text, tap_button, screenshot, capture, texts, result, tree, 
         capture('default-toast-before')
         started = time.monotonic()
         tap_button(tree, 'Show info toast')
+        if result.get('screenshotSource') == 'emulator':
+            # Direct framebuffer reads can precede native rendering after adb
+            # input returns. Take one scheduled sample, without retrying input
+            # or extending the two-second capture deadline.
+            time.sleep(max(0, 1 - (time.monotonic() - started)))
         # No UI Automator dump here: its idle wait can consume the entire toast.
         result['screenshotStartedSecondsAfterInput'] = time.monotonic() - started
         screenshot('default-toast-visible')
