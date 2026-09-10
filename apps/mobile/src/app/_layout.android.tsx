@@ -9,8 +9,16 @@ export default function AndroidLayout() {
       : navigationThemes.light;
   return (
     <ThemeProvider value={theme}>
-      <Stack screenOptions={{ headerTransparent: false }}>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack
+        screenOptions={{
+          headerTransparent: false,
+          statusBarStyle: theme.dark ? 'light' : 'dark',
+        }}
+      >
+        <Stack.Screen
+          name="index"
+          options={{ headerShown: false, statusBarStyle: 'dark' }}
+        />
         <Stack.Screen
           name="android-navigation"
           options={{ headerShown: false }}

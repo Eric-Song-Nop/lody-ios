@@ -14,6 +14,8 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance):
     result['appearance'] = appearance
     result['densityScale'] = density
     tap_button(tree, 'Open navigation verification')
+    wait_text('Offline navigation: projects')
+    capture('menu-edges-projects-root')
     for host in ('page', 'sheet'):
         if host == 'page':
             tap_button(wait_text('Offline navigation: projects'), 'Open menu edges page')
@@ -71,4 +73,5 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance):
         capture(f'menu-edges-{host}-passed')
         shell('input', 'keyevent', 'KEYCODE_BACK')
         wait_text('Offline navigation: projects' if host == 'page' else 'Offline navigation: settings')
+        capture(f'menu-edges-{host}-returned')
         result['checks'].append({'id': f'A-UI-01-menu-edges-{host}', 'status': 'pass', 'detail': '48 dp target, bounded long label, disabled empty menu, live appearance replacement and keyboard open/back focus restoration'})
