@@ -11,7 +11,7 @@
 | `runtimeInfo`、`addAppActiveListener`                                                                                                | Kotlin 模块注册与生命周期事件，订阅释放已验证                                                       | [Bootstrap](../research/android-bootstrap-verification.md)                                                   |
 | bundled JS/WASM 数据宿主与恢复                                                                                                       | 真实 WebView、资产、投影、watchdog 与有限恢复；仅内部验证入口，尚未接产品账号                       | [WASM](../research/android-wasm-verification.md)、[阶段 B 集成](../research/android-storage-verification.md) |
 | `readAuthToken` / `saveAuthToken` / `clearAuthToken`，`readLocalStartup` / `readLocalValue` / `writeLocalValue` / `clearLocalValues` | Keystore 加密与 SQLite 原生实现；账号隔离、进程重启及损坏路径本机验收通过。真实授权接线仍属于 PR-09 | [存储](../research/android-storage-verification.md)                                                          |
-| `NativeCloseButton` 与共享 navigation/presentation                                                                                   | Kotlin 关闭控件已在 sheet 验证；完整 PR-05a 导航验收仍跟踪中，TalkBack 和系统控件归入 PR-05b        | [导航](../research/android-navigation-verification.md)                                                       |
+| `NativeCloseButton` 与共享 navigation/presentation                                                                                   | Kotlin 关闭控件已在 sheet 验证；PR-05a 本机导航与释放验收通过，TalkBack 和系统控件归入 PR-05b       | [导航](../research/android-navigation-verification.md)                                                       |
 
 以 `src/index.android.ts`（LodyKit 内）实际导出和原生注册为入口依据。未列出的产品接口继续按后续 PR 实施，不能通过扩大 TS 导出或注册空实现绕过阶段门槛。
 

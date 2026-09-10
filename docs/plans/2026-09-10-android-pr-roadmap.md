@@ -55,26 +55,26 @@ PR-01 将 Android 命令的参数、设备选择、安装、输出路径和清�
 
 **3. 阶段、PR 与依赖总览**
 
-| 阶段                  | PR    | 交付结果                                     | 直接依赖     | 状态                                                                                         |
-| --------------------- | ----- | -------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------- |
-| A：边界与验证基础     | PR-00 | 双平台约束、能力清单与范围决策               | 无           | [draft #1](https://github.com/Eric-Song-Nop/lody-ios/pull/1)                                 |
-| A                     | PR-01 | Android 原生壳、模块隔离、构建与离线验证入口 | PR-00        | [draft #2，本机验收通过，CI iOS UI 待修复](https://github.com/Eric-Song-Nop/lody-ios/pull/2) |
-| B：WASM 数据能力      | PR-02 | 真实 bundled JS/WASM 的离线数据链路          | PR-01        | [draft #3，本机验收通过，CI 复跑中](https://github.com/Eric-Song-Nop/lody-ios/pull/3)        |
-| B                     | PR-03 | 生命周期、watchdog 与受控恢复                | PR-02        | [draft #4，启动暂停修复已在子 PR 集成验证](https://github.com/Eric-Song-Nop/lody-ios/pull/4) |
-| B                     | PR-04 | Keystore、SQLite 与账号上下文恢复            | PR-03        | [draft #5，本机存储与阶段 B 集成验收通过](https://github.com/Eric-Song-Nop/lody-ios/pull/5)  |
-| C：平台 UI 与聊天选型 | PR-05 | 导航、系统控件、主题和本地化                 | PR-01        | [PR-05a draft #6，导航验证中](https://github.com/Eric-Song-Nop/lody-ios/pull/6)              |
-| C                     | PR-06 | Enriched 在真实虚拟列表中的离线原型          | PR-02、PR-05 | 待开始                                                                                       |
-| C                     | PR-07 | 流式调度、选择与滚动达标，渲染方案定案       | PR-06        | 待开始                                                                                       |
-| C                     | PR-08 | 原生输入与草稿/附件交接                      | PR-07        | 待开始                                                                                       |
-| D：真实产品闭环       | PR-09 | Device Flow、目录、会话历史的只读闭环        | PR-04、PR-07 | 待开始                                                                                       |
-| D                     | PR-10 | 文本发送、回执与回复同步闭环                 | PR-08、PR-09 | 待开始                                                                                       |
-| D                     | PR-11 | 新会话与附件发送的可靠闭环                   | PR-10        | 待开始                                                                                       |
-| E：功能补齐           | PR-12 | 全屏 Pierre 与工具内嵌 Diff                  | PR-09        | 待开始                                                                                       |
-| E                     | PR-13 | 远端文件树与分类预览                         | PR-09        | 待开始                                                                                       |
-| E                     | PR-14 | 推送初始化、冷启动点击与账号隔离             | PR-09        | 待开始                                                                                       |
-| E                     | PR-15 | 用户任务后台续行与恢复策略                   | PR-10、PR-14 | 待开始                                                                                       |
-| F：发行质量           | PR-16 | 全场景回归与性能收敛                         | PR-11～PR-15 | 待开始                                                                                       |
-| F                     | PR-17 | Android 内部发行、CI、OTA 隔离和文档         | PR-16        | 待开始                                                                                       |
+| 阶段                  | PR    | 交付结果                                     | 直接依赖     | 状态                                                                                              |
+| --------------------- | ----- | -------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------- |
+| A：边界与验证基础     | PR-00 | 双平台约束、能力清单与范围决策               | 无           | [draft #1](https://github.com/Eric-Song-Nop/lody-ios/pull/1)                                      |
+| A                     | PR-01 | Android 原生壳、模块隔离、构建与离线验证入口 | PR-00        | [draft #2，本机验收通过，CI iOS UI 待修复](https://github.com/Eric-Song-Nop/lody-ios/pull/2)      |
+| B：WASM 数据能力      | PR-02 | 真实 bundled JS/WASM 的离线数据链路          | PR-01        | [draft #3，本机验收通过，CI 复跑中](https://github.com/Eric-Song-Nop/lody-ios/pull/3)             |
+| B                     | PR-03 | 生命周期、watchdog 与受控恢复                | PR-02        | [draft #4，启动暂停修复已在子 PR 集成验证](https://github.com/Eric-Song-Nop/lody-ios/pull/4)      |
+| B                     | PR-04 | Keystore、SQLite 与账号上下文恢复            | PR-03        | [draft #5，本机存储与阶段 B 集成验收通过](https://github.com/Eric-Song-Nop/lody-ios/pull/5)       |
+| C：平台 UI 与聊天选型 | PR-05 | 导航、系统控件、主题和本地化                 | PR-01        | [PR-05a draft #6，本机导航验收通过；05b 待开始](https://github.com/Eric-Song-Nop/lody-ios/pull/6) |
+| C                     | PR-06 | Enriched 在真实虚拟列表中的离线原型          | PR-02、PR-05 | 待开始                                                                                            |
+| C                     | PR-07 | 流式调度、选择与滚动达标，渲染方案定案       | PR-06        | 待开始                                                                                            |
+| C                     | PR-08 | 原生输入与草稿/附件交接                      | PR-07        | 待开始                                                                                            |
+| D：真实产品闭环       | PR-09 | Device Flow、目录、会话历史的只读闭环        | PR-04、PR-07 | 待开始                                                                                            |
+| D                     | PR-10 | 文本发送、回执与回复同步闭环                 | PR-08、PR-09 | 待开始                                                                                            |
+| D                     | PR-11 | 新会话与附件发送的可靠闭环                   | PR-10        | 待开始                                                                                            |
+| E：功能补齐           | PR-12 | 全屏 Pierre 与工具内嵌 Diff                  | PR-09        | 待开始                                                                                            |
+| E                     | PR-13 | 远端文件树与分类预览                         | PR-09        | 待开始                                                                                            |
+| E                     | PR-14 | 推送初始化、冷启动点击与账号隔离             | PR-09        | 待开始                                                                                            |
+| E                     | PR-15 | 用户任务后台续行与恢复策略                   | PR-10、PR-14 | 待开始                                                                                            |
+| F：发行质量           | PR-16 | 全场景回归与性能收敛                         | PR-11～PR-15 | 待开始                                                                                            |
+| F                     | PR-17 | Android 内部发行、CI、OTA 隔离和文档         | PR-16        | 待开始                                                                                            |
 
 依赖表决定执行顺序，编号不要求严格串行。例如 PR-05 可以与阶段 B 独立推进；PR-12、PR-13、PR-14 在只读闭环之后互不依赖。这里是工作依赖，不是自动启用多 agent 的指令。
 
@@ -209,7 +209,7 @@ PR-01 将 Android 命令的参数、设备选择、安装、输出路径和清�
 
 目标：Android 用户能按系统习惯导航并完成临时流程，共享 presentation 会话正确结算。
 
-- [ ] 保留 NativeTabs、每 tab Stack、`definePage / usePageRuntime / present` 与 `sessionNav`；覆盖系统返回、手势返回、sheet 关闭和 unmount。
+- [x] 保留 NativeTabs、每 tab Stack、`definePage / usePageRuntime / present` 与 `sessionNav`；覆盖系统返回、手势返回、sheet 关闭和 unmount。PR-05a 本机证据见[导航报告](../research/android-navigation-verification.md)；系统边缘手势取消已验证，当前配置不提供页面级预测返回动画。
 - [ ] 实现能力清单中的基础分组行、菜单、按钮、按压反馈、语义图标和必要提示控件；颜色采用蓝色动作与中性系统背景。
 - [ ] 保持导航行与普通动作行的正确选择/返回反馈；用 Android 合适的行为实现，不机械复制 UIKit 绘制。
 - [ ] 从 `apps/mobile/locales` 生成 Android strings/plurals，核验占位符和转义；保留 iOS xcstrings 流程。
