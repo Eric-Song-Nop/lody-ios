@@ -58,6 +58,9 @@ function AndroidSystemScreen() {
         placeholder="Paste fixture here"
         value={pasted}
         onChangeText={setPasted}
+        selectionColor={colors.accent}
+        cursorColor={colors.accent}
+        selectionHandleColor={colors.accent}
         style={{
           minHeight: 48,
           borderWidth: 1,
