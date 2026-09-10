@@ -10,7 +10,7 @@
 - Android applicationId 采用 `app.innei.lody`，与 iOS 标识保持语义一致；不同平台的安装命名空间独立。这是构建标识，不代表官方 Lody 身份。
 - 现有 scheme `lody-ios` 先保留，避免修改已有链接与通知解释规则。独立 Android scheme/品牌重命名不属于当前必需迁移。
 - 首版面向手机，优先验证 GMS 设备的系统 WebView 与 FCM。无 GMS 设备可运行性与 HMS 推送单列验证；未验证前不宣称支持。平板适配不作为首版验收范围。
-- 最低 Android 版本取固定 Expo/RN 工具链实际支持下限；PR-01 从依赖源码确认后锁定。不能只按 JavaScriptSandbox 的 API 26 门槛推断。
+- PR-01 已从固定依赖源码及生成项目的 Gradle 配置确认 minSdk 24、compile/target SDK 36、NDK 27.1.12297006、Kotlin 2.1.20，使用 JDK 17。JavaScriptSandbox 的 API 26 门槛单独处理。
 - 本机发现 SDK 34/36/36.1、JDK 17、`Medium_Phone_API_36.0` AVD；开始使用前确认占用，优先建立本任务管理的独立 AVD，不能擦除用户已有模拟器。
 - 首版 WebView 执行 bundled JS/WASM；Sandbox 是后续对照。长期凭据留原生安全存储，单账号/工作区上下文只存在一个 live runtime owner。
 - Enriched RN 是首选验证入口，FlashList 是候选宿主；PR-07 前不宣称正式采用。iOS 仍使用 UIKit/CoreText。

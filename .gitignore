@@ -8,6 +8,9 @@ dist/
 apps/mobile/ios/
 apps/mobile/android/
 apps/mobile/modules/lody-kit/ios/Resources/
+apps/mobile/modules/lody-kit/android/build/
+apps/mobile/modules/lody-kit/android/.gradle/
+apps/mobile/modules/lody-kit/android/.cxx/
 .superpowers/
 
 

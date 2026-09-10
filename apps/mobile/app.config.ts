@@ -4,7 +4,8 @@ const config: ExpoConfig = {
   name: 'Lody',
   slug: 'lody-ios',
   version: '0.1.0',
-  platforms: ['ios'],
+  platforms: ['ios', 'android'],
+  android: { package: 'app.innei.lody' },
   scheme: 'lody-ios',
   orientation: 'portrait',
   userInterfaceStyle: 'automatic',
@@ -23,6 +24,7 @@ const config: ExpoConfig = {
     'expo-router',
     ['expo-dev-client', { toolsButton: false }],
     './plugins/withMarkdownView',
+    './plugins/withAndroidBuild',
     './plugins/withLocales',
     'expo-localization',
     [
@@ -38,7 +40,7 @@ const config: ExpoConfig = {
   runtimeVersion: { policy: 'fingerprint' },
   updates: {
     url: 'https://ota.innei.in/manifest',
-    enabled: true,
+    enabled: process.env.EXPO_PUBLIC_ANDROID_VERIFY !== '1',
     fallbackToCacheTimeout: 0,
     requestHeaders: {
       'expo-channel-name': 'production',
