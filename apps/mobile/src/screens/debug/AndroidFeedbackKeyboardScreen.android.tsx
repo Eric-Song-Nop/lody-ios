@@ -9,6 +9,7 @@ import { definePage } from '@/lib/presentation';
 function AndroidFeedbackKeyboardScreen() {
   const colors = usePalette();
   const [draft, setDraft] = useState('Draft survives feedback');
+  const [requests, setRequests] = useState(0);
   return (
     <ScrollView
       keyboardShouldPersistTaps="always"
@@ -16,6 +17,7 @@ function AndroidFeedbackKeyboardScreen() {
       contentContainerStyle={{ padding: 24, gap: 16 }}
     >
       <AppText variant="title">Feedback with keyboard</AppText>
+      <AppText>Feedback requests: {requests}</AppText>
       <TextInput
         accessibilityLabel="Feedback draft"
         value={draft}
@@ -33,7 +35,10 @@ function AndroidFeedbackKeyboardScreen() {
       />
       <Button
         label="Show keyboard toast"
-        onPress={() => showToast('Your draft remains available', 'info')}
+        onPress={() => {
+          showToast('Your draft remains available', 'info');
+          setRequests((count) => count + 1);
+        }}
       />
     </ScrollView>
   );

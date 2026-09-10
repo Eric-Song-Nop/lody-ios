@@ -29,7 +29,11 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
         draft = next(n for n in tree.iter('node') if n.get('class') == 'android.widget.EditText')
         if draft.get('focused') != 'true':
             raise AssertionError('Draft did not acquire native focus')
+        capture(f'feedback-keyboard-{host}-ready')
+        tree = wait_text('Feedback with keyboard')
         tap_button(tree, 'Show keyboard toast')
+        capture(f'feedback-keyboard-{host}-requested')
+        tree = wait_text('Feedback requests: 1')
         tree = wait_text('Your draft remains available')
         keyboard_nodes = [n for n in tree.iter('node') if 'inputmethod' in n.get('package', '') and bounds(n)[3] > bounds(n)[1]]
         if not keyboard_nodes:
