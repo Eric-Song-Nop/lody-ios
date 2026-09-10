@@ -233,6 +233,8 @@ PR-05b 内部按以下批次交付，仍保持一个 PR；每批留下独立可�
 
 菜单和列表不得用仅返回成功的 bridge 占位。每批的自动断言与视觉复核分别记录；自动用例通过不等于整个 PR 或阶段 C 已验收。
 
+系统 API 子集的本机证据见[偏好、剪贴板与触觉调用报告](../research/android-system-verification.md)：偏好跨进程恢复、独立项目更新和真实系统粘贴已通过；触觉仅证明原生调用返回。Toast/会话横幅、完整语言/字体/TalkBack 与汇总回归仍未完成。
+
 验收：`A-NAV-01` 项目→会话→返回；`A-NAV-02` sheet 各退出路径只结算一次；`A-NAV-03` 返回中断或快速切页不泄漏 session；`A-UI-01` 基础控件和双语可访问。此时用 fixture 驱动导航，不依赖 Cloud。
 
 **PR-06 — feat(android): evaluate Enriched in a virtualized chat**
