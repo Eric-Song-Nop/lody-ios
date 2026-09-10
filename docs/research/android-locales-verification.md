@@ -11,3 +11,11 @@ Run `pnpm verify:android --case locales --appearance light --apk <internal.apk>`
 Reference: [Android string and quantity resources](https://developer.android.com/guide/topics/resources/string-resource).
 
 The first `71fee44` device run stopped in the RN verifier because the installed Hermes does not provide `Intl.PluralRules`. `locales-first` preserves the failure. The verifier now uses explicit expected categories for its fixed en/es/zh quantities 0, 1 and 2; the production path still calls Android `getQuantityText`. No product polyfill was added.
+
+## Runtime language synchronization groundwork
+
+The Android entry now initializes the shared catalog before loading routes. A single root observer listens through Expo Localization's `useLocales` and re-reads `getLocales` on foreground; its AppState listener is removed on unmount. This follows the installed Expo 57 implementation and [Expo's Android lifecycle guidance](https://docs.expo.dev/versions/latest/sdk/localization/#behavior). The observer does not key or remount the Router, change presentation sessions, or clear drafts.
+
+The shared translation store now notifies subscribers only when the supported language changes. `useTranslations` subscribes each consuming view through `useSyncExternalStore` and returns cached, language-bound translation functions. Existing imperative `t`/`tp` calls continue to read the current language; subscribing only at the root is deliberately insufficient for translated descendants. Node checks cover notifications, duplicate changes, listener removal, plural output and old render snapshots remaining internally consistent after a language change.
+
+This is groundwork, not system-language-switch acceptance. Existing product components still need a call-site audit before Android product entry opens: translated labels, memoized collections/callback dependencies and module-time page titles must react coherently. The next device case must exercise real system configuration changes, foreground return, page/sheet native labels, unsupported-language fallback and draft/navigation retention. Compiled-resource evidence above does not prove any of these runtime behaviors. No new emulator evidence is claimed for this change.

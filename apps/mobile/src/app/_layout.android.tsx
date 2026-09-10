@@ -3,6 +3,7 @@ import { useColorScheme } from 'react-native';
 import { nativePresentationOptions } from '@/lib/presentation';
 import { navigationThemes } from '@/lib/theme/palette';
 import { FeedbackBoundary } from '@/lib/presentation/FeedbackBoundary';
+import { AndroidLocaleObserver } from '@/lib/i18n/AndroidLocaleObserver.android';
 export default function AndroidLayout() {
   const theme =
     useColorScheme() === 'dark'
@@ -10,6 +11,7 @@ export default function AndroidLayout() {
       : navigationThemes.light;
   return (
     <ThemeProvider value={theme}>
+      <AndroidLocaleObserver />
       <FeedbackBoundary>
         <Stack
           screenOptions={{

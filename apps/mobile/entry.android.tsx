@@ -1,3 +1,4 @@
+import './src/lib/i18n/boot';
 import { registerRootComponent } from 'expo';
 import { ExpoRoot } from 'expo-router';
 import type { ComponentProps } from 'react';
