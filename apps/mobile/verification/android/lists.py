@@ -51,8 +51,14 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance):
         tap_button(tree, 'Restore list')
         tree = wait_text('Updated action')
         tap_button(tree, 'Updated action, 2')
-        wait_text('Actions: 3; returns: 1; refreshes: 1')
+        tree = wait_text('Actions: 3; returns: 1; refreshes: 1')
         capture(f'lists-{host}-passed')
-        shell('input', 'keyevent', 'KEYCODE_BACK')
+        if host == 'sheet':
+            title = next(node for node in tree.iter('node') if node.get('text') == 'Grouped lists')
+            hx1, hy1, hx2, hy2 = map(int, re.findall(r'\d+', title.get('bounds')))
+            shell('input', 'swipe', str((hx1+hx2)//2), str((hy1+hy2)//2), str((hx1+hx2)//2), str(bottom-100), '450')
+        else:
+            shell('input', 'keyevent', 'KEYCODE_BACK')
         wait_text(root)
+        capture(f'lists-{host}-closed')
         result['checks'].append({'id': f'A-UI-01-lists-{host}', 'status': 'pass', 'detail': 'Native action/static rows, ID-preserving update, navigation return, refresh, scrolling and empty/restore snapshots'})

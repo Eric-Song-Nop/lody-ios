@@ -76,7 +76,7 @@ PR-01 将 Android 命令的参数、设备选择、安装、输出路径和清�
 | F：发行质量           | PR-16 | 全场景回归与性能收敛                         | PR-11～PR-15 | 待开始                                                                                       |
 | F                     | PR-17 | Android 内部发行、CI、OTA 隔离和文档         | PR-16        | 待开始                                                                                       |
 
-PR-05b 已创建 [draft #7](https://github.com/Eric-Song-Nop/lody-ios/pull/7)，以 PR-05a 为父分支；首批控件、图标和主题子集已有本机证据；原生菜单及上下文动作的双宿主深浅色触屏检查也已通过，见[菜单报告](../research/android-menus-verification.md)。菜单长标题、空菜单、键盘焦点和外观切换已有补充证据；列表、本地化与 TalkBack 等可访问性验收仍未完成。
+PR-05b 已创建 [draft #7](https://github.com/Eric-Song-Nop/lody-ios/pull/7)，以 PR-05a 为父分支；首批控件、图标和主题子集已有本机证据；原生菜单及上下文动作的双宿主深浅色触屏检查也已通过，见[菜单报告](../research/android-menus-verification.md)。菜单长标题、空菜单、键盘焦点和外观切换已有补充证据；基础分组列表已实现并在验证中，见[列表报告](../research/android-lists-verification.md)；本地化与 TalkBack 等可访问性验收仍未完成。
 
 依赖表决定执行顺序，编号不要求严格串行。例如 PR-05 可以与阶段 B 独立推进；PR-12、PR-13、PR-14 在只读闭环之后互不依赖。这里是工作依赖，不是自动启用多 agent 的指令。
 

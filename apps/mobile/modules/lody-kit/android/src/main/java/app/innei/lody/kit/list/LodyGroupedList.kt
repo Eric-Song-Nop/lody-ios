@@ -8,6 +8,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.RippleDrawable
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -73,11 +74,31 @@ class LodyGroupedList(context: Context, appContext: AppContext) : ExpoView(conte
     list.itemAnimator = null
     refresh.addView(list, ViewGroup.LayoutParams(-1, -1))
     refresh.isEnabled = false
+    // RecyclerView still nests into refresh; unconsumed pull must not drag a sheet.
+    refresh.isNestedScrollingEnabled = false
     refresh.setOnRefreshListener {
       if (refreshEnabled) onRefresh(emptyMap<String, Any>())
     }
     addView(refresh, LayoutParams(-1, -1))
     updateColors()
+  }
+
+  override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+    if (event.actionMasked == MotionEvent.ACTION_DOWN) disallowAncestorIntercept(true)
+    return try { super.dispatchTouchEvent(event) } finally {
+      if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+        disallowAncestorIntercept(false)
+      }
+    }
+  }
+  private fun disallowAncestorIntercept(disallow: Boolean) {
+    // RN sheet roots intentionally swallow propagation, so address each ancestor.
+    // Only gestures beginning inside this list are claimed; sheet chrome stays native.
+    var ancestor = parent
+    while (ancestor != null) {
+      ancestor.requestDisallowInterceptTouchEvent(disallow)
+      ancestor = ancestor.parent
+    }
   }
 
   fun setSections(value: List<LodyListSection>) {

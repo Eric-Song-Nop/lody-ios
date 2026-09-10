@@ -13,7 +13,7 @@
 | `readAuthToken` / `saveAuthToken` / `clearAuthToken`，`readLocalStartup` / `readLocalValue` / `writeLocalValue` / `clearLocalValues` | Keystore 加密与 SQLite 原生实现；账号隔离、进程重启及损坏路径本机验收通过。真实授权接线仍属于 PR-09 | [存储](../research/android-storage-verification.md)                                                          |
 | `NativeCloseButton` 与共享 navigation/presentation                                                                                   | Kotlin 关闭控件已在 sheet 验证；PR-05a 本机导航与释放验收通过，TalkBack 和系统控件归入 PR-05b       | [导航](../research/android-navigation-verification.md)                                                       |
 
-PR-05b 还已实现原生 Symbol、SymbolButton、Pressable 与中性 Surface，page/sheet 深浅色子集验证见[控件报告](../research/android-controls-verification.md)。原生 MenuButton/ContextMenu 已实现，菜单动作及生命周期的已验范围见[菜单报告](../research/android-menus-verification.md)；完整 A-UI-01 与产品入口尚未开放。
+PR-05b 还已实现原生 Symbol、SymbolButton、Pressable 与中性 Surface，page/sheet 深浅色子集验证见[控件报告](../research/android-controls-verification.md)。原生 MenuButton/ContextMenu 已实现，菜单动作及生命周期的已验范围见[菜单报告](../research/android-menus-verification.md)；基础 NativeGroupedList 已接入 RecyclerView/SwipeRefreshLayout，已实现边界和待验项见[列表报告](../research/android-lists-verification.md)；完整 A-UI-01 与产品入口尚未开放。
 
 以 `src/index.android.ts`（LodyKit 内）实际导出和原生注册为入口依据。未列出的产品接口继续按后续 PR 实施，不能通过扩大 TS 导出或注册空实现绕过阶段门槛。
 
