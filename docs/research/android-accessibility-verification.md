@@ -191,3 +191,17 @@ The same APK fails `list-focus-light-present-host-release-v2`: the source remain
 Commit `4d6560c` addresses that newly exposed lifecycle gap in LodyGroupedList. The existing pre-draw observer now detects ancestor focus blocking, arms the keyboard return owner while covered, and waits until the host can accept focus before applying the existing no-other-owner restoration rule. Removed or non-navigating source IDs clear pending ownership immediately. The combined change requires a new APK and repeat positive/negative, host and accessibility regressions; PR-05b remains incomplete.
 
 Supporting checks for `d48a802`: `pnpm check`, `pnpm test`, `pnpm bundle`, and Android release build pass. The combined native change and signed iOS regression remain to be verified; no updated iOS UI or full stage acceptance is claimed here.
+
+## Combined keyboard focus result
+
+APK `ff7d1ae0b4e4d8256760e77db3adeb036340e7297b3b29f5c24e567812b7e6b5` includes both `d48a802` and `4d6560c`. The following `list-focus-v2` runs use clean runner `f7b4da5` on API 36 arm64 and each complete page and sheet plus both outer Back paths:
+
+| Run under `.artifacts/android/`            | Source   | Reviewed PNGs | Video seconds |
+| ------------------------------------------ | -------- | ------------- | ------------- |
+| `list-focus-light-present-host-return-v2`  | present  | 9             | 137.920800    |
+| `list-focus-light-removed-host-return-v2`  | removed  | 11            | 148.874289    |
+| `list-focus-light-disabled-host-return-v2` | disabled | 11            | 154.318178    |
+
+All 31 PNGs were individually reviewed. Five-second samples across each complete video and each final decoded Settings frame were reviewed; the per-run visual-review record lists the inspected screenshots. All six host/source checks pass, night mode restores to `no`, row updates retain focus, and counters end at actions two / returns one. Present-source return restores actual keyboard focus to Open list detail. Removed-source return has no source row. Disabled-source return retains readable Navigation unavailable content with `clickable=false`, `focusable=false`, and `focused=false` in both native hierarchies. These results supersede the ordinary-return failure only for this light-appearance keyboard matrix; the original failed runs remain retained.
+
+`pnpm check`, `pnpm test`, `pnpm bundle`, Android release build, and normally signed iOS simulator build with strict codesign verification pass for the combined implementation. Dark keyboard cases, updated-APK TalkBack cases, competing-focus races and remaining PR-05b gates are not inferred from this matrix.

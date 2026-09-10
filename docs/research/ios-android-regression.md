@@ -33,3 +33,7 @@ The managed `TalkBack backdrop iOS regression` lease completed a normally signed
 ## PR-05b list accessibility return candidate
 
 The managed `List accessibility return iOS regression` lease completed native asset generation, a normally signed Debug simulator build and `codesign --verify --deep --strict`. The process exits zero. Source is `1b8900f` plus the Android list candidate, detail fixture and verifier changes; iOS implementation remains unchanged. Logs are `.artifacts/android/ios-regression/list-return-assets.log`, `list-return-build.log` and `list-return-lease.log`. This verifies the iOS build remains valid alongside the Android changes, without claiming a new iOS UI run or resolution of the parent CI failure.
+
+## PR-05b covered keyboard focus
+
+The managed `Covered keyboard focus iOS regression` lease completes asset generation, the normally signed Debug simulator build and `codesign --verify --deep --strict`, with terminal exit zero. Source `f7b4da5` includes the Android react-native-screens focus-release patch and LodyGroupedList ancestor-blocking restoration. Logs are `.artifacts/android/ios-regression/covered-keyboard-focus-assets.log`, `covered-keyboard-focus-build.log`, and `covered-keyboard-focus-lease.log`. No iOS source is changed; this is signed build compatibility evidence, not a new iOS UI run or resolution of the parent CI Home failure.
