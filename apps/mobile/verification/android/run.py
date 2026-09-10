@@ -155,7 +155,7 @@ def main():
         tree = wait_text('LodyKit: Android')
         capture('boot')
         if args.case == 'navigation-interruption':
-            result['fixtureVersion'] = 'navigation-interruption-v1'
+            result['fixtureVersion'] = 'navigation-interruption-v2'
             mode = shell('settings', 'get', 'secure', 'navigation_mode')
             if mode != '2':
                 raise AssertionError(f'Gesture navigation is required for interruption evidence; actual mode={mode}')
@@ -184,7 +184,8 @@ def main():
             wait_text('Offline navigation: sessions')
             shell('input', 'keyevent', 'KEYCODE_BACK')
             wait_text('Project returns: 5')
-            result['checks'].append({'id': 'A-NAV-03', 'status': 'pass', 'detail': 'Cancelled/committed edge gestures, three immediate return cycles and retained tab stacks'})
+            result['checks'].append({'id': 'A-NAV-03-rapid-return', 'status': 'pass', 'detail': 'Committed edge gesture, three immediate return cycles and retained tab stacks'})
+            result['acceptanceGaps'] = ['Edge return-and-release leaves the page visible, but this alone does not prove an active predictive-back transition was cancelled. Full A-NAV-03 also requires teardown evidence.']
             capture('navigation-interruption-passed')
         elif args.case == 'navigation':
             result['fixtureVersion'] = 'navigation-v1'
