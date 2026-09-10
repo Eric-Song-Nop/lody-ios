@@ -66,6 +66,17 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
             if shell('pidof', PACKAGE) != process:
                 raise AssertionError('App process restarted during language switch')
             capture(name)
+            window_dump = shell('dumpsys', 'window', 'displays')
+            match = re.search(r'mLastStatusBarAppearanceRegions=\n((?:[ \t]+AppearanceRegion\{[^\n]*\}\n)+)', window_dump)
+            if not match:
+                raise AssertionError('Missing system status bar appearance regions')
+            regions = match.group(1).strip().splitlines()
+            result.setdefault('statusBarChecks', []).append({
+                'state': name, 'regions': regions, 'windowDisplayDump': window_dump,
+            })
+            wants_dark_icons = appearance == 'light'
+            if any(('LIGHT_STATUS_BARS' in region) != wants_dark_icons for region in regions):
+                raise AssertionError(f'Status bar icon contrast changed in {name}: {regions}')
 
         check('en', 'Close', '1 computer', '2 computers', 'language-en')
         set_locales('zh-Hans-CN')
