@@ -19,21 +19,6 @@ def build(sdk, output, class_name='GestureInput', additional_classes=()):
     return directory / 'classes.dex'
 
 
-def talkback_input(adb, serial, dex, x, y, hold):
-    remote = '/data/local/tmp/lody-verify-talkback.dex'
-    device = [*adb, '-s', serial]
-    subprocess.run([*device, 'push', str(dex), remote], check=True, capture_output=True, timeout=30)
-    try:
-        completed = subprocess.run([*device, 'shell', f'CLASSPATH={remote}', 'app_process', '/',
-                                    'TalkBackInput', str(x), str(y), str(hold).lower()],
-                                   check=True, capture_output=True, text=True, timeout=20)
-        if 'talkback-gesture-released' not in completed.stdout:
-            raise AssertionError('TalkBack gesture did not finish')
-        return completed.stdout
-    finally:
-        subprocess.run([*device, 'shell', 'rm', '-f', remote], check=True, timeout=15)
-
-
 def cancel(adb, serial, dex, output, width, height, screenshot):
     remote = '/data/local/tmp/lody-verify-gesture.dex'
     device = [*adb, '-s', serial]

@@ -1,6 +1,6 @@
 # Android TalkBack verification
 
-PR-05b remains incomplete. The runner uses the installed Google TalkBack service and records actual native action counts after touchscreen exploration and double-tap. It does not establish spoken-label quality, traversal order or complete accessibility coverage.
+PR-05b remains incomplete. The controls/page/light action case has passed; the other host/theme/target combinations remain unverified. The runner uses the installed Google TalkBack service; the latest revision requires exploration to focus the exact target without changing fixture content before double-tap activation. It does not establish spoken-label quality, traversal order or complete accessibility coverage.
 
 ## Retained failures
 
@@ -36,3 +36,19 @@ The Looper repair runs successfully through boot and controls hierarchy reads wi
 Startup now polls the exact prompt and fixture readiness in the same bounded loop. It waits for two seconds of observed fixture readiness and allows at most two attempts on the actual deny button, with screenshots and event times. Unknown overlays still fail. Prompt dismissal is recorded only after the production fixture becomes ready. This revised attempt is running in `.artifacts/android/talkback-controls-page-light-startup-prompt`.
 
 The startup-loop attempt reveals the exact missing-button condition in its reviewed failure XML: the visible “Don’t allow” button has `permission_deny_and_dont_ask_again_button`, rather than the first-request `permission_deny_button`. Both are now accepted only inside the exact Android Accessibility Suite permission prompt. The prior missing-ID failures therefore cannot be attributed solely to snapshot suppression or startup timing. The non-suppressing observer and bounded readiness remain useful independently; the new denial-variant run must still prove actual gestures and native actions.
+
+## Injected clicks rejected as TalkBack evidence
+
+The retained `denial-variant` attempt removes the permission prompt but fails the first control action: exploration plus double-tap increments the icon count to **3**, while accessibility focus remains on **Navigate up**. The reviewed intermediate and failure-state screenshots contradict the intended TalkBack interaction. This is evidence against the verifier input path, not proof of a production triple-dispatch defect. Prompt removal in this attempt is likewise not accepted as a TalkBack gesture result.
+
+The shell `InputManagerGlobal.injectInputEvent` driver has been removed from the TalkBack path. An initial replacement tried the emulator console's [hardware event interface](https://developer.android.com/studio/run/emulator-console?hl=en), observed input-axis ranges and display dimensions. The non-suppressing observer remains. `talkback-v2` splits exploration and activation: it captures the focused target and checks unchanged fixture text before sending a double-tap, then requires the original exact action count.
+
+The first hardware attempt stops before input because the emulator exposes 11 virtual touch devices rather than one. Their reported X/Y ranges agree. The separate `hardware-axes` attempt accepts the common range but fails the exploration assertion: its reviewed screenshot shows focus still on Navigate up and the icon count still zero. Console command success did not prove input delivery. This path has also been replaced.
+
+## SDK gRPC hardware input
+
+The current driver generates Python bindings from the installed SDK's `emulator_controller.proto`, records its hash and calls `EmulatorController/sendTouch` on display 0. It enables token-authenticated loopback gRPC only for the runner-owned emulator and reads that exact process's discovery file without publishing credentials. The first attempt stops before app interaction because the current SDK uses `pid_<pid>.ini`, while its help names `pid_<pid>_info.ini`; both exact filenames are now recognized.
+
+The retained `grpc-discovery` attempt provides the first positive action evidence: exploration focuses the plus button with count zero; double-tap produces icon count one; exploration and double-tap on the text button produce text count one with disabled count zero. These states were individually viewed. The complete case still fails its final parent-page assertion: Back actually returns to Projects, but the introductory text is above the retained scroll position. The reviewed failure-state screenshot shows the parent fixture menu and no controls host. The assertion now waits for that parent's exact fixture entry and still requires the controls host to be absent.
+
+That run also logs gRPC poll-thread warnings around child process forks. Connections are now scoped to each exploration or double-tap and closed before adb/observer processes start. The separate `grpc-return` run passes with no gRPC fork warnings. It records `talkback-v2`, verifier base `4779608` with the changes in this PR uncommitted, API 36 ARM64 and the same APK hash. All eight screenshots were individually reviewed; five-second samples across the 30.157822-second recording confirm exploration and single activation. Back is separately established by the returned parent screenshot/XML and host-absence assertion. Original accessibility settings were restored and the owned emulator stopped. This closes only controls/page/light; speech, traversal, other targets/hosts/themes and the rest of PR-05b remain open. All attempts use the same APK hash above; verifier edits do not alter production capabilities or close the remaining matrix.

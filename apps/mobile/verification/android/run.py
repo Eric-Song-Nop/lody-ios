@@ -11,6 +11,7 @@ import subprocess
 import time
 import xml.etree.ElementTree as ET
 import gesture
+import hardware_touch
 import controls
 import symbols
 import menus
@@ -72,6 +73,7 @@ def main():
     original_night_mode = None
     observer_remote = None
     serial = args.serial
+    touch_driver = None
     result = {'apkSha256': hashlib.file_digest(args.apk.open('rb'), 'sha256').hexdigest(), 'case': args.case, 'status': 'failed', 'checks': [], 'commit': command(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True, text=True).stdout.strip()}
     result['workingTreeDirty'] = bool(command(['git', 'status', '--porcelain'], cwd=ROOT, capture_output=True, text=True).stdout.strip())
     result['fixtureVersion'] = 'bootstrap-v1'
@@ -122,8 +124,11 @@ def main():
         shell('input', 'touchscreen', 'swipe', x, y, x, y, '100')
 
     try:
+        if args.case == 'talkback' and serial:
+            raise RuntimeError('TalkBack hardware verification requires a runner-owned emulator')
+        touch_prepared = hardware_touch.prepare(SDK, args.output) if args.case == 'talkback' else None
         gesture_dex = gesture.build(SDK, args.output) if args.case == 'navigation-interruption' else None
-        talkback_dex = gesture.build(SDK, args.output, 'TalkBackInput', ('AccessibilityDump',)) if args.case == 'talkback' else None
+        talkback_dex = gesture.build(SDK, args.output, 'AccessibilityDump') if args.case == 'talkback' else None
         command([*adb_command, 'start-server'], capture_output=True)
         server = command([*adb_command, 'server-status'], capture_output=True, text=True).stdout
         if str(adb.resolve()) not in server:
@@ -157,7 +162,13 @@ def main():
                 raise RuntimeError('No emulator port available.')
             emulator_log = (args.output / 'emulator.log').open('w')
             result['emulator'] = {'avd': args.avd, 'gpu': args.gpu, 'memoryMb': args.memory_mb}
-            emulator = subprocess.Popen([str(SDK / 'emulator/emulator'), '-avd', args.avd, '-port', str(port), '-no-snapshot', '-gpu', args.gpu, '-memory', str(args.memory_mb), '-no-boot-anim', '-no-audio'], stdout=emulator_log, stderr=subprocess.STDOUT, env=emulator_env)
+            grpc_args = []
+            if touch_prepared:
+                with socket.socket() as probe:
+                    probe.bind(('127.0.0.1', 0))
+                    grpc_port = probe.getsockname()[1]
+                grpc_args = ['-grpc', str(grpc_port), '-grpc-use-token']
+            emulator = subprocess.Popen([str(SDK / 'emulator/emulator'), '-avd', args.avd, '-port', str(port), '-no-snapshot', '-gpu', args.gpu, '-memory', str(args.memory_mb), '-no-boot-anim', '-no-audio', *grpc_args], stdout=emulator_log, stderr=subprocess.STDOUT, env=emulator_env)
             deadline = time.monotonic() + 180
             while time.monotonic() < deadline:
                 if emulator.poll() is not None:
@@ -168,6 +179,8 @@ def main():
                 time.sleep(1)
             else:
                 raise TimeoutError('Emulator did not boot in 180 seconds.')
+        if touch_prepared:
+            touch_driver = hardware_touch.connect(touch_prepared, emulator.pid, grpc_port)
         result['bootSettleSeconds'] = args.settle_seconds
         if args.settle_seconds:
             time.sleep(args.settle_seconds)
@@ -225,9 +238,9 @@ def main():
             result['fixtureVersion'] = 'list-mutations-v1'
             list_mutations.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
         elif args.case == 'talkback':
-            result['fixtureVersion'] = 'talkback-v1'
+            result['fixtureVersion'] = 'talkback-v2'
             talkback.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.talkback_host, args.talkback_target, snapshot,
-                         lambda x, y, hold: gesture.talkback_input(adb_command, serial, talkback_dex, x, y, hold))
+                         touch_driver.run)
         elif args.case == 'symbols':
             result['fixtureVersion'] = 'symbols-v1'
             symbols.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.symbols_host)
@@ -479,6 +492,8 @@ def main():
             with (args.output / 'logcat.txt').open('w') as file:
                 subprocess.run([*adb_command, '-s', serial, 'logcat', '-d', '-t', '1500'], stdout=file, stderr=subprocess.STDOUT, timeout=20)
         (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
+        if touch_driver:
+            touch_driver.close()
         if emulator:
             if emulator.poll() is None:
                 emulator.terminate()

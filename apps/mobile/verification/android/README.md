@@ -161,13 +161,29 @@ global device language settings, TalkBack speech or process-death draft recovery
 
 `--case talkback --talkback-host page|sheet --talkback-target controls|menus|lists`
 uses the installed Google TalkBack service with real touch exploration. It requires
-that service to bind, builds a shell-only API 36 gesture driver with JDK 17, performs touchscreen exploration/double-tap (and hold for
+that service to bind, builds a shell-only API 36 hierarchy observer with JDK 17, performs touchscreen exploration/double-tap (and hold for
 context menus), checks production action counts and system Back, and restores the
-original accessibility settings in `finally`. Both taps run in one device process and their MotionEvent times are recorded. It records service/package state around every gesture, rechecking real binding
+original accessibility settings in `finally`. Hardware input uses the SDK's gRPC `sendTouch` on display 0, with one authenticated loopback connection and recorded event times. Exploration must focus the exact target without changing fixture text before activation. It records service/package state around every gesture, rechecking real binding
 after hierarchy reads. TalkBack cases use a shell-only `AccessibilityDump` with `FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES`; its Dex is removed in cleanup. Observer failure fails the case, with no fallback to the default service-suppressing UI Automator dump;
 this does not establish spoken-label quality or traversal order. The runner is
 implemented but device gesture compatibility and the complete host/theme matrix
 remain pending. Before service activation, the internal fixture entry may be reached by at most five scrolls using observed container bounds. The first-run Android Accessibility Suite notification prompt is dismissed through TalkBack when its exact system resource IDs and message are present; unrelated tutorial overlays or failed activation still fail the case. The bound service label and enabled component are checked separately, and the last observed accessibility dump is retained on timeout.
+
+TalkBack requires a runner-owned emulator; `--serial` is rejected for this case.
+Install the isolated Python dependencies and invoke the runner with that Python:
+
+```sh
+python3 -m venv /tmp/lody-android-verification-python
+/tmp/lody-android-verification-python/bin/pip install -r apps/mobile/verification/android/requirements-talkback.txt
+/tmp/lody-android-verification-python/bin/python apps/mobile/verification/android/run.py \
+  --case talkback --talkback-host page --talkback-target controls --appearance light \
+  --apk apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+```
+
+The runner generates protobuf bindings from the installed emulator's own `.proto`
+into the evidence directory and records its hash. Authentication is read from the
+exact owned process's discovery file, used only in RPC metadata and never copied
+to results. Other cases require neither gRPC nor these Python dependencies.
 
 `--case list-focus --appearance light|dark` uses TAB, Enter, directional input
 and system Back on production native rows. It requires repeated action updates

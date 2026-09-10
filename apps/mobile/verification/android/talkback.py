@@ -71,14 +71,33 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
         # A hierarchy dump may temporarily suppress other accessibility services.
         # Recheck after the dump; never count ordinary touch as a TalkBack action.
         before = wait_bound()
-        # Explore this location first, then send a real touchscreen double tap.
-        input_log = gesture_input(x, y, hold)
+        # Exploration must focus this node without activating it. Capture the
+        # intermediate state before dispatching a separate hardware double tap.
+        explore_log = gesture_input(x, y, 'explore')
+        time.sleep(0.8)
+        explored = snapshot()
+        result.setdefault('talkBackExplorations', []).append({
+            'title': title, 'inputEvents': explore_log,
+            'focusedLabels': [item.get('content-desc') or item.get('text')
+                              for item in explored.iter('node')
+                              if item.get('accessibility-focused') == 'true'],
+            'fixtureTextUnchanged': texts(explored) == texts(tree),
+        })
+        focused = [item for item in explored.iter('node')
+                   if item.get('accessibility-focused') == 'true'
+                   and title in (item.get('text'), item.get('content-desc'))]
+        capture(f'talkback-explored-{len(result.get("talkBackInputs", []))}')
+        if not focused:
+            raise AssertionError(f'Hardware exploration did not focus {title}')
+        if texts(explored) != texts(tree):
+            raise AssertionError(f'Exploration changed fixture content before activation: {title}')
+        input_log = gesture_input(x, y, 'hold' if hold else 'activate')
         after = wait_bound()
         result.setdefault('talkBackInputs', []).append({
             'title': title, 'bounds': node.get('bounds'),
             'gesture': 'explore then double-tap-and-hold' if hold else 'explore then double-tap',
             'accessibilityBefore': before, 'accessibilityAfter': after,
-            'inputEvents': input_log,
+            'explorationEvents': explore_log, 'inputEvents': input_log,
         })
 
     try:
@@ -158,7 +177,9 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
             tree = wait_text('Actions: 1; returns: 1; refreshes: 0')
         capture('talkback-actions-passed')
         shell('input', 'keyevent', 'KEYCODE_BACK')
-        tree = wait_text(root)
+        # The parent retains its earlier scroll offset; its introductory text
+        # may be offscreen. Its exact fixture entry proves the owning page.
+        tree = wait_text(entry_title)
         if headings[target] in texts(tree):
             raise AssertionError('TalkBack host remained open after Back')
         capture('talkback-returned')
