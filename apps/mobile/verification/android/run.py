@@ -217,7 +217,7 @@ def main():
             list_mutations.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
         elif args.case == 'talkback':
             result['fixtureVersion'] = 'talkback-v1'
-            talkback.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.talkback_host, args.talkback_target)
+            talkback.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.talkback_host, args.talkback_target, snapshot)
         elif args.case == 'symbols':
             result['fixtureVersion'] = 'symbols-v1'
             symbols.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.symbols_host)

@@ -5,7 +5,7 @@ import time
 SERVICE = 'com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService'
 
 
-def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, host, target):
+def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, host, target, snapshot):
     originals = {key: shell('settings', 'get', 'secure', key).strip()
                  for key in ('enabled_accessibility_services', 'accessibility_enabled')}
     result.update(appearance=appearance, host=host, target=target,
@@ -16,7 +16,33 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
     root = 'Offline navigation: projects' if host == 'page' else 'Offline navigation: settings'
     if host == 'sheet':
         tap_button(wait_text('Offline navigation: projects'), 'Settings')
-    tap_button(wait_text(root), f'Open {target} {host}')
+    tree = wait_text(root)
+    entry_title = f'Open {target} {host}'
+    # Only the internal fixture menu is searched this way, before enabling
+    # TalkBack. Action assertions below still require the exact visible target.
+    for attempt in range(6):
+        if any(entry_title in (node.get('text'), node.get('content-desc'))
+               for node in tree.iter('node')):
+            tap_button(tree, entry_title)
+            break
+        capture(f'talkback-entry-search-{attempt}')
+        if attempt == 5:
+            raise AssertionError(f'Fixture entry not found after five scrolls: {entry_title}')
+        containers = [node for node in tree.iter('node') if node.get('scrollable') == 'true']
+        if len(containers) != 1:
+            raise AssertionError('Fixture entry search requires one visible scroll container')
+        left, top, right, bottom = map(int, re.findall(r'\d+', containers[0].get('bounds')))
+        if right <= left or bottom <= top:
+            raise AssertionError('Fixture scroll container has no visible bounds')
+        x = str((left + right) // 2)
+        start = str(top + (bottom - top) * 4 // 5)
+        end = str(top + (bottom - top) // 5)
+        result.setdefault('fixtureEntryScrolls', []).append({
+            'title': entry_title, 'bounds': containers[0].get('bounds'),
+            'from': [int(x), int(start)], 'to': [int(x), int(end)],
+        })
+        shell('input', 'touchscreen', 'swipe', x, start, x, end, '400')
+        tree = snapshot()
     wait_text(headings[target])
 
     def wait_bound():
