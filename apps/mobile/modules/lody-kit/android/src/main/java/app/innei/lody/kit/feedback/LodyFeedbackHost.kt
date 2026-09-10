@@ -35,4 +35,9 @@ class LodyFeedbackHost(context: Context, appContext: AppContext) : ExpoView(cont
     super.onConfigurationChanged(newConfig)
     owner?.refreshHost(rebuild = true)
   }
+
+  override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+    super.onLayout(changed, left, top, right, bottom)
+    if (changed) owner?.refreshHost()
+  }
 }

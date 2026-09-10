@@ -70,6 +70,8 @@ internal class LodyFeedback {
       root = next
       expireNotices()
       render()
+    } else {
+      applyInsets(next?.let(ViewCompat::getRootWindowInsets))
     }
   }
 
@@ -250,10 +252,16 @@ internal class LodyFeedback {
       }
     }
     bannerRow?.let { row ->
+      // The marker is at the page content origin, below its native stack header.
+      // Convert within this window; Activity and Dialog coordinates are not interchangeable.
+      val contentOrigin = IntArray(2)
+      val rootOrigin = IntArray(2)
+      activeView()?.getLocationInWindow(contentOrigin)
+      root?.getLocationInWindow(rootOrigin)
       row.layoutParams = (row.layoutParams as FrameLayout.LayoutParams).apply {
         leftMargin = margin + (bars?.left ?: 0)
         rightMargin = margin + (bars?.right ?: 0)
-        topMargin = margin + (bars?.top ?: 0)
+        topMargin = dp(surface.context, 8) + maxOf(bars?.top ?: 0, contentOrigin[1] - rootOrigin[1])
       }
     }
   }

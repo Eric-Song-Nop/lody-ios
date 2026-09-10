@@ -13,7 +13,7 @@ export function NativeFeedbackHost() {
     <NativeView
       pointerEvents="none"
       accessible={false}
-      style={{ position: 'absolute', width: 1, height: 1 }}
+      style={{ position: 'absolute', top: 0, left: 0, width: 1, height: 1 }}
     />
   );
 }
