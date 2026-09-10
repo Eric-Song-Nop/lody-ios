@@ -13,7 +13,11 @@
     "typecheck": "tsc --noEmit",
     "native:assets": "node scripts/build-decoder.mjs",
     "licenses:build": "node scripts/build-licenses.mjs",
-    "licenses:check": "node scripts/build-licenses.mjs --check"
+    "licenses:check": "node scripts/build-licenses.mjs --check",
+    "prebuild:android": "pnpm native:assets && EXPO_PUBLIC_ANDROID_VERIFY=1 expo prebuild --platform android --no-install",
+    "android": "pnpm prebuild:android && EXPO_PUBLIC_ANDROID_VERIFY=1 expo run:android --no-install",
+    "bundle:android": "pnpm native:assets && EXPO_PUBLIC_ANDROID_VERIFY=1 EXPO_NO_BUNDLE_SPLITTING=1 expo export --platform android --output-dir .expo/export-check-android",
+    "build:android": "pnpm prebuild:android && node scripts/build-android.mjs"
   },
   "dependencies": {
     "@expo/dom-webview": "workspace:*",

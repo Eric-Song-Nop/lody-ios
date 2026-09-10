@@ -1,7 +1,10 @@
 {
-  "platforms": ["ios"],
+  "platforms": ["ios", "android"],
   "ios": {
     "modules": ["LodyKitModule"],
     "appDelegateSubscribers": ["PushAppDelegateSubscriber"]
+  },
+  "android": {
+    "modules": ["app.innei.lody.kit.LodyKitModule"]
   }
 }

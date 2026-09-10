@@ -39,3 +39,7 @@ Use AXe with explicit simulator UDID and simctl screenshots. Build workspace app
 ## 6. Known constraints
 
 Cloud data requires app-authorized login and a connected computer. Do not send real turns merely to verify layout. Preserve all pre-existing working-tree edits. Simulator cannot prove physical haptics.
+
+## Android staged verification
+
+Android commands, dedicated AVD ownership and offline case details live in `apps/mobile/verification/android/README.md`. Use `pnpm build:android`, then `pnpm verify:android --case bootstrap --apk apps/mobile/android/app/build/outputs/apk/release/app-release.apk`. Only the completed stage cases may be claimed. The runner uses adb/UI Automator on an isolated app installation, saves local screenshot/video/state evidence and shuts down its owned emulator. A caller-owned serial authorizes resetting only this app. Never wipe an existing user AVD.
