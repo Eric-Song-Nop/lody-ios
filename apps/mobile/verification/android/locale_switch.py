@@ -15,7 +15,11 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
         return match.group(1)
 
     def set_locales(value):
-        shell('cmd', 'locale', 'set-app-locales', PACKAGE, '--user', '0', '--locales', value)
+        # Omitting --locales clears the override; adb shell drops empty argv.
+        arguments = ['cmd', 'locale', 'set-app-locales', PACKAGE, '--user', '0']
+        if value:
+            arguments.extend(['--locales', value])
+        shell(*arguments)
         actual = get_locales()
         if actual != value:
             raise AssertionError(f'App locales did not change: {actual!r} != {value!r}')
