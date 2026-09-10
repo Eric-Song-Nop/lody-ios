@@ -85,7 +85,9 @@ def main():
     def tap_button(tree, title):
         button = next(node for node in tree.iter('node') if node.get('text', '').lower() == title.lower())
         x1, y1, x2, y2 = map(int, re.findall(r'\d+', button.attrib['bounds']))
-        shell('input', 'tap', str((x1 + x2) // 2), str((y1 + y2) // 2))
+        x, y = str((x1 + x2) // 2), str((y1 + y2) // 2)
+        result.setdefault('inputs', []).append({'title': title, 'bounds': button.attrib['bounds'], 'durationMs': 100})
+        shell('input', 'touchscreen', 'swipe', x, y, x, y, '100')
 
     try:
         command([*adb_command, 'start-server'], capture_output=True)
