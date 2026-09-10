@@ -10,9 +10,11 @@ def bounds(node):
 def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, host):
     preference = 'accessibility_interactive_ui_timeout_ms'
     original = shell('settings', 'get', 'secure', preference)
-    result.update(feedbackHost=host, appearance=appearance, interactiveTimeoutMs=10000)
+    result.update(feedbackHost=host, appearance=appearance, interactiveTimeoutMs=60000)
+    # This case measures geometry/focus, not expiry. Allow real IME startup and
+    # multiple native hierarchy captures under the system's supported timeout.
     try:
-        shell('settings', 'put', 'secure', preference, '10000')
+        shell('settings', 'put', 'secure', preference, '60000')
         tap_button(tree, 'Open navigation verification')
         tree = wait_text('Offline navigation: projects')
         if host == 'sheet':
