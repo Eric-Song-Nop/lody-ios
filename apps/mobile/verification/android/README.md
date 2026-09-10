@@ -141,6 +141,10 @@ case does not establish whole-app language switching or TalkBack behavior.
 The current fixture also requires translated native page titles and sheet close
 labels. WindowManager appearance regions independently assert status-bar icon
 contrast at each checkpoint; screenshots still require visual review.
+Fixture v5 also consumes the production Inbox projection hook with stable catalog
+inputs: section and badge copy must change language while the user title remains
+literal. This checks projection-cache invalidation, not unsupported Android list
+view fields or the unopened product Inbox route.
 
 `--case locale-switch --locale-host page` uses real Android app locale overrides
 (en-US → zh-Hans-CN → es-ES fallback → en-US), including a change while the app

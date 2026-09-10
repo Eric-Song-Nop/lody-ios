@@ -60,13 +60,13 @@ The matrix owner shut down the Android emulator, then sequentially ran iOS Home 
 
 The process completed with exit code 0. Local visual decisions are saved separately from automated results. This accepts the foreground status-bar repair and the tested language fixture only. Module-time page titles, cached product translation call sites, system fonts and TalkBack remain PR-05b work; product entry remains closed. Remote acceptance publication remains unavailable (`lh` is absent).
 
-### Reactive page titles (implementation under verification)
+### Reactive page titles (v4 verification)
 
 `7bc592a` changes the existing presentation title contract to accept either literal text or a translator callback. The callback receives the current render's translator; literal user/server titles remain unchanged. Twenty-six module-time page-title translations now resolve at render time. SheetStack resolves both root and pushed-level headers, and its default close label uses the actual presentation override when present. Presented push routes subscribe and update the native Stack title without changing route/session identity.
 
-The existing language fixture now uses a translated title. Runner `locale-switch-v4` requires the native title and sheet close label to change together through the real application locale sequence, while preserving the existing draft, process, return and status-bar assertions. `pnpm check`, `pnpm test`, iOS bundle, Android bundle and Python compilation pass. A new release build and the four-case Android matrix, followed sequentially by iOS Home, are pending; v3 evidence does not prove this title change.
+The existing language fixture now uses a translated title. Runner `locale-switch-v4` requires the native title and sheet close label to change together through the real application locale sequence, while preserving the existing draft, process, return and status-bar assertions. `pnpm check`, `pnpm test`, iOS bundle, Android bundle and Python compilation pass. The new release build and four-case Android matrix passed; v3 evidence alone does not prove this title change. Detailed v4 provenance follows below.
 
-Remaining call-site audit, based on the current source (not yet a completed migration):
+Call-site findings recorded before the migration (follow-up status below):
 
 | Source                                                                            | Finding                                                                                                      | Required follow-through                                                                                                                                                 |
 | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -77,3 +77,20 @@ Remaining call-site audit, based on the current source (not yet a completed migr
 | Cloud failures, toast/action callbacks                                            | Event-time copy and historical error text differ from continuously rendered labels                           | Keep imperative translation for newly emitted messages; translate structured product failure states at display time where appropriate; never translate user transcripts |
 
 These findings do not permit opening Android product routes before their roadmap dependencies. Font/TalkBack and remaining system-control work are still tracked separately in PR-05b.
+
+### Title matrix results and shared call-site follow-up
+
+The four `locale-switch-title-{page,sheet}-{light,dark}` cases use release APK SHA-256 `7eda271e922948bdf4e8b4672d26d8b78373267772703cb11ebe7f696b8c089d`, built from `7bc592a`, on API 36 ARM64. All pass the v4 assertions. Each case has six individually reviewed screenshots and a complete recording reviewed at 5-second intervals; local `visual-review.json` records this scoped review. The translated Settings/设置 title, close label, draft and counter remain correct; dark status icons retain contrast after foreground return. Locale override and appearance restoration passed.
+
+| Case        | Runner checkout                                | Video duration |
+| ----------- | ---------------------------------------------- | -------------- |
+| page light  | `40be78f`, clean                               | 68.786300 s    |
+| sheet light | `40be78f`, product call-site edits in progress | 81.261589 s    |
+| page dark   | `ffffd1e`, clean                               | 68.532611 s    |
+| sheet dark  | `ffffd1e`, clean                               | 72.603311 s    |
+
+Runner checkout changes did not change the installed APK. In particular, these cases do not verify the later product call-site migration. Sequential iOS Home passed in light (127.55 s) and dark (122.20 s), under `.artifacts/android/ios-regression/locale-title-home`. It used the existing normally signed native Debug app with fresh Metro; environment provenance records `ffffd1e` plus uncommitted projection-hook changes later committed in `5a0c046`. Six New Session compact/full/cancelled screenshots were reviewed: headers, close controls, composer and return layout remain readable and correctly positioned. This is scoped shared UI regression, not full Home visual/video acceptance or an iOS system-language-switch test.
+
+`ffffd1e` subscribes rendered product copy and updates memo/callback dependencies and presentation overrides. `5a0c046` extracts the actual Inbox projection memo into `useInboxSections`, invalidating it on supported locale changes while preserving catalog identity. The Android offline scene consumes that same hook with constant catalog inputs inside a memoized component. Runner v5 additionally requires translated section/badge copy and unchanged user-authored title at every language checkpoint. Shared projection type aliases are type-only; they do not widen the Android native list's supported props or enable unimplemented fields.
+
+The projection change passed `pnpm check`. Its new APK and v5 matrix are under verification; v4 is not evidence for it. Full product-host coverage, event-time failure copy, font behavior, TalkBack and remaining list behavior still prevent declaring PR-05b complete. Android product entry remains closed.
