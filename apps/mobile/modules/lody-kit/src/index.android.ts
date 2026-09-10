@@ -1,4 +1,5 @@
 export { runtimeInfo, addAppActiveListener } from './runtime/AndroidBootstrap';
+export { NativeCloseButton } from './chrome/NativeCloseButton';
 export {
   runDataRuntimeVerification,
   runRuntimeRecoveryVerification,

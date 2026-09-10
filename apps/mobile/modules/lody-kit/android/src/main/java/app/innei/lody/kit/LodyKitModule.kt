@@ -53,6 +53,10 @@ class LodyKitModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("LodyKit")
+    View(app.innei.lody.kit.chrome.LodyCloseButton::class) {
+      Events("onClose")
+      Prop("label") { view: app.innei.lody.kit.chrome.LodyCloseButton, label: String? -> view.setLabel(label) }
+    }
     Constants {
       mapOf("runtimeInfo" to mapOf(
         "moduleName" to "LodyKit",

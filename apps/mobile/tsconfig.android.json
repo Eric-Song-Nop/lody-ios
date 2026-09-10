@@ -9,6 +9,7 @@
   },
   "include": [
     "entry.android.tsx",
+    "src/**/*.android.tsx",
     "modules/lody-kit/src/**/*.android.ts",
     "expo-env.d.ts"
   ],

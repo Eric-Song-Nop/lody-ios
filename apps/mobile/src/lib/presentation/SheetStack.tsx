@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet, useColorScheme } from 'react-native';
 import type { ScreenStackHeaderConfigProps } from 'react-native-screens';
 import {
   ScreenStack,
@@ -46,17 +46,20 @@ function headerConfig(
   page: PageDefinitionBase,
   presentation: PagePresentationOptions,
   right?: React.ReactNode,
+  backgroundColor = 'transparent',
 ): ScreenStackHeaderConfigProps {
   return {
     title: presentation.title ?? page.title,
     hidden: !presentation.headerShown,
     topInsetEnabled: false,
     backButtonDisplayMode: 'minimal',
-    translucent: true,
-    hideShadow: true,
-    backgroundColor: 'transparent',
+    translucent: Platform.OS === 'ios',
+    hideShadow: Platform.OS === 'ios',
+    backgroundColor,
     blurEffect:
-      presentation.headerVariant === 'glass' ? 'systemChromeMaterial' : 'none',
+      Platform.OS === 'ios' && presentation.headerVariant === 'glass'
+        ? 'systemChromeMaterial'
+        : 'none',
     children: right ? (
       <ScreenStackHeaderRightView>{right}</ScreenStackHeaderRightView>
     ) : undefined,
@@ -76,6 +79,7 @@ export function SheetStack({
   runtime: PageRuntime<unknown, unknown>;
 }) {
   const [headerItems, setHeaderItems] = useState<SheetHeaderItems>();
+  const backgroundColor = useSheetHeaderBackground();
   const [levels, setLevels] = useState<readonly Level[]>([]);
   const nextKey = useRef(1);
   const pendingLevels = useRef(levels);
@@ -148,9 +152,14 @@ export function SheetStack({
                   title: session.page.title,
                 })}
                 onPress={runtime.cancel}
-                style={{ width: 30, height: 30 }}
+                style={
+                  Platform.OS === 'android'
+                    ? styles.closeAndroid
+                    : styles.closeIOS
+                }
               />
             ) : undefined,
+            backgroundColor,
           ),
           headerRightBarButtonItems: headerItems?.right,
           headerLeftBarButtonItems: headerItems?.left,
@@ -179,6 +188,7 @@ function PushedLevel({
   onDrop: (key: number, result: PresentationResult<unknown>) => void;
 }) {
   const [headerItems, setHeaderItems] = useState<SheetHeaderItems>();
+  const backgroundColor = useSheetHeaderBackground();
   const cancel = useCallback(
     () => onDrop(level.key, { status: 'cancelled' }),
     [level.key, onDrop],
@@ -205,7 +215,12 @@ function PushedLevel({
       stackPresentation="push"
       style={StyleSheet.absoluteFill}
       headerConfig={{
-        ...headerConfig(level.page, level.presentation),
+        ...headerConfig(
+          level.page,
+          level.presentation,
+          undefined,
+          backgroundColor,
+        ),
         headerRightBarButtonItems: headerItems?.right,
         headerLeftBarButtonItems: headerItems?.left,
       }}
@@ -220,3 +235,14 @@ function PushedLevel({
     </ScreenStackItem>
   );
 }
+
+function useSheetHeaderBackground() {
+  const scheme = useColorScheme();
+  if (Platform.OS === 'ios') return 'transparent';
+  return scheme === 'dark' ? '#121212' : '#ffffff';
+}
+
+const styles = StyleSheet.create({
+  closeAndroid: { width: 48, height: 48 },
+  closeIOS: { width: 30, height: 30 },
+});

@@ -23,7 +23,7 @@ def command(args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--apk', type=Path, required=True)
-    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage'], required=True)
+    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation'], required=True)
     parser.add_argument('--adb-port', type=int, default=5038, help='Dedicated SDK adb server; leaves the default 5037 server alone.')
     parser.add_argument('--serial', help='Caller-owned device; installs and clears only app.innei.lody.')
     parser.add_argument('--avd', default='Lody_Android_Verify_36')
@@ -83,7 +83,7 @@ def main():
         shell('am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity')
 
     def tap_button(tree, title):
-        button = next(node for node in tree.iter('node') if node.get('text', '').lower() == title.lower())
+        button = next(node for node in tree.iter('node') if title.lower() in (node.get('text', '').lower(), node.get('content-desc', '').lower()))
         x1, y1, x2, y2 = map(int, re.findall(r'\d+', button.attrib['bounds']))
         x, y = str((x1 + x2) // 2), str((y1 + y2) // 2)
         result.setdefault('inputs', []).append({'title': title, 'bounds': button.attrib['bounds'], 'durationMs': 100})
@@ -150,7 +150,44 @@ def main():
         shell('am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity')
         tree = wait_text('LodyKit: Android')
         capture('boot')
-        if args.case == 'storage':
+        if args.case == 'navigation':
+            result['fixtureVersion'] = 'navigation-v1'
+            tap_button(tree, 'Open navigation verification')
+            tap_button(wait_text('Offline navigation: projects'), 'Open offline project')
+            tap_button(wait_text('Offline navigation: sessions'), 'Open offline session')
+            wait_text('Offline navigation: messages')
+            capture('messages')
+            shell('input', 'keyevent', 'KEYCODE_BACK')
+            wait_text('Offline navigation: sessions')
+            shell('input', 'keyevent', 'KEYCODE_BACK')
+            tree = wait_text('Project returns: 1')
+            result['checks'].append({'id': 'A-NAV-01', 'status': 'pass'})
+            tap_button(tree, 'Settings')
+            tap_button(wait_text('Offline navigation: settings'), 'Open form sheet')
+            tap_button(wait_text('Offline navigation: sheet'), 'Complete sheet')
+            tree = wait_text('Settled sheets: 1')
+            if 'Sheet result: completed' not in texts(tree):
+                raise AssertionError('Sheet completion result was lost')
+            tap_button(tree, 'Open page sheet')
+            wait_text('Offline navigation: sheet')
+            shell('input', 'keyevent', 'KEYCODE_BACK')
+            tree = wait_text('Settled sheets: 2')
+            if 'Sheet result: cancelled' not in texts(tree):
+                raise AssertionError('System back did not cancel the sheet')
+            tap_button(tree, 'Open form sheet')
+            tap_button(wait_text('Offline navigation: sheet'), 'Push sheet child')
+            wait_text('Offline navigation: sheet child')
+            shell('input', 'keyevent', 'KEYCODE_BACK')
+            tree = wait_text('Child result: cancelled')
+            capture('nested-return')
+            tap_button(tree, 'Close Navigation sheet')
+            tree = wait_text('Settled sheets: 3')
+            if 'Sheet result: cancelled' not in texts(tree):
+                raise AssertionError('Native close did not settle cancellation')
+            result['checks'].append({'id': 'A-NAV-02', 'status': 'pass'})
+            result['checks'].append({'id': 'A-NAV-03', 'status': 'pass', 'detail': 'Nested system return retains its parent sheet; each outer result settles once'})
+            capture('navigation-passed')
+        elif args.case == 'storage':
             tap_button(tree, 'Run storage verification')
             wait_text('Storage prepared: restart required', timeout=180)
             capture('prepared')
