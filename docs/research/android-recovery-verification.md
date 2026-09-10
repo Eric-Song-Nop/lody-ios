@@ -32,3 +32,7 @@ Android internal APK builds, `pnpm check`, `pnpm test`, and iOS `pnpm bundle` ha
 Parent CI run 34431969492 passed Android build and shared checks, then failed the offline iOS UI job. Its artifacts show the light case remained in the Expo developer launcher; the dark case reached the app but timed out reading the AXe tree. Logs and screenshots are retained under `.artifacts/android/ios-regression/ci-second-artifacts/`. CI is not green.
 
 This report does not prove real Cloud account restoration, logout integration, foreground services, OEM background limits, physical device performance, or no duplicate writes after durable dispatch/ACK loss. Those remain PR-04, PR-09/10 and later stage responsibilities. Local evidence is retained; no remote acceptance publication is claimed. Stage B remains incomplete.
+
+## Startup while suspended
+
+Follow-up review found a duplicate 30-second startup timer in the low-level WebView endpoint. It could expire while the supervisor deliberately retained a background startup. Startup health now belongs only to `RuntimeSupervisor`; the standalone WASM verifier still owns its explicit per-case deadline. Recovery verification also suspends/resumes the owner while it is `starting` before exercising the startup timeout. Fresh emulator evidence for this follow-up is required; the earlier ready-state background result does not cover it.

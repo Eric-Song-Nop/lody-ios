@@ -46,7 +46,6 @@ internal class DataRuntime(
   @Volatile var peakQueuedChars = 0
     private set
   val isClosed: Boolean get() = !alive.get()
-  private val startupDeadline = Runnable { fail("startup_timeout") }
 
   init {
     check(Looper.myLooper() == Looper.getMainLooper())
@@ -88,7 +87,6 @@ internal class DataRuntime(
         return true
       }
     }
-    main.postDelayed(startupDeadline, 30_000)
     view.loadUrl("$ORIGIN/runtime.html")
   }
 
@@ -161,7 +159,6 @@ internal class DataRuntime(
       "bridgeError" -> fail("bridge_limit")
       "ready" -> {
         ready = true
-        main.removeCallbacks(startupDeadline)
         onEvent(event)
       }
       "rpc" -> {
