@@ -133,9 +133,15 @@ internal class RuntimeRecoveryVerification(private val context: Context, private
     supervisor.watchSessions(listOf("s1"), "s1")
     supervisor.start()
     val first = supervisor.health.generation
+    supervisor.suspend()
+    now += 1_000_000
+    supervisor.tick()
+    check(supervisor.health.state == RuntimeHealth.State.SUSPENDED && supervisor.health.generation == first)
+    supervisor.resume()
+    check(supervisor.health.state == RuntimeHealth.State.STARTING)
     waitFor("real_page_ready") { readySeen == 1 }
     check(supervisor.health.state == RuntimeHealth.State.STARTING)
-    now = 20_000
+    now += 20_000
     supervisor.tick()
     check(supervisor.health.reason == "startup_timeout" && views.getValue(first).isClosed)
     pass("A-REC-01", "Native deadline closed a real page whose ready callback was withheld")
