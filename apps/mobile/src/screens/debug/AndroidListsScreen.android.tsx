@@ -18,6 +18,8 @@ function AndroidListsScreen() {
   const [empty, setEmpty] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshes, setRefreshes] = useState(0);
+  const [prepended, setPrepended] = useState(false);
+  const [lastAction, setLastAction] = useState('none');
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
@@ -66,11 +68,18 @@ function AndroidListsScreen() {
         {
           id: 'history',
           header: 'Scrollable rows',
-          rows: Array.from({ length: 60 }, (_, index) => ({
-            id: `row-${index}`,
-            title: `History row ${index}`,
-            action: true,
-          })),
+          rows: [
+            ...Array.from({ length: prepended ? 20 : 0 }, (_, index) => ({
+              id: `prepended-${index}`,
+              title: `Prepended row ${index}`,
+              action: true,
+            })),
+            ...Array.from({ length: 60 }, (_, index) => ({
+              id: `row-${index}`,
+              title: `History row ${index}`,
+              action: true,
+            })),
+          ],
         },
       ];
   return (
@@ -79,10 +88,15 @@ function AndroidListsScreen() {
         <AppText>
           Actions: {actions}; returns: {returns}; refreshes: {refreshes}
         </AppText>
+        <AppText variant="meta">Last row: {lastAction}</AppText>
         <Button label="Update row" onPress={() => setUpdated(true)} />
         <Button
           label={empty ? 'Restore list' : 'Empty list'}
           onPress={() => setEmpty((value) => !value)}
+        />
+        <Button
+          label={prepended ? 'Remove prepended rows' : 'Prepend history'}
+          onPress={() => setPrepended((value) => !value)}
         />
       </View>
       <NativeGroupedList
@@ -109,6 +123,7 @@ function AndroidListsScreen() {
           }
           if (id === 'static' || id === 'long')
             throw new Error('Static row dispatched');
+          setLastAction(id);
           setActions((count) => count + 1);
         }}
       />
