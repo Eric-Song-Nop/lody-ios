@@ -208,7 +208,7 @@ def main():
             result['checks'].append({'id': 'A-NAV-03-rapid-return', 'status': 'pass', 'detail': 'Committed edge gesture, three immediate returns, retained tab stacks and all five presentation results released'})
             result['visualReviewRequired'] = ['Confirm the system recognized the held edge gesture in back-gesture-preview.png/video, then retained Sessions after cancellation. This is not a claim of a page-level predictive transition animation.']
         elif args.case == 'navigation':
-            result['fixtureVersion'] = 'navigation-v2'
+            result['fixtureVersion'] = 'navigation-v3'
             tap_button(tree, 'Open navigation verification')
             tap_button(wait_text('Offline navigation: projects'), 'Open offline project')
             tap_button(wait_text('Offline navigation: sessions'), 'Open offline session')
@@ -258,8 +258,17 @@ def main():
             tree = wait_text('Settled sheets: 5')
             if 'Sheet result: cancelled' not in texts(tree):
                 raise AssertionError('Downward sheet dismissal did not settle cancellation')
+            tap_button(tree, 'Open form sheet')
+            tap_button(wait_text('Offline navigation: sheet'), 'Push sheet child')
+            tap_button(wait_text('Offline navigation: sheet child'), 'Navigate up')
+            tree = wait_text('Child result: cancelled')
+            capture('toolbar-nested-return')
+            tap_button(tree, 'Navigate up')
+            tree = wait_text('Settled sheets: 6')
+            if 'Sheet result: cancelled' not in texts(tree):
+                raise AssertionError('Sheet toolbar return did not settle cancellation')
             result['checks'].append({'id': 'A-NAV-02', 'status': 'pass'})
-            result['checks'].append({'id': 'A-NAV-03-nested-return', 'status': 'pass', 'detail': 'Nested system return/completion retain their parent; all five outer results settle once'})
+            result['checks'].append({'id': 'A-NAV-03-nested-return', 'status': 'pass', 'detail': 'Nested system/toolbar return and completion retain their parent; all six outer results settle once'})
             capture('navigation-passed')
         elif args.case == 'storage':
             tap_button(tree, 'Run storage verification')
