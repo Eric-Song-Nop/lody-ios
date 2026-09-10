@@ -1,2 +1,6 @@
 export { runtimeInfo, addAppActiveListener } from './runtime/AndroidBootstrap';
-export { runDataRuntimeVerification } from './runtime/DataRuntime.android';
+export {
+  runDataRuntimeVerification,
+  runRuntimeRecoveryVerification,
+  addRecoveryPhaseListener,
+} from './runtime/DataRuntime.android';

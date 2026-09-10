@@ -45,6 +45,7 @@ internal class DataRuntime(
     private set
   @Volatile var peakQueuedChars = 0
     private set
+  val isClosed: Boolean get() = !alive.get()
   private val startupDeadline = Runnable { fail("startup_timeout") }
 
   init {
@@ -118,6 +119,12 @@ internal class DataRuntime(
   override fun resume() {
     check(Looper.myLooper() == Looper.getMainLooper())
     if (alive.get()) view.onResume()
+  }
+
+  internal fun terminateRendererForVerification(): Boolean {
+    check(Looper.myLooper() == Looper.getMainLooper())
+    if (android.os.Build.VERSION.SDK_INT < 29 || !alive.get()) return false
+    return view.webViewRenderProcess?.terminate() ?: false
   }
 
   override fun close() {

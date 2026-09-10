@@ -27,6 +27,14 @@ internal class DataRuntimeVerification(private val context: Context) {
   private var projectionChars = 0
   private var lastEvent = "none"
 
+  val writeCount: Int get() = writes.get()
+  val runtimeHash: String get() = manifest.getString("runtimeSha256")
+  fun interceptor(name: String): (WebResourceRequest) -> WebResourceResponse {
+    val cases = manifest.getJSONArray("cases")
+    val fixture = (0 until cases.length()).map { cases.getJSONObject(it) }.first { it.getString("name") == name }
+    return { response(fixture, it) }
+  }
+
   fun run(done: (Result<String>) -> Unit) {
     check(completion == null)
     completion = done

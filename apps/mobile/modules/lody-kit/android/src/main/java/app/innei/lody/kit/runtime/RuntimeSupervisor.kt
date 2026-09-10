@@ -32,6 +32,7 @@ internal class RuntimeSupervisor(
 
   fun start() {
     assertMain()
+    health.stop()
     closeEndpoint()
     health.start(clock())
     open()
