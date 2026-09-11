@@ -5,6 +5,24 @@ import time
 SERVICE = 'com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService'
 
 
+def checked_gesture(dispatch, result, x, y, mode):
+    log = dispatch(x, y, mode)
+    # Preserve the actual input even when the host stalls before we can observe
+    # focus. This is a gross scheduling guard, not proof of guest timing.
+    result.setdefault('hardwareGestures', []).append(log)
+    events = log['events']
+    stalls = []
+    for index, event in enumerate(events):
+        if event['at'] - event['sentAt'] > 2:
+            stalls.append({'event': index, 'phase': 'rpc', 'seconds': event['at'] - event['sentAt']})
+        if index and event['sentAt'] - events[index - 1]['at'] > 2:
+            stalls.append({'event': index, 'phase': 'between-events', 'seconds': event['sentAt'] - events[index - 1]['at']})
+    if stalls:
+        result['hardwareGestureTimingError'] = {'gesture': len(result['hardwareGestures']) - 1, 'stalls': stalls}
+        raise AssertionError('Hardware gesture exceeded the two-second scheduling guard; input is not a valid planned gesture')
+    return log
+
+
 def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, host, target, snapshot, gesture_input, traversal=False, list_return='present'):
     originals = result['originalAccessibilitySettings']
     result.update(appearance=appearance, host=host, target=target,
@@ -126,7 +144,7 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
         x, y = str((left + right) // 2), str((top + bottom) // 2)
         # Exploration must focus this node without activating it. Capture the
         # intermediate state before dispatching a separate hardware double tap.
-        explore_log = gesture_input(x, y, 'explore')
+        explore_log = checked_gesture(gesture_input, result, x, y, 'explore')
         # TalkBack processes hover asynchronously. Observe its actual choice
         # within the same five-second budget used by traversal; do not resend
         # input or assign focus when the initial snapshot precedes its response.
@@ -179,7 +197,7 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
             raise AssertionError(f'Hardware exploration did not focus {title}')
         if texts(explored) != texts(tree):
             raise AssertionError(f'Exploration changed fixture content before activation: {title}')
-        input_log = gesture_input(x, y, 'hold' if hold else 'activate')
+        input_log = checked_gesture(gesture_input, result, x, y, 'hold' if hold else 'activate')
         after = wait_bound()
         result.setdefault('talkBackInputs', []).append({
             'title': title, 'bounds': node.get('bounds'),
@@ -255,7 +273,7 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
                     # chooses its successor; never set focus or tap that target.
                     display = list(map(int, re.findall(r'\d+', next(before.iter('node')).get('bounds'))))
                     x, y = (display[0] + display[2]) // 2, (bounds[1] + bounds[3]) // 2
-                    input_log = gesture_input(x, y, direction)
+                    input_log = checked_gesture(gesture_input, result, x, y, direction)
                     deadline = time.monotonic() + 5
                     while True:
                         observed = snapshot()

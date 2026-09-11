@@ -267,6 +267,13 @@ times. The recording process is stopped in teardown; an early recorder exit
 fails evidence collection. Use this to investigate a missed gesture without
 changing gesture timings, retrying activation or assigning focus directly.
 
+Every TalkBack hardware gesture is retained in `hardwareGestures` before focus
+assertions. A single RPC or interval between events exceeding two seconds fails
+with `hardwareGestureTimingError`: a host scheduling stall has invalidated the
+planned input. This coarse guard exceeds the longest intentional 0.8-second hold;
+it does not certify double-tap timing or replace device `getevent` evidence.
+Invalid input still fails the run and never triggers an automatic gesture retry.
+
 Exploration now observes exact focus for up to five seconds, matching the
 traversal observation budget. Each observation is retained in
 `talkBackExplorations[].focusObservations`; content changes still fail. This
