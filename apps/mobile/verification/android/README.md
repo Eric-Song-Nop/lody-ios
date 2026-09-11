@@ -286,3 +286,6 @@ title disappearing, with the parent entry present for 500 ms. It retains
 `parentReturnReadiness`; absence of scrolled-out body content alone does not
 prove a sheet has finished dismissing. Review the returned capture and video
 end separately before accepting the exit.
+The accessibility hierarchy may hide a dismissing toolbar before its pixels
+disappear. This observation window is not a native transition-completion signal;
+an early returned screenshot or video end keeps exit acceptance incomplete.
