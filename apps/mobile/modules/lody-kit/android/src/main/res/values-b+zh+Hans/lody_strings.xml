@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from locales; edit the JSON catalogs. -->
+<resources>
+  <string name="lody_native_attachment_error_empty" formatted="false">"附件不能为空，文件不能超过 100 MiB"</string>
+  <string name="lody_native_attachment_error_imageread" formatted="false">"无法读取图片，请重新选择"</string>
+  <string name="lody_native_attachment_error_imagetoolarge" formatted="false">"图片压缩后仍超过 5 MiB"</string>
+  <string name="lody_native_attachment_error_invalid" formatted="false">"附件无效，请重新选择"</string>
+  <string name="lody_native_attachment_error_limit" formatted="false">"每条消息最多添加 8 张图片和 8 个文件"</string>
+  <string name="lody_native_attachment_error_signin" formatted="false">"请先登录"</string>
+  <string name="lody_native_attachment_error_upload" formatted="false">"附件上传失败，请检查网络或账户配额后重试"</string>
+  <string name="lody_native_attachment_error_uploadresponse" formatted="false">"附件上传响应无效"</string>
+  <string name="lody_native_chat_attachment_accessdenied" formatted="false">"照片访问已关闭，可在「设置」中开启"</string>
+  <plurals name="lody_native_chat_attachment_addcount">
+    <item quantity="one">"添加 {count} 项"</item>
+    <item quantity="other">"添加 {count} 项"</item>
+  </plurals>
+  <string name="lody_native_chat_attachment_allowaccess" formatted="false">"允许访问"</string>
+  <string name="lody_native_chat_attachment_limitedaccess" formatted="false">"允许访问照片后可在这里直接选取最近照片"</string>
+  <string name="lody_native_chat_attachment_managephotos" formatted="false">"管理所选照片"</string>
+  <string name="lody_native_chat_attachment_opensettings" formatted="false">"打开设置"</string>
+  <string name="lody_native_chat_attachment_photoindex" formatted="false">"照片 {index}"</string>
+  <string name="lody_native_chat_attachment_preview" formatted="false">"预览附件 {name}"</string>
+  <string name="lody_native_chat_attachment_remove" formatted="false">"移除附件 {name}"</string>
+  <string name="lody_native_chat_attachment_selected" formatted="false">"已选择"</string>
+  <string name="lody_native_chat_attachment_videoindex" formatted="false">"视频 {index}"</string>
+  <string name="lody_native_chat_composer_attach" formatted="false">"添加附件"</string>
+  <string name="lody_native_chat_composer_controlerror" formatted="false">"操作未完成，请检查连接后重试。"</string>
+  <string name="lody_native_chat_composer_defaulteffort" formatted="false">"默认"</string>
+  <string name="lody_native_chat_composer_defaultmodel" formatted="false">"默认模型"</string>
+  <string name="lody_native_chat_composer_effort" formatted="false">"思考强度"</string>
+  <string name="lody_native_chat_composer_faileddraft" formatted="false">"有一条未发出的消息 · 点此合并到草稿"</string>
+  <string name="lody_native_chat_composer_files" formatted="false">"文件"</string>
+  <string name="lody_native_chat_composer_input" formatted="false">"消息"</string>
+  <string name="lody_native_chat_composer_modelbutton" formatted="false">"模型与强度，{summary}"</string>
+  <string name="lody_native_chat_composer_modelpicker" formatted="false">"选择模型，{model}，{effort}"</string>
+  <string name="lody_native_chat_composer_photolibrary" formatted="false">"照片图库"</string>
+  <string name="lody_native_chat_composer_placeholder" formatted="false">"给 Lody 发消息…"</string>
+  <string name="lody_native_chat_composer_queue" formatted="false">"排队消息"</string>
+  <string name="lody_native_chat_composer_recentphotos" formatted="false">"最近照片"</string>
+  <string name="lody_native_chat_composer_send" formatted="false">"发送"</string>
+  <string name="lody_native_chat_composer_sending" formatted="false">"正在发送"</string>
+  <string name="lody_native_chat_composer_steer" formatted="false">"Steer"</string>
+  <string name="lody_native_chat_composer_steering" formatted="false">"正在确认投递…"</string>
+  <string name="lody_native_chat_composer_stop" formatted="false">"停止"</string>
+  <string name="lody_native_chat_composer_stopping" formatted="false">"正在停止…"</string>
+  <string name="lody_native_chat_copy" formatted="false">"复制"</string>
+  <string name="lody_native_chat_duration_hour" formatted="false">"时"</string>
+  <string name="lody_native_chat_duration_minute" formatted="false">"分"</string>
+  <string name="lody_native_chat_duration_second" formatted="false">"秒"</string>
+  <string name="lody_native_chat_empty_loading" formatted="false">"正在取回对话…"</string>
+  <string name="lody_native_chat_error_transcript" formatted="false">"对话暂时无法显示 · 点此重新同步"</string>
+  <string name="lody_native_chat_file_diffstats" formatted="false">"{text}，新增 {add} 行，删除 {del} 行"</string>
+  <string name="lody_native_chat_image_closepreview" formatted="false">"关闭图片预览"</string>
+  <string name="lody_native_chat_image_failed" formatted="false">"图片暂时无法显示"</string>
+  <string name="lody_native_chat_image_label" formatted="false">"图片，{name}"</string>
+  <string name="lody_native_chat_image_openpreview" formatted="false">"打开全屏预览"</string>
+  <string name="lody_native_chat_image_retry" formatted="false">"图片加载失败，轻点重试"</string>
+  <string name="lody_native_chat_preview_empty" formatted="false">"此设备还没有这段对话"</string>
+  <string name="lody_native_chat_row_openchanges" formatted="false">"打开文件改动"</string>
+  <string name="lody_native_chat_row_openprocess" formatted="false">"打开执行过程"</string>
+  <string name="lody_native_chat_row_queued" formatted="false">"已排队，当前回复结束后发送"</string>
+  <string name="lody_native_chat_row_queuedattachmentsonly" formatted="false">"仅附件"</string>
+  <string name="lody_native_chat_row_resend" formatted="false">"重新连接并继续发送"</string>
+  <string name="lody_native_chat_scrolltobottom" formatted="false">"回到底部"</string>
+  <string name="lody_native_chat_status_sending" formatted="false">"正在发送…"</string>
+  <string name="lody_native_chat_title_hint" formatted="false">"查看会话详情"</string>
+  <plurals name="lody_native_chat_transcript_activity_commands">
+    <item quantity="one">"调用了 {count} 个命令"</item>
+    <item quantity="other">"调用了 {count} 个命令"</item>
+  </plurals>
+  <plurals name="lody_native_chat_transcript_activity_editedfiles">
+    <item quantity="one">"编辑了 {count} 个文件"</item>
+    <item quantity="other">"编辑了 {count} 个文件"</item>
+  </plurals>
+  <plurals name="lody_native_chat_transcript_activity_fetches">
+    <item quantity="one">"获取了 {count} 项内容"</item>
+    <item quantity="other">"获取了 {count} 项内容"</item>
+  </plurals>
+  <plurals name="lody_native_chat_transcript_activity_readfiles">
+    <item quantity="one">"阅读了 {count} 个文件"</item>
+    <item quantity="other">"阅读了 {count} 个文件"</item>
+  </plurals>
+  <plurals name="lody_native_chat_transcript_activity_searches">
+    <item quantity="one">"进行了 {count} 次搜索"</item>
+    <item quantity="other">"进行了 {count} 次搜索"</item>
+  </plurals>
+  <string name="lody_native_chat_transcript_activity_thinking" formatted="false">"思考中…"</string>
+  <string name="lody_native_chat_transcript_activity_thought" formatted="false">"思考过程"</string>
+  <plurals name="lody_native_chat_transcript_activity_tools">
+    <item quantity="one">"调用了 {count} 个工具"</item>
+    <item quantity="other">"调用了 {count} 个工具"</item>
+  </plurals>
+  <string name="lody_native_chat_transcript_event" formatted="false">"会话事件"</string>
+  <string name="lody_native_chat_transcript_failed" formatted="false">"失败 · {text}"</string>
+  <plurals name="lody_native_chat_transcript_filecount">
+    <item quantity="one">"{count} 个文件"</item>
+    <item quantity="other">"{count} 个文件"</item>
+  </plurals>
+  <string name="lody_native_chat_transcript_pending" formatted="false">"等待批准 · {text}"</string>
+  <string name="lody_native_chat_transcript_status_done" formatted="false">"执行过程"</string>
+  <string name="lody_native_chat_transcript_status_failed" formatted="false">"处理失败"</string>
+  <string name="lody_native_chat_transcript_status_pending" formatted="false">"等待批准"</string>
+  <string name="lody_native_chat_transcript_status_running" formatted="false">"正在处理"</string>
+  <string name="lody_native_chat_transcript_status_workedfor" formatted="false">"工作了 {duration}"</string>
+  <string name="lody_native_chat_transcript_status_workingfor" formatted="false">"正在工作 {duration}"</string>
+  <string name="lody_native_chat_transcript_subtask" formatted="false">"子任务"</string>
+  <string name="lody_native_chat_transcript_summary" formatted="false">"{title} · {tools}"</string>
+  <string name="lody_native_chat_transcript_tool" formatted="false">"调用工具"</string>
+  <plurals name="lody_native_chat_transcript_toolcount">
+    <item quantity="one">"{count} 项操作"</item>
+    <item quantity="other">"{count} 项操作"</item>
+  </plurals>
+  <string name="lody_native_close" formatted="false">"关闭"</string>
+  <string name="lody_native_list_collapsed" formatted="false">"已折叠"</string>
+  <string name="lody_native_list_expanded" formatted="false">"已展开"</string>
+  <string name="lody_native_runtime_connectionswitched" formatted="false">"连接已切换，消息尚未发送"</string>
+  <string name="lody_native_runtime_notconnected" formatted="false">"尚未连接工作区"</string>
+  <string name="lody_native_runtime_replaced" formatted="false">"通信层已重建，发送结果请以同步记录为准"</string>
+  <string name="lody_native_runtime_sendtimeout" formatted="false">"发送结果未知，请查看同步记录，不要重复发送"</string>
+  <string name="lody_native_runtime_sessionnotready" formatted="false">"会话尚未就绪，请稍后重试"</string>
+  <string name="lody_native_runtime_sessionnotsynced" formatted="false">"会话尚未同步"</string>
+  <string name="lody_native_runtime_sessionnotsyncedretry" formatted="false">"会话尚未同步，请稍后重试"</string>
+  <string name="lody_native_session_banner_attention" formatted="false">"等待确认"</string>
+  <string name="lody_native_session_banner_completed" formatted="false">"已完成"</string>
+  <string name="lody_native_session_banner_openhint" formatted="false">"打开该会话"</string>
+  <string name="lody_native_session_sync_needsapproval" formatted="false">"等待你的确认"</string>
+  <string name="lody_native_session_sync_receiving" formatted="false">"正在接收回复"</string>
+  <string name="lody_native_session_sync_sending" formatted="false">"正在发送"</string>
+  <string name="lody_native_session_sync_synced" formatted="false">"回复已同步"</string>
+  <string name="lody_native_session_sync_title" formatted="false">"同步会话回复"</string>
+  <string name="lody_native_session_sync_waitingreply" formatted="false">"等待回复"</string>
+</resources>

@@ -8,6 +8,8 @@ import {
 } from 'react';
 
 import { present, type PresentPage } from './presentationStore';
+import { FeedbackBoundary } from './FeedbackBoundary';
+import type { PageTitle } from './title';
 
 /** Same contract as `present`, but the page opens inside the current sheet. */
 export type PushPage = PresentPage;
@@ -26,7 +28,7 @@ export interface PagePresentationOptions {
   sheetInitialDetentIndex?: number | 'last';
   style: PagePresentationStyle;
   /** Header title for this presentation; falls back to the page's own title. */
-  title?: string;
+  title?: PageTitle;
 }
 
 export type PageFinish<TResult> = [TResult] extends [void]
@@ -47,7 +49,7 @@ export interface PageDefinitionBase {
   id: string;
   presentation: PagePresentationOptions;
   presentationPath?: string;
-  title: string;
+  title: PageTitle;
 }
 
 declare const pageTypes: unique symbol;
@@ -70,7 +72,7 @@ type DefinePageOptions<TParams> = {
   id: string;
   presentation?: Partial<PagePresentationOptions>;
   presentationPath?: string;
-  title: string;
+  title: PageTitle;
 } & ([TParams] extends [undefined]
   ? { parseRouteParams?: (params: RouteParams) => TParams }
   : { parseRouteParams: (params: RouteParams) => TParams });
@@ -153,7 +155,7 @@ export function PageRuntimeProvider<TParams, TResult>({
 }) {
   return (
     <PageRuntimeContext value={value as PageRuntime<unknown, unknown>}>
-      {children}
+      <FeedbackBoundary>{children}</FeedbackBoundary>
     </PageRuntimeContext>
   );
 }

@@ -5,6 +5,8 @@ import { writeLocalValue } from '@lody-ios/kit';
 import { AuthContext } from '@/cloud/auth/AuthProvider';
 import { CatalogContext } from '@/cloud/catalog/CatalogProvider';
 import type { Catalog } from '@/models/catalog';
+import type { CreationOptions } from '@/models/send';
+import { CreationOptionsLoaderContext } from '@/features/sessions/creationOptionsLoader';
 
 export const homeVerify =
   __DEV__ &&
@@ -52,6 +54,13 @@ const catalog: Catalog = {
   machineIds: [],
 };
 const noop = async () => {};
+async function loadCreationOptions(
+  projectId: string,
+): Promise<CreationOptions> {
+  const project = catalog.projects.find((value) => value.id === projectId);
+  if (!project) throw new Error('Unknown home fixture project');
+  return { sessionId: 'ui-home-create', project, agents: [], capabilities: [] };
+}
 const previewCache = JSON.stringify({
   v: 1,
   status: 'live',
@@ -92,49 +101,51 @@ export function HomePreviewProviders({ children }: PropsWithChildren) {
     );
   }, []);
   return (
-    <AuthContext
-      value={{
-        account: {
-          token: '',
-          user: {
-            id: 'ui-home',
-            name: 'UI Preview',
-            email: '',
-            image:
-              'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAL0lEQVR42u3OIQEAAAgDMNJQk6J0gRg3E/Or7bmkEhAQEBAQEBAQEBAQEBAQSAceRa0Al+0rSMYAAAAASUVORK5CYII=',
-          },
-          workspaces: [workspace],
-        },
-        busy: false,
-        localReady: true,
-        initialWorkspace: workspace.id,
-        initialCatalog: null,
-        code: null,
-        error: null,
-        login: noop,
-        cancel: noop,
-        restore: noop,
-        logout: noop,
-        reopen: noop,
-      }}
-    >
-      <CatalogContext
+    <CreationOptionsLoaderContext value={loadCreationOptions}>
+      <AuthContext
         value={{
-          catalog,
-          serverSessions: catalog.sessions,
-          selected: workspace,
-          loading: false,
-          connected: true,
-          syncedAt: undefined,
-          key: 'ui-home',
-          setWorkspaceId: noop,
-          refresh: noop,
+          account: {
+            token: '',
+            user: {
+              id: 'ui-home',
+              name: 'UI Preview',
+              email: '',
+              image:
+                'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAL0lEQVR42u3OIQEAAAgDMNJQk6J0gRg3E/Or7bmkEhAQEBAQEBAQEBAQEBAQSAceRa0Al+0rSMYAAAAASUVORK5CYII=',
+            },
+            workspaces: [workspace],
+          },
+          busy: false,
+          localReady: true,
+          initialWorkspace: workspace.id,
+          initialCatalog: null,
+          code: null,
+          error: null,
+          login: noop,
+          cancel: noop,
+          restore: noop,
+          logout: noop,
+          reopen: noop,
         }}
       >
-        <View testID="ui-verify-ready" style={{ flex: 1 }}>
-          {children}
-        </View>
-      </CatalogContext>
-    </AuthContext>
+        <CatalogContext
+          value={{
+            catalog,
+            serverSessions: catalog.sessions,
+            selected: workspace,
+            loading: false,
+            connected: true,
+            syncedAt: undefined,
+            key: 'ui-home',
+            setWorkspaceId: noop,
+            refresh: noop,
+          }}
+        >
+          <View testID="ui-verify-ready" style={{ flex: 1 }}>
+            {children}
+          </View>
+        </CatalogContext>
+      </AuthContext>
+    </CreationOptionsLoaderContext>
   );
 }

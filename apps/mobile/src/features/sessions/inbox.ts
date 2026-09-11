@@ -1,4 +1,7 @@
-import type { NativeListRow, NativeListSection } from '@lody-ios/kit';
+import type {
+  GroupedListRowProjection as NativeListRow,
+  GroupedListSectionProjection as NativeListSection,
+} from '@lody-ios/kit';
 import type { Catalog, Project, Session } from '../../models/catalog.ts';
 import type { SessionState } from './status.ts';
 import { agentName, sessionState, stateTint } from './status.ts';
@@ -34,9 +37,9 @@ const badges: Partial<Record<SessionState, TranslationKey>> = {
   failed: 'inbox.badge.failed',
   archived: 'inbox.badge.archived',
 };
-const badgeOf = (state: SessionState) => {
+const badgeOf = (state: SessionState, translate = t) => {
   const key = badges[state];
-  return key && t(key);
+  return key && translate(key);
 };
 const unreadOf = (session: Session) =>
   session.lastMessageAt !== undefined &&
@@ -114,27 +117,29 @@ export function inboxSections(
   });
 }
 
-export const archiveAction = (archived: boolean) => ({
+export const archiveAction = (archived: boolean, translate = t) => ({
   id: 'archive',
-  title: t(archived ? 'session.action.unarchive' : 'session.action.archive'),
+  title: translate(
+    archived ? 'session.action.unarchive' : 'session.action.archive',
+  ),
   symbol: archived ? 'tray.and.arrow.up' : 'archivebox',
 });
-export const pinAction = (pinned: boolean) => ({
+export const pinAction = (pinned: boolean, translate = t) => ({
   id: 'pin',
-  title: t(pinned ? 'session.action.unpin' : 'session.action.pin'),
+  title: translate(pinned ? 'session.action.unpin' : 'session.action.pin'),
   symbol: pinned ? 'pin.slash.fill' : 'pin.fill',
   tint: 'yellow',
 });
-const newSessionAction = () => ({
+const newSessionAction = (translate = t) => ({
   id: 'newSession',
-  title: t('session.action.newSession'),
+  title: translate('session.action.newSession'),
   symbol: 'square.and.pencil',
 });
-const sessionMenu = (session: Session) => ({
+const sessionMenu = (session: Session, translate = t) => ({
   menuActions: [
-    newSessionAction(),
-    pinAction(session.pinned),
-    archiveAction(session.archived),
+    newSessionAction(translate),
+    pinAction(session.pinned, translate),
+    archiveAction(session.archived, translate),
   ],
   preview: 'session' as const,
 });
@@ -160,6 +165,7 @@ export function sessionRow(
   accent: string,
   projectName = '',
   now?: number,
+  translate = t,
 ) {
   const state = stateOf(session);
   const lead = session.branchName ?? agentName(session.agentType);
@@ -172,15 +178,15 @@ export function sessionRow(
     value: relativeTime(activityAt(session), now),
     unread: unreadOf(session),
     pinned: session.pinned,
-    badge: badgeOf(state),
+    badge: badgeOf(state, translate),
     imageTint: ['live', 'attention', 'failed'].includes(state)
       ? stateTint(state, accent)
       : undefined,
     action: true,
     navigates: true,
-    actions: [archiveAction(session.archived)],
-    leadingActions: [pinAction(session.pinned)],
-    ...sessionMenu(session),
+    actions: [archiveAction(session.archived, translate)],
+    leadingActions: [pinAction(session.pinned, translate)],
+    ...sessionMenu(session, translate),
   };
 }
 

@@ -19,3 +19,21 @@ iOS 输入来自 `7a79eb5` 堆叠中的源码与已生成资源。构建期间�
 ## PR-04 storage regression
 
 The managed `Android storage regression` lease completed all 14 native behavior groups and a normal-signing iOS simulator build on 2026-09-10. `codesign --verify --deep --strict` passed. Logs are `.artifacts/android/ios-regression/storage-native.log`, `storage-build.log` and `storage-lease.log`. The resulting app in `/tmp/lody-android-ios-build/Build/Products/Debug-iphonesimulator/Lody.app` contains runtime SHA-256 `0993a8efc917289e88da43d8cdcfb8b183ea60229f6e86298d6769e1138f901d`. The lease was released. This native/build check does not establish that the separately failing CI UI cases have passed.
+
+## Parent PR-01 CI follow-up, 2026-09-11
+
+[Run 34431969492](https://github.com/Eric-Song-Nop/lody-ios/actions/runs/34431969492) tests the PR-01 merge commit `ab05dbd` whose parents include `f8b61cf`. Checks and Android internal build passed; iOS UI failed after native build. Downloaded artifact `offline-ui-ab05dbd11b8aca6532398c389b436434841cceb7` records two distinct failures: light Home never reached `ui-verify-ready` and its reviewed screenshot shows the Expo development launcher; dark Home entered the real offline fixture but later `axe describe-ui` timed out after 20 seconds. Its screenshot shows the Home fixture, not the launcher. Neither result proves a product behavior regression or a successful CI run.
+
+The failed iOS job has been requested for one unchanged-code rerun to distinguish a reproducible launch/driver failure from a transient CI failure. The rerun also failed: light Home timed out in AXe after 20 seconds; dark Home missed `ui-verify-ready`. Both rerun screenshots have now been reviewed and show the Expo development launcher, not the product fixture. The repeat run confirms an unresolved CI launch/driver problem; it does not establish a product regression. Rerun artifact ID is `10164484480`; Checks and Android build remain successful. No timeout, assertion or scenario was removed, and local Home passes do not substitute for this remote result.
+
+## PR-05b TalkBack backdrop dependency patch
+
+The managed `TalkBack backdrop iOS regression` lease completed a normally signed Debug simulator build and `codesign --verify --deep --strict` after generating native assets. Source is `d14ab0d` (including Android dependency patch `7841c7a`), with an accessibility report edit only. Logs are `.artifacts/android/ios-regression/talkback-backdrop-assets.log`, `talkback-backdrop-build.log` and `talkback-backdrop-lease.log`. The wrapper exits zero and releases the lease. The persistent react-native-screens patch changes Android's empty dimming view accessibility importance; no iOS source is patched. This build does not close the parent CI Home UI failure or claim a new iOS UI behavior run.
+
+## PR-05b list accessibility return candidate
+
+The managed `List accessibility return iOS regression` lease completed native asset generation, a normally signed Debug simulator build and `codesign --verify --deep --strict`. The process exits zero. Source is `1b8900f` plus the Android list candidate, detail fixture and verifier changes; iOS implementation remains unchanged. Logs are `.artifacts/android/ios-regression/list-return-assets.log`, `list-return-build.log` and `list-return-lease.log`. This verifies the iOS build remains valid alongside the Android changes, without claiming a new iOS UI run or resolution of the parent CI failure.
+
+## PR-05b covered keyboard focus
+
+The managed `Covered keyboard focus iOS regression` lease completes asset generation, the normally signed Debug simulator build and `codesign --verify --deep --strict`, with terminal exit zero. Source `f7b4da5` includes the Android react-native-screens focus-release patch and LodyGroupedList ancestor-blocking restoration. Logs are `.artifacts/android/ios-regression/covered-keyboard-focus-assets.log`, `covered-keyboard-focus-build.log`, and `covered-keyboard-focus-lease.log`. No iOS source is changed; this is signed build compatibility evidence, not a new iOS UI run or resolution of the parent CI Home failure.

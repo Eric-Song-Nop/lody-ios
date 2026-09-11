@@ -1,6 +1,10 @@
 import { requireNativeView } from 'expo';
 import { type ComponentType, useState } from 'react';
-import type { NativeSyntheticEvent, ViewProps } from 'react-native';
+import {
+  Platform,
+  type NativeSyntheticEvent,
+  type ViewProps,
+} from 'react-native';
 
 export type NativeMenuItem = {
   id: string;
@@ -29,11 +33,15 @@ export function NativeMenuButton({
   style,
   ...props
 }: NativeMenuButtonProps) {
-  const [width, setWidth] = useState(44);
+  const [width, setWidth] = useState(Platform.OS === 'android' ? 48 : 44);
   return (
     <NativeView
       {...props}
-      style={[{ width, height: 44 }, style]}
+      style={[
+        { width, height: Platform.OS === 'android' ? 48 : 44 },
+        style,
+        Platform.OS === 'android' && { minWidth: 48, minHeight: 48 },
+      ]}
       onSelect={({ nativeEvent }) => onSelect(nativeEvent.id)}
       onSize={({ nativeEvent }) => setWidth(Math.ceil(nativeEvent.width))}
     />

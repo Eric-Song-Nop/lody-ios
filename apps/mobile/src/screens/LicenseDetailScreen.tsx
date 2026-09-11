@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { definePage } from '@/lib/presentation';
 import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 import { licenseEntry, licenseText } from '@/features/licenses';
@@ -8,6 +9,7 @@ import { t } from '../lib/i18n/index.ts';
 export type LicenseDetailParams = { name: string };
 
 function View() {
+  const { t } = useTranslations();
   const { params } = usePageRuntime<LicenseDetailParams>();
   const entry = licenseEntry(params.name);
   if (!entry)
@@ -38,7 +40,7 @@ function View() {
 
 export const LicenseDetailScreen = definePage<LicenseDetailParams>({
   id: 'license-detail',
-  title: t('settings.licenses.title'),
+  title: (t) => t('settings.licenses.title'),
   Component: View,
   parseRouteParams: ({ name }) => ({
     name: (Array.isArray(name) ? name[0] : name) ?? '',

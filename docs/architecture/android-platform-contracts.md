@@ -13,6 +13,10 @@
 | `readAuthToken` / `saveAuthToken` / `clearAuthToken`，`readLocalStartup` / `readLocalValue` / `writeLocalValue` / `clearLocalValues` | Keystore 加密与 SQLite 原生实现；账号隔离、进程重启及损坏路径本机验收通过。真实授权接线仍属于 PR-09 | [存储](../research/android-storage-verification.md)                                                          |
 | `NativeCloseButton` 与共享 navigation/presentation                                                                                   | Kotlin 关闭控件已在 sheet 验证；PR-05a 本机导航与释放验收通过，TalkBack 和系统控件归入 PR-05b       | [导航](../research/android-navigation-verification.md)                                                       |
 
+PR-05b 还已实现原生 Symbol、SymbolButton、Pressable 与中性 Surface，page/sheet 深浅色子集验证见[控件报告](../research/android-controls-verification.md)。原生 MenuButton/ContextMenu 已实现，菜单动作及生命周期的已验范围见[菜单报告](../research/android-menus-verification.md)；基础 NativeGroupedList 已接入 RecyclerView/SwipeRefreshLayout，已实现边界和待验项见[列表报告](../research/android-lists-verification.md)；完整 A-UI-01 与产品入口尚未开放。
+
+Android 原生 strings/plurals 已由共享语言源生成；101 个资源的设备读取、复数和插值检查见[语言资源报告](../research/android-locales-verification.md)。整套界面的系统语言切换与 TalkBack 仍待验证。
+
 以 `src/index.android.ts`（LodyKit 内）实际导出和原生注册为入口依据。未列出的产品接口继续按后续 PR 实施，不能通过扩大 TS 导出或注册空实现绕过阶段门槛。
 
 **范围决策**
@@ -101,21 +105,22 @@
 
 每项 props/types 保留在当前 feature 包装旁；下表给出同名导出的 Android 归属。无需模仿 iOS 私有绘制效果，但必须保留可访问名称、事件与流程语义。
 
-| 导出                 | iOS 来源 | Android 实现方向                          | PR / case                                    |
-| -------------------- | -------- | ----------------------------------------- | -------------------------------------------- |
-| `NativeCloseButton`  | chrome   | 系统关闭动作与 TalkBack                   | PR-05 / A-NAV-02                             |
-| `NativeSymbol`       | chrome   | 语义图标映射                              | PR-05 / A-UI-01                              |
-| `NativeSymbolButton` | chrome   | 系统图标按钮                              | PR-05 / A-UI-01                              |
-| `NativeMenuButton`   | chrome   | 原生菜单与禁用状态                        | PR-05 / A-UI-01                              |
-| `NativeContextMenu`  | menu     | 原生上下文动作                            | PR-05 / A-UI-01                              |
-| `NativePressable`    | press    | 原生触摸/反馈语义                         | PR-05 / A-UI-01                              |
-| `NativeGlassSurface` | press    | Material 中性 surface，保持尺寸和子视图   | PR-05 / A-UI-01                              |
-| `NativeGroupedList`  | list     | 分组、导航行和普通动作行                  | PR-05 / A-NAV-01                             |
-| `NativeChat`         | chat     | Enriched + 真实虚拟列表候选、共享事件适配 | PR-06/07 / A-MD-01、A-SELECT-01、A-SCROLL-01 |
-| `NativeComposer`     | chat     | Kotlin EditText、Insets、草稿交接         | PR-08 / A-INPUT-01、A-DRAFT-02               |
-| `NativeInlineDiff`   | diff     | 原生 inline diff                          | PR-12 / A-DIFF-04                            |
-| `NativeCodeView`     | diff     | 只读代码预览候选                          | PR-13 / A-CODE-01                            |
-| `NativeDiffToolbar`  | diff     | 平台工具栏，保留动作语义                  | PR-12 / A-DIFF-01                            |
+| 导出                 | iOS 来源            | Android 实现方向                                                                                | PR / case                                    |
+| -------------------- | ------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `NativeCloseButton`  | chrome              | 系统关闭动作与 TalkBack                                                                         | PR-05 / A-NAV-02                             |
+| `NativeFeedbackHost` | 现有 UIKit 提示窗口 | Android 专用窗口注册标记；Kotlin 持有 Toast/横幅和期限，页面与 sheet 复用现有 presentation 边界 | PR-05 / A-UI-01-feedback-page、sheet         |
+| `NativeSymbol`       | chrome              | 语义图标映射                                                                                    | PR-05 / A-UI-01                              |
+| `NativeSymbolButton` | chrome              | 系统图标按钮                                                                                    | PR-05 / A-UI-01                              |
+| `NativeMenuButton`   | chrome              | 原生菜单与禁用状态                                                                              | PR-05 / A-UI-01                              |
+| `NativeContextMenu`  | menu                | 原生上下文动作                                                                                  | PR-05 / A-UI-01                              |
+| `NativePressable`    | press               | 原生触摸/反馈语义                                                                               | PR-05 / A-UI-01                              |
+| `NativeGlassSurface` | press               | Material 中性 surface，保持尺寸和子视图                                                         | PR-05 / A-UI-01                              |
+| `NativeGroupedList`  | list                | 分组、导航行和普通动作行                                                                        | PR-05 / A-NAV-01                             |
+| `NativeChat`         | chat                | Enriched + 真实虚拟列表候选、共享事件适配                                                       | PR-06/07 / A-MD-01、A-SELECT-01、A-SCROLL-01 |
+| `NativeComposer`     | chat                | Kotlin EditText、Insets、草稿交接                                                               | PR-08 / A-INPUT-01、A-DRAFT-02               |
+| `NativeInlineDiff`   | diff                | 原生 inline diff                                                                                | PR-12 / A-DIFF-04                            |
+| `NativeCodeView`     | diff                | 只读代码预览候选                                                                                | PR-13 / A-CODE-01                            |
+| `NativeDiffToolbar`  | diff                | 平台工具栏，保留动作语义                                                                        | PR-12 / A-DIFF-01                            |
 
 `diff/files.ts` 的 `turnDiff/fileDiff/readFile/listDir/localProjectIdOf` 和模型转换继续共享；底层 raw 方法归上表。`notifications.ts` 的 listener 封装继续按 mount/unmount 清理。`RuntimeInfo` 和所有 native View props 必须保证平台导出类型兼容。
 

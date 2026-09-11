@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { useState } from 'react';
 import { NativeGroupedList, type NativeListSection } from '@lody-ios/kit';
 import { definePage } from '@/lib/presentation';
@@ -39,6 +40,7 @@ export function modelSummary(capability: Capability, value: ModelChoice) {
 }
 
 function View() {
+  const { t } = useTranslations();
   const { params } = usePageRuntime<Params>();
   const colors = usePalette();
   const [value, setValue] = useState(params.value);
@@ -145,7 +147,7 @@ function View() {
 
 export const ModelScreen = definePage<Params>({
   id: 'model',
-  title: t('model.title'),
+  title: (t) => t('model.title'),
   Component: View,
   parseRouteParams: () => {
     throw new Error('请从新建会话打开');

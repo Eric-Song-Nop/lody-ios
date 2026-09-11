@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
@@ -46,6 +47,7 @@ function reasonText(reason: string, message?: string) {
 }
 
 function View() {
+  const { t } = useTranslations();
   const { params } = usePageRuntime<FileDiffParams>();
   const colors = usePalette();
   const [diff, setDiff] = useState<DiffContent>();
@@ -245,7 +247,7 @@ function Notice({ text, children }: { text: string; children?: ReactNode }) {
 
 export const FileDiffScreen = definePage<FileDiffParams>({
   id: 'file-diff',
-  title: t('diff.title'),
+  title: (t) => t('diff.title'),
   Component: View,
   parseRouteParams: () => {
     throw new Error('请从本轮改动打开');

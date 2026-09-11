@@ -1,12 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import {
-  Pressable,
-  StatusBar,
-  StyleSheet,
-  Text,
-  ScrollView,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, ScrollView } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   addAppActiveListener,
@@ -131,7 +125,6 @@ function BootstrapProbe() {
   }, [subscribed]);
   return (
     <SafeAreaView style={styles.page}>
-      <StatusBar barStyle="dark-content" />
       <ScrollView contentContainerStyle={styles.content}>
         <Text accessibilityRole="header" style={styles.title}>
           Lody Android verification

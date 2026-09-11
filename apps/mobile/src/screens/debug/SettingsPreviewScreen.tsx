@@ -80,7 +80,7 @@ function View() {
         void push(
           SettingsListPreviewScreen,
           { kind, service },
-          { title: settingsTitle(kind) },
+          { title: (t) => settingsTitle(kind, t) },
         );
       }}
     />
@@ -92,7 +92,7 @@ const SettingsListPreviewScreen = definePage<{
   service: SettingsService;
 }>({
   id: 'settings-list-preview',
-  title: t('settings.remote.title'),
+  title: (t) => t('settings.remote.title'),
   Component: () => {
     const { params } = usePageRuntime<{
       kind: RemoteSetting['kind'];
@@ -108,7 +108,7 @@ const SettingsListPreviewScreen = definePage<{
 
 export const SettingsPreviewScreen = definePage({
   id: 'settings-preview',
-  title: t('settings.remote.title'),
+  title: (t) => t('settings.remote.title'),
   presentation: { headerVariant: 'transparent' },
   Component: View,
 });

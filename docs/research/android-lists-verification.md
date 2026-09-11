@@ -1,0 +1,83 @@
+# Android grouped list verification
+
+PR-05b remains draft #7, stacked on PR-05a. The new list host is a subset of A-UI-01; it does not complete the platform UI stage.
+
+The typed Android facade exposes basic section headers/footers, title/subtitle/value rows, known semantic icons, action/navigation rows, transparent surfaces, bottom insets and controlled refresh. Unsupported advanced row/section props fail explicitly at the facade instead of being silently discarded. The complete iOS contract is unchanged; richer Android rows will be introduced with their owning product stages.
+
+LodyKit owns a RecyclerView and SwipeRefreshLayout. Immutable presentation items are diffed by section/row identity through AndroidX ListAdapter. Row actions resolve the current adapter position, so a recycled holder does not dispatch an old captured ID. Normal Android ripple/focus feedback replaces persistent UIKit row selection. Text uses sp sizing and naturally wrapping titles. Refresh invokes the caller's actual callback and waits for its controlled refreshing state.
+
+References: [AndroidX ListAdapter](https://developer.android.com/reference/androidx/recyclerview/widget/ListAdapter), [SwipeRefreshLayout](https://developer.android.com/reference/androidx/swiperefreshlayout/widget/SwipeRefreshLayout). Explicit dependencies are RecyclerView 1.4.0 and SwipeRefreshLayout 1.1.0; the latter matches the installed RN version.
+
+`pnpm verify:android --case lists --appearance light|dark --apk <internal.apk>` opens production rows in page and sheet hosts. It checks action/static rows, label/value updates, navigation return, actual pull refresh, scrolling and empty/restore snapshots. The fixture uses local state only. The runner captures screenshots, recording and native hierarchy, restores the prior appearance and shuts down its owned emulator.
+
+Initial implementation: `a24ad94`. Android build, `pnpm check`, `pnpm test`, and `pnpm bundle` pass. The first emulator run (`lists-first-light`, APK `6cf0ccbfe5f21aa4d7086c8e407e689e9bb270cea7978f69e81f828696456021`) stopped after a verifier mismatch: it waited for a combined accessibility description in the visible-text helper. The failure screenshot confirms the row actually updated. The corrected verifier waits for visible text and still taps the exact accessibility description. Static inspection also prompted aligned leading icons and explicit bottom safe-area clearance. The revised results are recorded below. TalkBack, insertion/removal anchor and focus cases, full language/font coverage and final navigation integration are not yet accepted. A fresh normally signed iOS simulator build and strict deep signature verification pass (`.artifacts/android/ios-regression/lists-build.log`); the managed lease is released. Swift behavior and the iOS list facade were unchanged. Local evidence publication remains unavailable; no remote acceptance is claimed.
+
+The aligned `2420331` APK (`a93837d4c180d6090d924965dddbdd915a658c19f87d818010e5d2aef9138fae`) passes the full page case, but fails sheet pull-to-refresh: the outer native sheet consumes the downward gesture and dismisses. The failed run is retained in `lists-aligned-light`. The follow-up assigns gestures originating in the list to its native scroll/refresh owner, stops outward nested refresh scrolling, and leaves gestures originating in sheet chrome alone. Because the RN sheet root swallows ancestor-interception propagation, the list addresses each ancestor directly for the duration of its touch sequence. The runner additionally verifies that dragging the sheet title still dismisses it. Clean `e8b86ca` passes both hosts in light and dark on the same APK `ec5c8c7035b1d25803947c0a7629edfa296509ffc3456b3ed94046251d187b0b`. Evidence is retained in `lists-gesture-light` and `lists-gesture-dark`; both restore the prior appearance and release the emulator. The runner confirms refresh counts and final title-drag dismissal, not only visible screenshots. Recordings are 165.99 and 168.33 seconds. Representative list screenshots and 10-second video samples across each full recording were reviewed; local `visual-review.json` files state their scope. These results accept this basic list subset only; the remaining cases above still apply.
+
+## Additional scenarios prepared, not yet accepted
+
+`list-fonts` changes the real system font scale on an already-mounted native list, requires a taller long title at 1.3 and restoration at 1.0, and preserves process/counter/Back behavior. It restores the original system setting in `finally`. `list-mutations` uses the expanded fixture from `674cff2`: insert and remove 20 history rows above a visible anchor, compare its pixel offset, and tap it to verify current identity dispatch. Both cases cover page/sheet and require light/dark runs plus screenshot/video review. These cases are implemented but have no emulator pass yet. Keyboard and TalkBack focus remain separate outstanding checks. The basic fixture is now version 2 and must be rerun against the newly built APK.
+
+## Mounted-font failure and Activity repair
+
+The first edge matrix stopped at `list-fonts` page/light, before mutation/focus/basic-list or dark cases. `.artifacts/android/list-edges-list-fonts-light` records release APK `57d3e05169e95dee5c291d045e18c60720a0de4f57030d1a08a40344fa06b7d7` (built from `e9f5e18`), runner checkout `3005a2e` with pending verification/documentation changes. Default-size row activation passed, but the long title disappeared after changing system font scale to 1.3. The original 1.0 font scale and night mode were restored; the owner shut down the emulator.
+
+Full-recording 5-second samples show the app returning to the runtime verification root after the change. Logcat at 00:27:23 records the 1.3 configuration followed by `ReactHost.onHostDestroy(activity)` and `finishDrawing of relaunch`. The generated Activity manifest omitted `fontScale`; the same recreation occurs during restoration to 1.0. This is a lost-route failure, not evidence of text clipping. The generic failure screenshot follows restoration; the runner now captures the failing scale/process and screenshot before cleanup.
+
+`64bc5ab` adds `fontScale` to the existing MainActivity configuration set through `withAndroidBuild`, preserving all existing flags and the generated-project workflow. The native grouped list already handles configuration callbacks by rebinding sp-sized text; the repair must prove that the current route and counter survive and text actually grows/restores. This follows Android's [configuration-change contract](https://developer.android.com/guide/topics/resources/runtime-changes): retaining the Activity makes resource updates the application's responsibility. A new release build and identical matrix are underway in fresh `list-font-repair-*` directories. No font result is accepted yet, and other pending cases remain pending.
+
+### First repaired font result
+
+Release build `64bc5ab` succeeds in 5m04s. APK SHA-256 `4b60c958c389a329676c906f992cac865845c66db9198e65da47190c1fd6d3aa` passes `list-fonts` in both page and sheet with light appearance on API 36 ARM64; runner checkout `a41b9fe` is clean. In each host, the native long-title height changes from 122 to 216 pixels at system scale 1.3 and returns at 1.0, while process/counter survive and system Back actually dismisses the host. Original font scale 1.0 and night mode `no` are restored.
+
+All nine screenshots and 5-second samples spanning the 92.555011-second recording were reviewed under `list-font-repair-list-fonts-light`. The title wraps without clipping and remains readable in both hosts. This accepts the tested light-appearance font repair only. Dark fonts, mutation/focus/basic-list cases and the normally signed iOS build for this configuration change remain pending. `pnpm check` and iOS bundle pass; the new Android matrix continues sequentially.
+
+### Light mutation result
+
+On the same `4b60c958…` APK, `list-mutations-v1` passes both hosts with clean runner checkout `856f450`. The page preserves `row-15` at 52 pixels from the RecyclerView top; the sheet preserves `row-7` at 47 pixels. Inserting/removing 20 rows above each anchor keeps its offset within the 2-pixel bound, and subsequent taps dispatch that same current row identity with counts 1 then 2. Both hosts close through system Back and original night mode `no` is restored.
+
+All nine screenshots and 5-second samples spanning the complete 122.671311-second recording were reviewed under `list-font-repair-list-mutations-light`. This accepts light-appearance anchor/identity behavior, not keyboard or TalkBack focus. The rest of the matrix is still running.
+
+## Keyboard return failure in the sheet
+
+The same `4b60c958…` APK passes the page half of `list-focus-v1`: keyboard activation survives row value updates, and returning from detail restores navigation-row focus. In the sheet, repeated action activation also passes, but detail Back leaves the navigation row unfocused. The failure hierarchy contains no focused node, while the reviewed screenshot shows the original rows and counts `Actions: 2; returns: 1`, so the route/state returned but keyboard focus did not. Evidence is retained under `list-font-repair-list-focus-light`, clean runner `6c669d0`. The matrix exits 1 and shuts down its owner; updated basic-list and all dark cases were not reached.
+
+The installed react-native-screens saves its last focused child in `ScreenStackFragment.onStop` only for Android TV. LodyKit's proposed repair remembers a keyboard-activated navigation row by its current identity, arms restoration only after the list leaves the visible/attached hierarchy, and requests focus after return/layout. It does not restore touch selection, steal another control's focus or revive a removed row. This implementation still requires a fresh APK and the same keyboard return check; it is not yet accepted.
+
+`074f80e` implements this return-focus owner; `3b5a545` also clears pending return focus when another row action supersedes it. `pnpm check` passes. The managed `Android font and list focus build` iOS lease completes a normally signed simulator build and `codesign --verify --deep --strict`, then releases the simulator; logs are `ios-regression/font-config-build.log` and `font-config-lease.log`. There are no Swift behavior changes. This closes the pending iOS build check for the font configuration and list-native changes, not Android focus acceptance. A fresh Android build and `list-focus-repair-*` matrix are underway, with the failed focus case first; the earlier font/anchor results retain their original APK scope.
+
+## First repaired keyboard return result
+
+The new release build succeeds in 5m02s with native focus changes `074f80e`/`3b5a545`. APK SHA-256 `c776079536156daaf1f9798481abc346d2639a158a751df489cccaae4d85d9c8` passes `list-focus-v1` page and sheet in light appearance on API 36 ARM64. Runner provenance is `3f347cd` with a documentation-only dirty checklist at startup (subsequently committed as `6236c65`); native and runner sources were unchanged during this case. Evidence is retained under `list-focus-repair-list-focus-light`.
+
+Both hosts retain keyboard focus while the action value changes from 0 to 1 to 2. After directional navigation, Enter and detail Back, each returned hierarchy identifies `Open list detail, 原生导航行 · Native navigation` as focused. System Back then removes the host. Original night mode `no` is restored. All nine screenshots and 5-second samples spanning the complete 133.126611-second recording were reviewed; highlights and state match the hierarchy without losing list content. This accepts the light keyboard return repair, including the original failing sheet precondition. It does not establish dark mode, TalkBack, deleted-target or competing-focus exclusions. The same-APK font/mutation/basic-list and dark sequence continues; full PR-05b remains incomplete.
+
+### Same-APK light font regression
+
+The `c7760795…` focus-repair APK also passes `list-fonts-v1` in both light hosts with clean runner `6236c65`. Native title height again changes 122 → 216 → 122 pixels through real system scale 1.0 → 1.3 → 1.0; counter/process and Back are retained. Font scale 1.0 and night mode `no` are restored. All nine screenshots and 5-second samples spanning the 139.087700-second recording under `list-focus-repair-list-fonts-light` were reviewed: long titles wrap without clipping. This is the newer-APK light font result; dark and remaining cases are pending.
+
+### Same-APK light mutation and dark focus results
+
+On `c7760795…`, light `list-mutations-v1` passes with clean runner `b902e3a`: the page preserves `row-8` at 75 pixels and the sheet `row-10` at 29 pixels while inserting/removing 20 preceding rows. Current-ID action counts reach 1 then 2, and Back removes both hosts. All nine screenshots and full-duration 5-second samples of the 122.793911-second recording in `list-focus-repair-list-mutations-light` were reviewed; positions and content remain stable.
+
+The dark `list-focus-v1` run passes both hosts on the same APK, runner `b902e3a` with pending symbol/verification/documentation changes outside the tested APK. All nine screenshots and full-duration 5-second samples of the 135.727444-second recording in `list-focus-repair-list-focus-dark` were reviewed. Native action updates retain focus, detail return restores the navigation row, and labels/highlights remain readable in dark mode. The runner also confirms Back removes each host. Both runs restore original night mode `no`. This completes the planned page/sheet × light/dark keyboard-return subset, not TalkBack or competing/deleted-target focus checks. The newer symbol changes remain unbuilt and are not covered by this APK.
+
+### Completed focus-repair matrix and additional visual review
+
+The eight-case `list-focus-repair` matrix exited successfully and shut down its owned emulator. All four cases (`list-focus`, `list-fonts`, `list-mutations`, `lists`) passed behavior assertions in light and dark on APK `c776079536156daaf1f9798481abc346d2639a158a751df489cccaae4d85d9c8`. This APK predates the 39-symbol catalog and provides no evidence for that addition.
+
+Additional completed visual review:
+
+- Light `lists-v2`: all 13 screenshots and the full 165.727633-second recording sampled every five seconds. Page and sheet show the expected action updates, detail return, refresh, scrolling and empty/restore states; both hosts close. Runner checkout was `b902e3a` with later unbuilt source/documentation changes.
+- Dark `list-fonts-v1`: all nine screenshots and the full 91.291522-second recording sampled every five seconds. In both hosts the long title grows from 122 to 216 pixels at system font scale 1.3 and returns to 122 at 1.0; text remains readable without clipping. The action count and app process survive; Back removes the host. The runner records its exact checkout and restored system settings in `result.json`.
+
+Evidence directories are `.artifacts/android/list-focus-repair-lists-light` and `.artifacts/android/list-focus-repair-list-fonts-dark`, including `visual-review.json`. Dark mutation and dark basic-list behavior assertions passed, but their screenshots and recordings still require visual review. TalkBack and deleted/competing focus targets remain outside this result. The PR-05b completion gate stays open.
+
+### Final dark matrix visual review
+
+The remaining dark results on the same `c7760795…` APK have now been visually reviewed:
+
+- `list-mutations-v1`: all nine screenshots and the full 123.829889-second recording sampled every five seconds. Page anchor `row-11` retains its 16-pixel offset; sheet anchor `row-6` retains its 63-pixel offset through insertion/removal of 20 rows within the 2-pixel tolerance. Real activation dispatches the current ID and increments counts. The partially scrolled preceding sheet row remains at the viewport boundary rather than shifting after mutation. Runner commit `c1a5752`, clean checkout.
+- `lists-v2`: all 13 screenshots and the full 163.462911-second recording sampled every five seconds. Both hosts show readable updates, detail return, refresh, scrolling and empty/restore. The sheet title drag dismisses to Settings. Runner commit `c1a5752` with documentation edits.
+
+Their evidence directories follow `.artifacts/android/list-focus-repair-<case>-dark` and contain visual-review manifests. This closes the behavior and visual-review matrix for these four list cases in both themes, using the same APK. It does not close full PR-05b, TalkBack, focus exclusion cases, or device acceptance for the later symbol resources.

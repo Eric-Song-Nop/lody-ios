@@ -1,6 +1,6 @@
 import { requireNativeView } from 'expo';
 import type { ComponentType } from 'react';
-import type { ViewProps } from 'react-native';
+import { Platform, type ViewProps } from 'react-native';
 
 export interface NativeSymbolButtonProps extends ViewProps {
   accessibilityName: string;
@@ -23,11 +23,16 @@ const NativeView: ComponentType<
 export function NativeSymbolButton({
   onPress,
   onLongPress,
+  style,
   ...props
 }: NativeSymbolButtonProps) {
   return (
     <NativeView
       {...props}
+      style={[
+        style,
+        Platform.OS === 'android' && { minWidth: 48, minHeight: 48 },
+      ]}
       longPress={!!onLongPress}
       onSymbolPress={onPress}
       onSymbolLongPress={onLongPress}

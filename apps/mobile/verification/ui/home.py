@@ -38,6 +38,10 @@ def home_ready():
     ui.wait(lambda items: any(i.get('AXLabel') == avatar_label for i in items), 'Missing workspace avatar')
 
 
+def workspace_menu_item(items):
+    return next((item for item in items if item.get('type') == 'Button' and item.get('AXLabel') == workspace_name), None)
+
+
 def assert_swipe_has_no_selection(action_label):
     ui.wait(lambda items: any(i.get('AXLabel') == action_label for i in items), f'Missing swipe action {action_label}')
     row = ui.element('ui-design')
@@ -50,6 +54,20 @@ home_ready()
 if any(i.get('AXUniqueId') == 'xmark' and i.get('AXLabel') == catalog.system('close') for i in ui.state()):
     ui.axe('tap', '--id', 'xmark', '--post-delay', '1')
 ui.capture('home')
+# Exercise LodyKit's actual workspace menu, separately from Stack.Toolbar.Menu.
+ui.axe('tap', '--label', avatar_label, '--post-delay', '.6')
+menu_item = ui.wait(workspace_menu_item, 'Workspace menu did not open')
+ui.capture('workspace-menu')
+menu_frame = menu_item['frame']
+ui.axe('tap', '-x', str(menu_frame['x'] + menu_frame['width'] / 2), '-y', str(menu_frame['y'] + menu_frame['height'] / 2), '--post-delay', '.6')
+ui.wait(lambda items: not workspace_menu_item(items), 'Workspace selection did not dismiss the menu')
+home_ready()
+ui.axe('tap', '--label', avatar_label, '--post-delay', '.6')
+ui.wait(workspace_menu_item, 'Workspace menu did not reopen')
+ui.axe('tap', '-x', '390', '-y', '700', '--post-delay', '.6')
+ui.wait(lambda items: not workspace_menu_item(items), 'Outside tap did not dismiss the workspace menu')
+home_ready()
+ui.capture('workspace-menu-cancelled')
 row = ui.element('ui-design')['frame']
 y = row['y'] + row['height'] / 2
 left = row['x'] + 12
@@ -81,6 +99,9 @@ assert abs(after_pull - before_pull) <= 2, 'Pulling the CRDT inbox left a refres
 
 tap_create()
 ui.element('create-session-input')
+ui.wait(lambda items: any(i.get('AXLabel') == catalog.text('create.machineConfig.retry') for i in items), 'Offline creation options did not settle')
+error_prefix = catalog.text('create.error.machineConfigDetail', error='')
+assert not any(error_prefix in (i.get('AXLabel') or '') or 'not_ready' in (i.get('AXLabel') or '') for i in ui.state()), 'Home fixture escaped into the real machine configuration runtime'
 ui.capture('create')
 # Expand from the sheet's header, leaving the production form untouched.
 header = next(item['frame'] for item in ui.state() if item.get('AXLabel') == close_create)

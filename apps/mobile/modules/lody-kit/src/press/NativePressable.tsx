@@ -1,6 +1,6 @@
 import { requireNativeView } from 'expo';
 import type { ComponentType } from 'react';
-import type { ViewProps } from 'react-native';
+import { Platform, type ViewProps } from 'react-native';
 
 export interface NativePressableProps extends ViewProps {
   disabled?: boolean;
@@ -20,11 +20,16 @@ export function NativePressable({
   pressScale = 0.985,
   accessibilityRole = 'button',
   accessibilityState,
+  style,
   ...rest
 }: NativePressableProps) {
   return (
     <NativeView
       {...rest}
+      style={[
+        style,
+        Platform.OS === 'android' && { minWidth: 48, minHeight: 48 },
+      ]}
       accessible
       accessibilityRole={accessibilityRole}
       accessibilityState={{ ...accessibilityState, disabled }}

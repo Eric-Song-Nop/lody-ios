@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, View as RNView } from 'react-native';
 import { addDataRuntimeListener } from '@lody-ios/kit';
@@ -21,6 +22,7 @@ export type ItemDetailParams = {
 };
 
 function View() {
+  const { t } = useTranslations();
   const { params } = usePageRuntime<ItemDetailParams>();
   const colors = usePalette();
   const [details, setDetails] = useState<Record<string, DetailResponse>>({});
@@ -135,7 +137,7 @@ function View() {
 
 export const ItemDetailScreen = definePage<ItemDetailParams>({
   id: 'session-item-detail',
-  title: t('detail.title'),
+  title: (t) => t('detail.title'),
   Component: View,
   parseRouteParams: () => {
     throw new Error('请从会话页打开');

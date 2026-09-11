@@ -94,6 +94,12 @@ const buildTooling = [
  */
 const nativeComponents = [
   {
+    name: 'Material Symbols',
+    license: 'Apache-2.0',
+    url: 'https://github.com/google/material-design-icons',
+    file: 'modules/lody-kit/licenses/MaterialSymbols-LICENSE.txt',
+  },
+  {
     name: 'MarkdownView',
     license: 'MIT',
     url: 'https://github.com/Lakr233/MarkdownView',

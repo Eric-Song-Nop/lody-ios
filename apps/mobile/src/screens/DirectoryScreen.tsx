@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, PlatformColor } from 'react-native';
 import {
@@ -35,6 +36,7 @@ function directoryPlaceholder(loading: boolean, hasMachine: boolean) {
 }
 
 function View() {
+  const { t } = useTranslations();
   const { params, finish, push } = usePageRuntime<Params, Project>();
   const colors = usePalette();
   const [machine, setMachine] = useState(params.machine);
@@ -134,7 +136,7 @@ function View() {
       busy.current = false;
       if (mounted.current) setSaving(false);
     }
-  }, [directory, loading, request, select]);
+  }, [directory, loading, request, select, t]);
 
   const items = useMemo(
     () =>
@@ -155,7 +157,7 @@ function View() {
             },
           ]
         : [],
-    [machine, directory, loading, saving, confirm],
+    [machine, directory, loading, saving, confirm, t],
   );
   useSheetHeader(items);
 
@@ -304,7 +306,7 @@ function View() {
 
 export const DirectoryScreen = definePage<Params, Project>({
   id: 'directory',
-  title: t('directory.title'),
+  title: (t) => t('directory.title'),
   Component: View,
   parseRouteParams: () => {
     throw new Error('请从选择项目打开');

@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { NativeGroupedList } from '@lody-ios/kit';
 import { definePage } from '@/lib/presentation';
 import { useAuth } from '@/cloud/auth/AuthProvider';
@@ -6,9 +7,9 @@ import { usePalette } from '@/lib/theme/palette';
 import { byActivity, sessionRow } from '@/features/sessions/inbox';
 import { listRowAction } from '@/features/sessions/sessionActions';
 import { openCatalogRow } from '@/hooks/screens/openCatalogRow';
-import { t } from '../lib/i18n/index.ts';
 
 function View() {
+  const { t } = useTranslations();
   const { catalog, selected, loading } = useCatalog();
   const { account } = useAuth();
   const colors = usePalette();
@@ -16,7 +17,9 @@ function View() {
   const rows = catalog.sessions
     .filter((s) => s.archived)
     .sort(byActivity)
-    .map((s) => sessionRow(s, colors.accent, names.get(s.projectId)));
+    .map((s) =>
+      sessionRow(s, colors.accent, names.get(s.projectId), undefined, t),
+    );
   return (
     <>
       <NativeGroupedList
@@ -42,7 +45,7 @@ function View() {
 
 export const ArchivedSessionsScreen = definePage({
   id: 'archived-sessions',
-  title: t('settings.archived.title'),
+  title: (t) => t('settings.archived.title'),
   Component: View,
   presentation: { style: 'push', headerVariant: 'transparent' },
 });

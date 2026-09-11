@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { setPushVisibleRoute } from '@lody-ios/kit';
 import { useFocusEffect } from 'expo-router';
 import { Stack } from 'expo-router';
@@ -68,6 +69,7 @@ type SessionParams = {
 };
 
 function View() {
+  const { t } = useTranslations();
   const {
     params: { session, modelId, effort, modeId },
   } = usePageRuntime<SessionParams>();
@@ -499,7 +501,7 @@ function View() {
 }
 export const SessionScreen = definePage<SessionParams>({
   id: 'session',
-  title: t('session.title'),
+  title: (t) => t('session.title'),
   Component: View,
   parseRouteParams: () => {
     throw new Error('请从会话列表打开');

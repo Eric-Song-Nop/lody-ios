@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { NativeGroupedList, type NativeListSection } from '@lody-ios/kit';
 import { definePage } from '@/lib/presentation';
 import { usePalette } from '@/lib/theme/palette';
@@ -14,6 +15,7 @@ export type TurnChangesParams = {
 };
 
 function View() {
+  const { t, tp } = useTranslations();
   const { params, push } = usePageRuntime<TurnChangesParams>();
   const colors = usePalette();
   const add = params.files.reduce((sum, file) => sum + file.add, 0);
@@ -57,7 +59,7 @@ function View() {
 
 export const TurnChangesScreen = definePage<TurnChangesParams>({
   id: 'turn-changes',
-  title: t('changes.title'),
+  title: (t) => t('changes.title'),
   Component: View,
   parseRouteParams: () => {
     throw new Error('请从会话打开');

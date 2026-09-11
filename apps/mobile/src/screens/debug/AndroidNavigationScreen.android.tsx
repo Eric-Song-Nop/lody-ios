@@ -14,6 +14,16 @@ import {
   subscribeSessionNav,
 } from '@/features/sessions/sessionNav';
 import type { Session } from '@/models/catalog';
+import { androidSystemPage } from './AndroidSystemScreen.android';
+import { androidFeedbackPage } from './AndroidFeedbackScreen.android';
+import { androidFeedbackKeyboardPage } from './AndroidFeedbackKeyboardScreen.android';
+import { androidLocaleSwitchPage } from './AndroidLocaleSwitchScreen.android';
+import { androidLocalesPage } from './AndroidLocalesScreen.android';
+import { androidListsPage } from './AndroidListsScreen.android';
+import { androidControlsPage } from './AndroidControlsScreen.android';
+import { androidSymbolsPage } from './AndroidSymbolsScreen.android';
+import { androidMenusPage } from './AndroidMenusScreen.android';
+import { androidMenuEdgesPage } from './AndroidMenuEdgesScreen.android';
 import {
   trackNavigationResult,
   useNavigationPageAudit,
@@ -93,6 +103,68 @@ function ProjectsScreen() {
         title="Return to runtime verification"
         onPress={() => router.back()}
       />
+      <Action
+        title="Open system APIs"
+        onPress={() => {
+          void present(androidSystemPage, undefined, { style: 'push' });
+        }}
+      />
+      <Action
+        title="Open feedback page"
+        onPress={() => {
+          void present(androidFeedbackPage, undefined, { style: 'push' });
+        }}
+      />
+      <Action
+        title="Open keyboard feedback page"
+        onPress={() => {
+          void present(androidFeedbackKeyboardPage, undefined, {
+            style: 'push',
+          });
+        }}
+      />
+      <Action
+        title="Open language switching page"
+        onPress={() => {
+          void present(androidLocaleSwitchPage, undefined, { style: 'push' });
+        }}
+      />
+      <Action
+        title="Open native languages"
+        onPress={() => {
+          void present(androidLocalesPage, undefined, { style: 'push' });
+        }}
+      />
+      <Action
+        title="Open symbols page"
+        onPress={() => {
+          void present(androidSymbolsPage, undefined, { style: 'push' });
+        }}
+      />
+      <Action
+        title="Open lists page"
+        onPress={() => {
+          void present(androidListsPage, undefined, { style: 'push' });
+        }}
+      />
+      <Action
+        title="Open menu edges page"
+        onPress={() => {
+          void present(androidMenuEdgesPage, undefined, { style: 'push' });
+        }}
+      />
+      <Action
+        title="Open menus page"
+        onPress={() => {
+          void present(androidMenusPage, undefined, { style: 'push' });
+        }}
+      />
+      <Action
+        title="Open controls page"
+        onPress={() => {
+          void present(androidControlsPage, undefined, { style: 'push' });
+        }}
+      />
     </Scene>
   );
 }
@@ -137,6 +209,78 @@ function SettingsScreen() {
       <Copy>Settled sheets: {settled}</Copy>
       <Action title="Open form sheet" onPress={() => open('formSheet')} />
       <Action title="Open page sheet" onPress={() => open('pageSheet')} />
+      <Action
+        title="Open feedback sheet"
+        onPress={() => {
+          void present(androidFeedbackPage, undefined, {
+            style: 'formSheet',
+            sheetAllowedDetents: [1],
+          });
+        }}
+      />
+      <Action
+        title="Open keyboard feedback sheet"
+        onPress={() => {
+          void present(androidFeedbackKeyboardPage, undefined, {
+            style: 'formSheet',
+            sheetAllowedDetents: [1],
+          });
+        }}
+      />
+      <Action
+        title="Open language switching sheet"
+        onPress={() => {
+          void present(androidLocaleSwitchPage, undefined, {
+            style: 'formSheet',
+            sheetAllowedDetents: [1],
+          });
+        }}
+      />
+      <Action
+        title="Open symbols sheet"
+        onPress={() => {
+          void present(androidSymbolsPage, undefined, {
+            style: 'formSheet',
+            sheetAllowedDetents: [1],
+          });
+        }}
+      />
+      <Action
+        title="Open lists sheet"
+        onPress={() => {
+          void present(androidListsPage, undefined, {
+            style: 'formSheet',
+            sheetAllowedDetents: [1],
+          });
+        }}
+      />
+      <Action
+        title="Open menu edges sheet"
+        onPress={() => {
+          void present(androidMenuEdgesPage, undefined, {
+            style: 'formSheet',
+            sheetAllowedDetents: [1],
+          });
+        }}
+      />
+      <Action
+        title="Open menus sheet"
+        onPress={() => {
+          void present(androidMenusPage, undefined, {
+            style: 'formSheet',
+            sheetAllowedDetents: [1],
+          });
+        }}
+      />
+      <Action
+        title="Open controls sheet"
+        onPress={() => {
+          void present(androidControlsPage, undefined, {
+            style: 'formSheet',
+            sheetAllowedDetents: [1],
+          });
+        }}
+      />
     </Scene>
   );
 }

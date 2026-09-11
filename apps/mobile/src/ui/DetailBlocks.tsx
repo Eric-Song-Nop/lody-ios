@@ -3,7 +3,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { NativeInlineDiff } from '@lody-ios/kit';
 import { usePalette } from '@/lib/theme/palette';
 import { AppText } from '@/ui/AppText';
-import { t } from '../lib/i18n/index.ts';
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import type { DetailBlock } from '../models/session.ts';
 
 function Mono({ children, color }: { children: string; color?: unknown }) {
@@ -53,6 +53,7 @@ export function CommandBlock({ block }: { block: DetailBlock }) {
 }
 
 export function OutputBlock({ block }: { block: DetailBlock }) {
+  const { t } = useTranslations();
   const colors = usePalette();
   const code = block.exitStatus?.exitCode;
   return (
@@ -78,6 +79,7 @@ export function OutputBlock({ block }: { block: DetailBlock }) {
 }
 
 export function RawBlock({ title, value }: { title: string; value: unknown }) {
+  const { t } = useTranslations();
   const [expanded, setExpanded] = useState(false);
   const colors = usePalette();
   if (value === undefined) return null;

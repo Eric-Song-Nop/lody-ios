@@ -1,5 +1,6 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { Stack, useRouter } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   NativeGroupedList,
   NativeMenuButton,
@@ -14,17 +15,13 @@ import { useAuth } from '@/cloud/auth/AuthProvider';
 import { useCatalog } from '@/cloud/catalog/CatalogProvider';
 import { usePalette } from '@/lib/theme/palette';
 import { listPlaceholder, searchPlaceholder } from '@/ui/listState';
-import {
-  inboxSections,
-  projectSections,
-  searchSections,
-} from '@/features/sessions/inbox';
+import { searchSections } from '@/features/sessions/inbox';
+import { useInboxSections } from '@/features/sessions/useInboxSections';
 import { openCatalogRow } from '@/hooks/screens/openCatalogRow';
 import { requestNewSession } from '@/features/sessions/sessionNav';
 import { listRowAction } from '@/features/sessions/sessionActions';
 import { definePage, present } from '@/lib/presentation';
 import { showToast } from '@/ui/toast';
-import { t } from '../lib/i18n/index.ts';
 import { SettingsScreen } from './SettingsScreen';
 
 const inboxViews = [
@@ -33,6 +30,7 @@ const inboxViews = [
 ] as const;
 
 function View() {
+  const { t } = useTranslations();
   const router = useRouter();
   const { account, localReady } = useAuth();
   const colors = usePalette();
@@ -43,13 +41,7 @@ function View() {
   const [query, setQuery] = useState('');
   const creating = useRef(false);
   const searching = !!query.trim();
-  const sections = useMemo(
-    () =>
-      mode === 0
-        ? projectSections(catalog, colors.accent, expanded)
-        : inboxSections(catalog, { accent: colors.accent }),
-    [mode, catalog, colors.accent, expanded],
-  );
+  const sections = useInboxSections(catalog, mode, colors.accent, expanded);
   if (!localReady || !account) return <Screen />;
   const workspaceName = selected?.name ?? t('common.workspace');
   return (
@@ -164,7 +156,7 @@ function View() {
 
 export const InboxScreen = definePage({
   id: 'inbox',
-  title: t('tabs.sessions'),
+  title: (t) => t('tabs.sessions'),
   Component: View,
   presentation: { style: 'push', headerVariant: 'transparent' },
 });

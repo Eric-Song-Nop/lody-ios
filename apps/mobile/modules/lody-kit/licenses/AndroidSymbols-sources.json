@@ -1,0 +1,195 @@
+{
+  "license": "MaterialSymbols-LICENSE.txt",
+  "upstream": "https://github.com/google/material-design-icons",
+  "entries": [
+    {
+      "symbol": "archivebox",
+      "materialSymbol": "material-symbols:archive-outline",
+      "resource": "lody_archive_outline",
+      "source": "https://api.iconify.design/material-symbols:archive-outline.svg",
+      "svgSha256": "7fb33698158a5ccce69e182a3439b294aa8195fcbade3210480cae35bc952f61"
+    },
+    {
+      "symbol": "arrow.clockwise",
+      "materialSymbol": "material-symbols:refresh",
+      "resource": "lody_refresh",
+      "source": "https://api.iconify.design/material-symbols:refresh.svg",
+      "svgSha256": "a0c1f611d4d07e9812087012c1073ef4e84299717a204eb4135f0e7c1a9849df"
+    },
+    {
+      "symbol": "bell",
+      "materialSymbol": "material-symbols:notifications-outline",
+      "resource": "lody_notifications_outline",
+      "source": "https://api.iconify.design/material-symbols:notifications-outline.svg",
+      "svgSha256": "7b0af29fab5fb930c84d0a4ec269f1163fbaeef894219147f3761b6ad15f2b14"
+    },
+    {
+      "symbol": "bubble.left.and.text.bubble.right.fill",
+      "materialSymbol": "material-symbols:forum",
+      "resource": "lody_forum",
+      "source": "https://api.iconify.design/material-symbols:forum.svg",
+      "svgSha256": "fe9b088cc1676ea8931bbe0540056cdbf4bef04004b76963e4652fd420470ae2"
+    },
+    {
+      "symbol": "circle.fill",
+      "materialSymbol": "material-symbols:circle",
+      "resource": "lody_circle",
+      "source": "https://api.iconify.design/material-symbols:circle.svg",
+      "svgSha256": "35493c9fff77463c76320f1a4c5456cb6bd60cec1b2e39c529d78e3a0f3c9280"
+    },
+    {
+      "symbol": "cpu",
+      "materialSymbol": "material-symbols:memory",
+      "resource": "lody_memory",
+      "source": "https://api.iconify.design/material-symbols:memory.svg",
+      "svgSha256": "40506569d671a028867ed4dd5faacc84de847f4e066b5a5175bbab012a4ee2ac"
+    },
+    {
+      "symbol": "desktopcomputer",
+      "materialSymbol": "material-symbols:desktop-windows-outline",
+      "resource": "lody_desktop_windows_outline",
+      "source": "https://api.iconify.design/material-symbols:desktop-windows-outline.svg",
+      "svgSha256": "72f6d97f0a1d60e2da0b682b2b925d2d60b803677a7a0590f3c56a6d48e6e14d"
+    },
+    {
+      "symbol": "doc.on.doc",
+      "materialSymbol": "material-symbols:content-copy-outline",
+      "resource": "lody_content_copy_outline",
+      "source": "https://api.iconify.design/material-symbols:content-copy-outline.svg",
+      "svgSha256": "1a433a5231f994ef3d57fd90f0ddbdafa63144ca9a36ce4cac05b556c52519a8"
+    },
+    {
+      "symbol": "doc.text",
+      "materialSymbol": "material-symbols:description-outline",
+      "resource": "lody_description_outline",
+      "source": "https://api.iconify.design/material-symbols:description-outline.svg",
+      "svgSha256": "20227d871a87a2783794ecb7073a7a4274c7f59ef09cad25604cad3bae51a687"
+    },
+    {
+      "symbol": "doc.text.magnifyingglass",
+      "materialSymbol": "material-symbols:find-in-page-outline",
+      "resource": "lody_find_in_page_outline",
+      "source": "https://api.iconify.design/material-symbols:find-in-page-outline.svg",
+      "svgSha256": "d704571c89f413ef0b3171a6c24d7a0570ff94c75505e7234be99a06f7c5577b"
+    },
+    {
+      "symbol": "globe",
+      "materialSymbol": "material-symbols:language",
+      "resource": "lody_language",
+      "source": "https://api.iconify.design/material-symbols:language.svg",
+      "svgSha256": "5fcbea7da03eb206839e895f85290df0aa11d7f8f83d1919ad5d64d36201007a"
+    },
+    {
+      "symbol": "ladybug",
+      "materialSymbol": "material-symbols:bug-report-outline",
+      "resource": "lody_bug_report_outline",
+      "source": "https://api.iconify.design/material-symbols:bug-report-outline.svg",
+      "svgSha256": "4963aa88b2f7cadd67360920351762d9e2eed84b8da49de4bc12c7d45a90d825"
+    },
+    {
+      "symbol": "lock.shield.fill",
+      "materialSymbol": "material-symbols:shield-lock",
+      "resource": "lody_shield_lock",
+      "source": "https://api.iconify.design/material-symbols:shield-lock.svg",
+      "svgSha256": "c674338aa6c17b7c4f1c60fc89424c99c465ca6a664c2b4565ff6e32eb682928"
+    },
+    {
+      "symbol": "paperplane.fill",
+      "materialSymbol": "material-symbols:send",
+      "resource": "lody_send",
+      "source": "https://api.iconify.design/material-symbols:send.svg",
+      "svgSha256": "519298ce20b146d65acb4a5b96066f126eb9fc6495874482dd7ff8099fe3a5b9"
+    },
+    {
+      "symbol": "person.2.fill",
+      "materialSymbol": "material-symbols:group",
+      "resource": "lody_group",
+      "source": "https://api.iconify.design/material-symbols:group.svg",
+      "svgSha256": "4ea39cf6fed76719825012cbd245b4bcd444c3407c07cc29ec21808033ba32ab"
+    },
+    {
+      "symbol": "sparkles",
+      "materialSymbol": "material-symbols:auto-awesome",
+      "resource": "lody_auto_awesome",
+      "source": "https://api.iconify.design/material-symbols:auto-awesome.svg",
+      "svgSha256": "701a9c4b6028d44a94b716a5f9baa14522abcfb43db92b290e0a24e2acc5045a"
+    },
+    {
+      "symbol": "square.and.pencil",
+      "materialSymbol": "material-symbols:edit-square-outline",
+      "resource": "lody_edit_square_outline",
+      "source": "https://api.iconify.design/material-symbols:edit-square-outline.svg",
+      "svgSha256": "8b9b7e004b1c073a968d2a197d0a4e451ccca4dfa5a204c25a7c58c9de66f460"
+    },
+    {
+      "symbol": "terminal",
+      "materialSymbol": "material-symbols:terminal",
+      "resource": "lody_terminal",
+      "source": "https://api.iconify.design/material-symbols:terminal.svg",
+      "svgSha256": "d8b032ee3fcd8d10aa6cde551751a9c7efa4357d08dc020ccb76898c433908fd"
+    },
+    {
+      "symbol": "wrench.and.screwdriver",
+      "materialSymbol": "material-symbols:construction",
+      "resource": "lody_construction",
+      "source": "https://api.iconify.design/material-symbols:construction.svg",
+      "svgSha256": "527784b0321c4ae6bd8a210e5144a8cc934d8146b2a5637ed30816c02c72c2d2"
+    },
+    {
+      "symbol": "xmark.octagon.fill",
+      "materialSymbol": "material-symbols:dangerous",
+      "resource": "lody_dangerous",
+      "source": "https://api.iconify.design/material-symbols:dangerous.svg",
+      "svgSha256": "775663cc63c2069dc4e75643ff9dce5341ab99f1cacf1935dd241802204a1c91"
+    },
+    {
+      "symbol": "person.crop.circle",
+      "materialSymbol": "material-symbols:account-circle-outline",
+      "resource": "lody_account_circle_outline",
+      "source": "https://api.iconify.design/material-symbols:account-circle-outline.svg",
+      "svgSha256": "0504d5041006d4e026d9eb4d07c70db33002bc983b0ee9fbc3c79eb3c784adc8"
+    },
+    {
+      "symbol": "puzzlepiece.extension",
+      "materialSymbol": "material-symbols:extension-outline",
+      "resource": "lody_extension_outline",
+      "source": "https://api.iconify.design/material-symbols:extension-outline.svg",
+      "svgSha256": "2dda5659c815ee2c2296ed2b6af9096e22e94eeac840fe3505a38484d496ed44"
+    },
+    {
+      "symbol": "pin",
+      "materialSymbol": "material-symbols:keep-outline",
+      "resource": "lody_keep_outline",
+      "source": "https://api.iconify.design/material-symbols:keep-outline.svg",
+      "svgSha256": "5122058f6a72b125fb2127225b4207f406a6a12075936ae891695aaa7339f6fc"
+    },
+    {
+      "symbol": "pin.fill",
+      "materialSymbol": "material-symbols:keep",
+      "resource": "lody_keep",
+      "source": "https://api.iconify.design/material-symbols:keep.svg",
+      "svgSha256": "f65ad5c472529a677949f432bc067612c187fb023a838ec23b9a5d15cc4af3d3"
+    },
+    {
+      "symbol": "pin.slash",
+      "materialSymbol": "material-symbols:keep-off-outline",
+      "resource": "lody_keep_off_outline",
+      "source": "https://api.iconify.design/material-symbols:keep-off-outline.svg",
+      "svgSha256": "df12df994194a534ec647d2406cd6bcaff287f7b756d7712d4d34751f9eb3911"
+    },
+    {
+      "symbol": "pin.slash.fill",
+      "materialSymbol": "material-symbols:keep-off",
+      "resource": "lody_keep_off",
+      "source": "https://api.iconify.design/material-symbols:keep-off.svg",
+      "svgSha256": "3a0ed59ea25b112a6bf73e5b46986e601064aadc5519f9295c167571ef30b939"
+    },
+    {
+      "symbol": "tray.and.arrow.up",
+      "materialSymbol": "material-symbols:unarchive-outline",
+      "resource": "lody_unarchive_outline",
+      "source": "https://api.iconify.design/material-symbols:unarchive-outline.svg",
+      "svgSha256": "afc2a049b1d9b86ad9172427cb84aae14ceeefc570b74a86043a6f2c4ed32ed8"
+    }
+  ]
+}

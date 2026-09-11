@@ -10,6 +10,14 @@ const problems = [];
 const fail = (message) => problems.push(message);
 
 readCatalogs(root, fail);
+try {
+  require(path.join(root, 'plugins/androidLocales.js')).writeAndroidLocales(
+    root,
+    true,
+  );
+} catch (error) {
+  fail(error.message);
+}
 
 const CJK = /[㐀-鿿豈-﫿！-｠]/;
 const swiftRoot = path.join(root, 'modules/lody-kit/ios');

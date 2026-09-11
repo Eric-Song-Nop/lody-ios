@@ -8,7 +8,12 @@ export default function ProjectsStack() {
       ? navigationThemes.dark
       : navigationThemes.light;
   return (
-    <Stack screenOptions={{ headerTransparent: false }}>
+    <Stack
+      screenOptions={{
+        headerTransparent: false,
+        statusBarStyle: theme.dark ? 'light' : 'dark',
+      }}
+    >
       <Stack.Screen name="index" options={{ title: 'Projects' }} />
       <Stack.Screen
         name="presented/[presentationId]"

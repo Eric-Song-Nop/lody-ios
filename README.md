@@ -31,7 +31,7 @@
 
 ## Android development
 
-Android support is being implemented in staged PRs. It is not yet available as a supported build. The existing iOS client remains the shipping implementation. See the [Android PR roadmap](docs/plans/2026-09-10-android-pr-roadmap.md) and [platform contracts](docs/architecture/android-platform-contracts.md) for capability status and verification gates.
+Android support is being implemented in staged PRs. It is not yet available as a supported build. The existing iOS client remains the shipping implementation. See the [Android PR roadmap](docs/plans/2026-09-10-android-pr-roadmap.md), [per-PR delivery checklist](docs/plans/2026-09-10-android-pr-checklist.md), and [platform contracts](docs/architecture/android-platform-contracts.md) for capability status and verification gates.
 
 ## Overview
 

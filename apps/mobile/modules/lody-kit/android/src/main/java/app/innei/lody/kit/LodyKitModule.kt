@@ -15,6 +15,10 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 class LodyKitModule : Module() {
+  internal val feedback = app.innei.lody.kit.feedback.LodyFeedback()
+  private val inboxPreferences by lazy {
+    app.innei.lody.kit.preferences.InboxPreferences(requireNotNull(appContext.reactContext))
+  }
   private val storageWorker = Executors.newSingleThreadExecutor { task -> Thread(task, "LodyStorage") }
   @Volatile private var localStore: LocalStore? = null
   private var authCredentials: AuthCredentials? = null
@@ -53,12 +57,81 @@ class LodyKitModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("LodyKit")
+    View(app.innei.lody.kit.feedback.LodyFeedbackHost::class) {}
+    Function("showToast") { text: String, kind: String -> feedback.showToast(text, kind) }
+    Function("showSessionBanner") { text: String, kind: String -> feedback.showBanner(text, kind) }
+    Function("dismissSessionBanner") { feedback.dismissBanner() }
+    View(app.innei.lody.kit.chrome.LodySymbolView::class) {
+      Prop("symbol") { view: app.innei.lody.kit.chrome.LodySymbolView, value: String -> view.setSymbol(value) }
+      Prop("pointSize") { view: app.innei.lody.kit.chrome.LodySymbolView, value: Float -> view.setPointSize(value) }
+      Prop("tint") { view: app.innei.lody.kit.chrome.LodySymbolView, value: String? -> view.setTint(value) }
+    }
+    View(app.innei.lody.kit.chrome.LodySymbolButton::class) {
+      Events("onSymbolPress", "onSymbolLongPress")
+      Prop("symbol") { view: app.innei.lody.kit.chrome.LodySymbolButton, value: String -> view.setSymbol(value) }
+      Prop("accessibilityName") { view: app.innei.lody.kit.chrome.LodySymbolButton, value: String -> view.setLabel(value) }
+      Prop("disabled") { view: app.innei.lody.kit.chrome.LodySymbolButton, value: Boolean -> view.setDisabled(value) }
+      Prop("prominent") { view: app.innei.lody.kit.chrome.LodySymbolButton, value: Boolean -> view.setProminent(value) }
+      Prop("longPress") { view: app.innei.lody.kit.chrome.LodySymbolButton, value: Boolean -> view.setLongPress(value) }
+      Prop("tint") { view: app.innei.lody.kit.chrome.LodySymbolButton, value: String? -> view.setTint(value) }
+    }
+    View(app.innei.lody.kit.press.LodyPressable::class) {
+      Events("onNativePress")
+      Prop("disabled") { view: app.innei.lody.kit.press.LodyPressable, value: Boolean -> view.setDisabled(value) }
+      Prop("haptic") { view: app.innei.lody.kit.press.LodyPressable, value: Boolean -> view.haptic = value }
+      Prop("pressScale") { view: app.innei.lody.kit.press.LodyPressable, value: Float ->
+        require(value.isFinite() && value > 0 && value <= 1) { "Press scale must be between 0 and 1" }
+        view.pressScale = value
+      }
+    }
+    View(app.innei.lody.kit.press.LodyGlassSurface::class) {
+      Prop("radius") { view: app.innei.lody.kit.press.LodyGlassSurface, value: Float -> view.setRadius(value) }
+      Prop("tint") { view: app.innei.lody.kit.press.LodyGlassSurface, value: String? -> view.setTint(value) }
+    }
+    View(app.innei.lody.kit.chrome.LodyMenuButton::class) {
+      Events("onSelect", "onSize")
+      Prop("label") { view: app.innei.lody.kit.chrome.LodyMenuButton, value: String -> view.setLabel(value) }
+      Prop("accessibilityName") { view: app.innei.lody.kit.chrome.LodyMenuButton, value: String -> view.setAccessibilityName(value) }
+      Prop("avatar") { view: app.innei.lody.kit.chrome.LodyMenuButton, value: app.innei.lody.kit.chrome.LodyMenuAvatar -> view.setAvatar(value) }
+      Prop("items") { view: app.innei.lody.kit.chrome.LodyMenuButton, value: List<app.innei.lody.kit.menu.LodyMenuEntry> -> view.setItems(value) }
+    }
+    View(app.innei.lody.kit.menu.LodyContextMenu::class) {
+      Events("onAction")
+      Prop("actions") { view: app.innei.lody.kit.menu.LodyContextMenu, value: List<app.innei.lody.kit.menu.LodyMenuEntry> -> view.setActions(value) }
+    }
+    View(app.innei.lody.kit.list.LodyGroupedList::class) {
+      Events("onRowPress", "onRefresh")
+      Prop("sections") { view: app.innei.lody.kit.list.LodyGroupedList, value: List<app.innei.lody.kit.list.LodyListSection> -> view.setSections(value) }
+      Prop("placeholder") { view: app.innei.lody.kit.list.LodyGroupedList, value: String -> view.setPlaceholder(value) }
+      Prop("transparent") { view: app.innei.lody.kit.list.LodyGroupedList, value: Boolean -> view.setTransparent(value) }
+      Prop("accent") { view: app.innei.lody.kit.list.LodyGroupedList, value: String? -> view.setAccent(value) }
+      Prop("bottomInset") { view: app.innei.lody.kit.list.LodyGroupedList, value: Float -> view.setBottomInset(value) }
+      Prop("refreshEnabled") { view: app.innei.lody.kit.list.LodyGroupedList, value: Boolean -> view.setRefreshEnabled(value) }
+      Prop("refreshing") { view: app.innei.lody.kit.list.LodyGroupedList, value: Boolean -> view.setRefreshing(value) }
+    }
     View(app.innei.lody.kit.chrome.LodyCloseButton::class) {
       Events("onClose")
       Prop("label") { view: app.innei.lody.kit.chrome.LodyCloseButton, label: String? -> view.setLabel(label) }
     }
+    AsyncFunction("runLocaleVerification") {
+      val context = requireNotNull(appContext.reactContext) { "Locale context unavailable" }
+      app.innei.lody.kit.locale.LocaleVerification.run(context)
+    }
+    Function("saveInboxView") { index: Int -> inboxPreferences.saveView(index) }
+    Function("readInboxExpansion") { inboxPreferences.readExpansion() }
+    Function("saveInboxExpansion") { projectId: String, expanded: Boolean -> inboxPreferences.saveExpansion(projectId, expanded) }
+    Function("copyText") { text: String ->
+      val context = requireNotNull(appContext.reactContext) { "Clipboard context unavailable" }
+      val clipboard = requireNotNull(context.getSystemService(android.content.ClipboardManager::class.java))
+      clipboard.setPrimaryClip(android.content.ClipData.newPlainText("", text))
+    }
+    AsyncFunction("selectionFeedback") {
+      val activity = requireNotNull(appContext.currentActivity) { "Haptic activity unavailable" }
+      (feedback.activeView() ?: activity.window.decorView).performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+      Unit
+    }.runOnQueue(expo.modules.kotlin.functions.Queues.MAIN)
     Constants {
-      mapOf("runtimeInfo" to mapOf(
+      mapOf("initialInboxView" to inboxPreferences.initialView(), "runtimeInfo" to mapOf(
         "moduleName" to "LodyKit",
         "systemVersion" to "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
       ))
@@ -149,18 +222,19 @@ class LodyKitModule : Module() {
       }
     }
     OnActivityEntersBackground {
-      Handler(Looper.getMainLooper()).post { recovery?.enterBackground() }
+      Handler(Looper.getMainLooper()).post { recovery?.enterBackground(); feedback.enterBackground() }
     }
     OnStartObserving { observing = true }
     OnStopObserving { observing = false }
     OnActivityEntersForeground {
-      Handler(Looper.getMainLooper()).post { recovery?.enterForeground() }
+      Handler(Looper.getMainLooper()).post { recovery?.enterForeground(); feedback.enterForeground() }
       if (observing) sendEvent("onAppActive", emptyMap<String, Any>())
     }
     OnDestroy {
       observing = false
       Handler(Looper.getMainLooper()).post {
         destroyed = true
+        feedback.close()
         storageWorker.execute { localStore?.close() }
         storageWorker.shutdown()
         recovery?.close()

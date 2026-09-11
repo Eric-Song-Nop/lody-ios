@@ -11,6 +11,24 @@ import subprocess
 import time
 import xml.etree.ElementTree as ET
 import gesture
+import hardware_touch
+import accessibility_observer
+import controls
+import symbols
+import menus
+import menu_edges
+import lists
+import list_fonts
+import list_focus
+import talkback
+import list_mutations
+import locales
+import locale_switch
+import system_api
+import feedback
+import feedback_default
+import feedback_keyboard
+import png_capture
 
 ROOT = Path(__file__).resolve().parents[4]
 SDK = Path(os.environ.get('ANDROID_HOME', Path.home() / 'Library/Android/sdk'))
@@ -24,7 +42,17 @@ def command(args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--apk', type=Path, required=True)
-    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption', 'navigation-teardown'], required=True)
+    parser.add_argument('--case', choices=['bootstrap', 'wasm', 'recovery', 'storage', 'navigation', 'navigation-interruption', 'navigation-teardown', 'controls', 'symbols', 'menus', 'menu-edges', 'lists', 'list-fonts', 'list-focus', 'talkback', 'list-mutations', 'locales', 'locale-switch', 'system', 'feedback', 'feedback-default', 'feedback-keyboard'], required=True)
+    parser.add_argument('--appearance', choices=['light', 'dark'], default='light', help='System appearance for control/menu cases; restored after verification.')
+    parser.add_argument('--talkback-host', choices=['page', 'sheet'], default='page')
+    parser.add_argument('--talkback-target', choices=['controls', 'menus', 'lists'], default='controls')
+    parser.add_argument('--talkback-traversal', action='store_true', help='Verify native control order through real TalkBack next/previous gestures.')
+    parser.add_argument('--record-input-events', action='store_true', help='Record device getevent timestamps for owned-emulator TalkBack input diagnosis.')
+    parser.add_argument('--list-return', choices=['present', 'removed', 'disabled'], default='present', help='Source navigation row state while detail is open; list-focus or TalkBack lists only.')
+    parser.add_argument('--symbols-host', choices=['page', 'sheet'], default='page', help='Review one native symbol host per recording.')
+    parser.add_argument('--locale-host', choices=['page', 'sheet'], default='page', help='Host for real application language switching.')
+    parser.add_argument('--feedback-host', choices=['page', 'sheet'], default='page', help='Feedback host; run both separately to keep each recording within 180 seconds.')
+    parser.add_argument('--screenshot-source', choices=['adb', 'emulator'], default='adb', help='Explicit default-toast capture transport; emulator requires a runner-owned AVD and gRPC dependencies.')
     parser.add_argument('--adb-port', type=int, default=5038, help='Dedicated SDK adb server; leaves the default 5037 server alone.')
     parser.add_argument('--serial', help='Caller-owned device; installs and clears only app.innei.lody.')
     parser.add_argument('--avd', default='Lody_Android_Verify_36')
@@ -34,6 +62,14 @@ def main():
     parser.add_argument('--avd-home', type=Path, help='AVD registry directory when SDK tools use a different default.')
     parser.add_argument('--output', type=Path, default=ROOT / '.artifacts/android' / time.strftime('%Y%m%d-%H%M%S'))
     args = parser.parse_args()
+    if args.record_input_events and args.case != 'talkback':
+        parser.error('--record-input-events requires talkback.')
+    if args.list_return != 'present' and not (args.case == 'list-focus' or (args.case == 'talkback' and args.talkback_target == 'lists')):
+        parser.error('--list-return requires list-focus or talkback lists.')
+    if args.talkback_traversal and (args.case != 'talkback' or args.talkback_target != 'controls'):
+        parser.error('--talkback-traversal currently requires talkback controls.')
+    if args.screenshot_source == 'emulator' and (args.serial or args.case != 'feedback-default'):
+        parser.error('Emulator screenshots require feedback-default on a runner-owned AVD.')
     if not 0 <= args.settle_seconds <= 180:
         parser.error('--settle-seconds must be between 0 and 180.')
     if args.memory_mb < 2048:
@@ -47,8 +83,15 @@ def main():
     emulator_log = None
     logcat_process = None
     logcat_file = None
+    input_process = None
+    input_file = None
     recorder_pid = None
+    original_night_mode = None
+    observer_remote = None
+    observer = None
+    original_accessibility_settings = None
     serial = args.serial
+    touch_driver = None
     result = {'apkSha256': hashlib.file_digest(args.apk.open('rb'), 'sha256').hexdigest(), 'case': args.case, 'status': 'failed', 'checks': [], 'commit': command(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True, text=True).stdout.strip()}
     result['workingTreeDirty'] = bool(command(['git', 'status', '--porcelain'], cwd=ROOT, capture_output=True, text=True).stdout.strip())
     result['fixtureVersion'] = 'bootstrap-v1'
@@ -57,6 +100,10 @@ def main():
         return command([*adb_command, '-s', serial, 'shell', *parts], capture_output=True, text=True).stdout.strip()
 
     def snapshot():
+        if observer:
+            return observer.snapshot()
+        if observer_remote:
+            raise RuntimeError('TalkBack observer did not initialize; suppressing fallback forbidden')
         shell('uiautomator', 'dump', '/sdcard/lody-verify.xml')
         xml = shell('cat', '/sdcard/lody-verify.xml')
         return ET.fromstring(xml)
@@ -76,6 +123,14 @@ def main():
         raise AssertionError(f'Missing UI state: {expected}')
 
     def screenshot(name):
+        if args.case == 'feedback-default':
+            if args.screenshot_source == 'emulator':
+                timing = touch_driver.screenshot(args.output / f'{name}.png')
+            else:
+                timing = png_capture.capture([*adb_command, '-s', serial, 'exec-out', 'screencap', '-p'],
+                                             args.output / f'{name}.png')
+            result.setdefault('screenshotTimings', {})[name] = timing
+            return timing
         with (args.output / f'{name}.png').open('wb') as file:
             command([*adb_command, '-s', serial, 'exec-out', 'screencap', '-p'], stdout=file)
 
@@ -96,7 +151,12 @@ def main():
         shell('input', 'touchscreen', 'swipe', x, y, x, y, '100')
 
     try:
+        if args.case == 'talkback' and serial:
+            raise RuntimeError('TalkBack hardware verification requires a runner-owned emulator')
+        use_emulator_rpc = args.case == 'talkback' or args.screenshot_source == 'emulator'
+        touch_prepared = hardware_touch.prepare(SDK, args.output) if use_emulator_rpc else None
         gesture_dex = gesture.build(SDK, args.output) if args.case == 'navigation-interruption' else None
+        talkback_dex = gesture.build(SDK, args.output, 'AccessibilityDump') if args.case == 'talkback' else None
         command([*adb_command, 'start-server'], capture_output=True)
         server = command([*adb_command, 'server-status'], capture_output=True, text=True).stdout
         if str(adb.resolve()) not in server:
@@ -130,7 +190,13 @@ def main():
                 raise RuntimeError('No emulator port available.')
             emulator_log = (args.output / 'emulator.log').open('w')
             result['emulator'] = {'avd': args.avd, 'gpu': args.gpu, 'memoryMb': args.memory_mb}
-            emulator = subprocess.Popen([str(SDK / 'emulator/emulator'), '-avd', args.avd, '-port', str(port), '-no-snapshot', '-gpu', args.gpu, '-memory', str(args.memory_mb), '-no-boot-anim', '-no-audio'], stdout=emulator_log, stderr=subprocess.STDOUT, env=emulator_env)
+            grpc_args = []
+            if touch_prepared:
+                with socket.socket() as probe:
+                    probe.bind(('127.0.0.1', 0))
+                    grpc_port = probe.getsockname()[1]
+                grpc_args = ['-grpc', str(grpc_port), '-grpc-use-token']
+            emulator = subprocess.Popen([str(SDK / 'emulator/emulator'), '-avd', args.avd, '-port', str(port), '-no-snapshot', '-gpu', args.gpu, '-memory', str(args.memory_mb), '-no-boot-anim', '-no-audio', *grpc_args], stdout=emulator_log, stderr=subprocess.STDOUT, env=emulator_env)
             deadline = time.monotonic() + 180
             while time.monotonic() < deadline:
                 if emulator.poll() is not None:
@@ -141,25 +207,97 @@ def main():
                 time.sleep(1)
             else:
                 raise TimeoutError('Emulator did not boot in 180 seconds.')
+        if touch_prepared:
+            touch_driver = hardware_touch.connect(touch_prepared, emulator.pid, grpc_port)
         result['bootSettleSeconds'] = args.settle_seconds
         if args.settle_seconds:
             time.sleep(args.settle_seconds)
         result['serial'] = serial
         result['system'] = shell('getprop', 'ro.build.fingerprint')
         result['abi'] = shell('getprop', 'ro.product.cpu.abi')
+        if args.case in ('controls', 'symbols', 'menus', 'menu-edges', 'lists', 'list-fonts', 'list-focus', 'talkback', 'list-mutations', 'locales', 'locale-switch', 'system', 'feedback', 'feedback-default', 'feedback-keyboard'):
+            mode = shell('cmd', 'uimode', 'night')
+            match = re.search(r'\b(auto|yes|no|custom)\b', mode)
+            if not match:
+                raise RuntimeError(f'Cannot preserve system night mode: {mode}')
+            original_night_mode = match.group(1)
+            shell('cmd', 'uimode', 'night', 'yes' if args.appearance == 'dark' else 'no')
         command([*adb_command, '-s', serial, 'install', '-r', args.apk], capture_output=True, text=True)
         shell('pm', 'clear', PACKAGE)
         shell('input', 'keyevent', 'KEYCODE_WAKEUP')
         shell('wm', 'dismiss-keyguard')
+        if talkback_dex:
+            # UiAutomation itself affects accessibility_enabled. Preserve the
+            # device state before registering even a non-suppressing observer.
+            original_accessibility_settings = {
+                key: shell('settings', 'get', 'secure', key).strip()
+                for key in ('enabled_accessibility_services', 'accessibility_enabled')}
+            result['originalAccessibilitySettings'] = original_accessibility_settings
+            observer_remote = '/data/local/tmp/lody-verify-observer.dex'
+            command([*adb_command, '-s', serial, 'push', talkback_dex, observer_remote], capture_output=True)
+            observer = accessibility_observer.Observer(adb_command, serial, observer_remote, args.output)
+            result['hierarchyObserver'] = 'persistent UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES'
+            result['observerDexSha256'] = hashlib.file_digest(talkback_dex.open('rb'), 'sha256').hexdigest()
         logcat_file = (args.output / 'logcat.txt').open('w')
         logcat_process = subprocess.Popen([*adb_command, '-s', serial, 'logcat', '-v', 'threadtime', '-T', '1'], stdout=logcat_file, stderr=subprocess.STDOUT)
+        if args.record_input_events:
+            input_file = (args.output / 'input-events.txt').open('w')
+            input_process = subprocess.Popen([*adb_command, '-s', serial, 'shell', 'getevent', '-lt'], stdout=input_file, stderr=subprocess.STDOUT)
+            result['inputEventRecording'] = 'getevent -lt; device monotonic timestamps'
         recorder_pid = shell('sh', '-c', f"'screenrecord --time-limit 180 /sdcard/lody-verify-{args.case}.mp4 >/dev/null 2>&1 & echo $!'")
         if not recorder_pid.isdigit():
             raise RuntimeError(f'Could not start screenrecord: {recorder_pid}')
         shell('am', 'start', '-W', '-n', f'{PACKAGE}/.MainActivity')
         tree = wait_text('LodyKit: Android')
         capture('boot')
-        if args.case == 'navigation-teardown':
+        if args.case == 'controls':
+            result['fixtureVersion'] = 'controls-v1'
+            controls.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
+        elif args.case == 'menus':
+            result['fixtureVersion'] = 'menus-v1'
+            menus.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
+        elif args.case == 'feedback':
+            result['fixtureVersion'] = 'feedback-v3'
+            feedback.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.feedback_host)
+        elif args.case == 'feedback-default':
+            result['fixtureVersion'] = 'feedback-default-v4'
+            result['screenshotSource'] = args.screenshot_source
+            feedback_default.run(shell, wait_text, tap_button, screenshot, capture, texts, result, tree, args.appearance, args.feedback_host)
+        elif args.case == 'feedback-keyboard':
+            result['fixtureVersion'] = 'feedback-keyboard-v2'
+            feedback_keyboard.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.feedback_host)
+        elif args.case == 'system':
+            result['fixtureVersion'] = 'system-v1'
+            system_api.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
+        elif args.case == 'locale-switch':
+            result['fixtureVersion'] = 'locale-switch-v5'
+            locale_switch.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.locale_host)
+        elif args.case == 'locales':
+            result['fixtureVersion'] = 'locales-v1'
+            locales.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
+        elif args.case == 'list-mutations':
+            result['fixtureVersion'] = 'list-mutations-v1'
+            list_mutations.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
+        elif args.case == 'talkback':
+            result['fixtureVersion'] = 'talkback-v7' if args.talkback_target == 'lists' else 'talkback-v5'
+            talkback.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.talkback_host, args.talkback_target, snapshot,
+                         touch_driver.run, args.talkback_traversal, args.list_return)
+        elif args.case == 'symbols':
+            result['fixtureVersion'] = 'symbols-v1'
+            symbols.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.symbols_host)
+        elif args.case == 'list-focus':
+            result['fixtureVersion'] = 'list-focus-v2'
+            list_focus.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance, args.list_return)
+        elif args.case == 'list-fonts':
+            result['fixtureVersion'] = 'list-fonts-v1'
+            list_fonts.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
+        elif args.case == 'lists':
+            result['fixtureVersion'] = 'lists-v2'
+            lists.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
+        elif args.case == 'menu-edges':
+            result['fixtureVersion'] = 'menu-edges-v1'
+            menu_edges.run(shell, wait_text, tap_button, capture, texts, result, tree, args.appearance)
+        elif args.case == 'navigation-teardown':
             result['fixtureVersion'] = 'navigation-teardown-v1'
             for cycle in range(1, 3):
                 tap_button(tree, 'Open navigation verification')
@@ -346,7 +484,10 @@ def main():
             result['checks'].append({'id': 'A-BOOT-02', 'status': 'pass', 'before': before, 'after': after})
         result['status'] = 'pass'
     except Exception as error:
-        result['error'] = str(error)
+        result['error'] = f'{type(error).__name__}: {error}'
+        if isinstance(error, subprocess.CalledProcessError):
+            stderr = error.stderr
+            result['commandStderr'] = stderr.decode('utf-8', errors='replace') if isinstance(stderr, bytes) else stderr
         if serial:
             try:
                 capture('failure')
@@ -354,6 +495,52 @@ def main():
                 result['captureError'] = str(capture_error)
         raise
     finally:
+        if input_process:
+            if input_process.poll() is not None:
+                result['inputEventRecordingError'] = f'getevent exited early: {input_process.returncode}'
+                result['status'] = 'failed'
+            else:
+                input_process.terminate()
+            try:
+                input_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                input_process.kill()
+                input_process.wait(timeout=5)
+            input_file.close()
+        if observer:
+            try:
+                observer.save_events()
+            except Exception as error:
+                result['observerEventsError'] = str(error)
+                result['status'] = 'failed'
+            try:
+                observer.close()
+                result['observerClosed'] = True
+                result['observerRequests'] = observer.requests
+            except Exception as error:
+                result['observerCloseError'] = str(error)
+                result['status'] = 'failed'
+        if original_accessibility_settings is not None:
+            try:
+                for key, value in original_accessibility_settings.items():
+                    if value == 'null':
+                        shell('settings', 'delete', 'secure', key)
+                    else:
+                        shell('settings', 'put', 'secure', key, value)
+                restored = {key: shell('settings', 'get', 'secure', key).strip()
+                            for key in original_accessibility_settings}
+                result['restoredAccessibilitySettings'] = restored
+                if restored != original_accessibility_settings:
+                    raise AssertionError(f'Failed to restore accessibility settings: {restored}')
+            except Exception as error:
+                result['accessibilityRestoreError'] = str(error)
+                result['status'] = 'failed'
+        if observer_remote:
+            try:
+                shell('rm', '-f', observer_remote)
+            except Exception as error:
+                result['observerCleanupError'] = str(error)
+                result['status'] = 'failed'
         if recorder_pid and recorder_pid.isdigit():
             try:
                 shell('kill', '-2', recorder_pid)
@@ -367,6 +554,13 @@ def main():
             except Exception as error:
                 result['videoPullError'] = str(error)
                 result['status'] = 'failed'
+        if original_night_mode is not None:
+            try:
+                shell('cmd', 'uimode', 'night', original_night_mode)
+                result['nightModeRestored'] = original_night_mode
+            except Exception as error:
+                result['nightModeRestoreError'] = str(error)
+                result['status'] = 'failed'
         if logcat_process:
             logcat_process.terminate()
             try:
@@ -379,6 +573,8 @@ def main():
             with (args.output / 'logcat.txt').open('w') as file:
                 subprocess.run([*adb_command, '-s', serial, 'logcat', '-d', '-t', '1500'], stdout=file, stderr=subprocess.STDOUT, timeout=20)
         (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
+        if touch_driver:
+            touch_driver.close()
         if emulator:
             if emulator.poll() is None:
                 emulator.terminate()

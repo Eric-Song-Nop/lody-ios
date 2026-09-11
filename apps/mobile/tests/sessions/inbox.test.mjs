@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { inboxSections } from '../../src/features/sessions/inbox.ts';
+import {
+  inboxSections,
+  sessionRow,
+} from '../../src/features/sessions/inbox.ts';
 import { listPlaceholder, searchPlaceholder } from '../../src/ui/listState.ts';
 import { draftTitle } from '../../src/features/sessions/draftTitle.ts';
-import { setLocale } from '../../src/lib/i18n/index.ts';
+import { setLocale, translationsFor } from '../../src/lib/i18n/index.ts';
 
 setLocale('zh-Hans');
 
@@ -29,6 +32,35 @@ const catalog = (sessions, projects = [{ id: 'p1', name: 'lody-ios' }]) => ({
 
 const build = (data, options = {}) =>
   inboxSections(data, { accent: ACCENT, now, ...options });
+
+test('archived row badges and actions follow the supplied render language', () => {
+  const source = session('User 标题', 'completed', {
+    archived: true,
+    pinned: false,
+  });
+  const english = sessionRow(source, ACCENT, '', now, translationsFor('en').t);
+  const chinese = sessionRow(
+    source,
+    ACCENT,
+    '',
+    now,
+    translationsFor('zh-Hans').t,
+  );
+  assert.equal(english.title, source.title);
+  assert.equal(chinese.title, source.title);
+  assert.equal(english.badge, 'Archived');
+  assert.equal(chinese.badge, '已归档');
+  assert.deepEqual(
+    english.menuActions.map((action) => action.title),
+    ['New Session', 'Pin', 'Unarchive'],
+  );
+  assert.deepEqual(
+    chinese.menuActions.map((action) => action.title),
+    ['新建会话', '置顶', '取消归档'],
+  );
+  assert.equal(english.actions[0].title, 'Unarchive');
+  assert.equal(chinese.actions[0].title, '取消归档');
+});
 
 test('groups run attention, live, unread completed, then dated history', () => {
   const sections = build(

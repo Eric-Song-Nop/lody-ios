@@ -1,3 +1,4 @@
+import { useTranslations } from '@/lib/i18n/useTranslations';
 import { Stack } from 'expo-router';
 import { useOpenFile } from '@/hooks/screens/useOpenFile';
 import { use, useMemo, useState } from 'react';
@@ -7,7 +8,6 @@ import { PlatformColor, View as RNView } from 'react-native';
 import { NativeCodeView } from '@lody-ios/kit';
 import { definePage } from '@/lib/presentation';
 import { AppText } from '@/ui/AppText';
-import { t } from '../lib/i18n/index.ts';
 import { usePageRuntime } from '@/hooks/screens/usePageRuntime';
 
 export type FileParams = {
@@ -19,6 +19,7 @@ export type FileParams = {
 };
 
 function View() {
+  const { t } = useTranslations();
   const { params } = usePageRuntime<FileParams>();
   const [error, setError] = useState('');
   const markdown = /\.(md|markdown|mdx)$/i.test(params.path);
@@ -38,7 +39,7 @@ function View() {
               },
             ]
           : [],
-      [markdown, source],
+      [markdown, source, t],
     ),
   );
   return (
@@ -94,7 +95,7 @@ function View() {
 
 export const FileScreen = definePage<FileParams>({
   id: 'file',
-  title: t('file.title'),
+  title: (t) => t('file.title'),
   Component: View,
   parseRouteParams: () => {
     throw new Error('请从项目文件打开');
