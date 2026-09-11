@@ -27,6 +27,7 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
     originals = result['originalAccessibilitySettings']
     result.update(appearance=appearance, host=host, target=target,
                   originalAccessibilitySettings=originals)
+    host_titles = {'controls': 'Native controls', 'menus': 'Native menus', 'lists': 'Grouped lists'}
     headings = {'controls': 'Native Android controls', 'menus': 'Native Android menus',
                 'lists': 'Native grouped rows'}
     # The initial readiness tree precedes boot screenshot collection. Startup
@@ -390,10 +391,23 @@ def run(shell, wait_text, tap_button, capture, texts, result, tree, appearance, 
         # The parent retains its earlier scroll offset; its introductory text
         # may be offscreen. Its exact fixture entry proves the owning page.
         deadline = time.monotonic() + 30
+        ready_since = None
+        observations = []
+        result['parentReturnReadiness'] = observations
         while True:
             tree = snapshot()
-            if entry_title in texts(tree) and headings[target] not in texts(tree):
-                break
+            labels = texts(tree)
+            now = time.monotonic()
+            parent_visible = entry_title in labels
+            child_visible = headings[target] in labels or host_titles[target] in labels
+            observations.append({'at': now, 'parentVisible': parent_visible, 'childVisible': child_visible})
+            if parent_visible and not child_visible:
+                if ready_since is None:
+                    ready_since = now
+                if now - ready_since >= 0.5:
+                    break
+            else:
+                ready_since = None
             if time.monotonic() >= deadline:
                 raise AssertionError('TalkBack Back did not reach parent with child host absent')
             time.sleep(0.1)

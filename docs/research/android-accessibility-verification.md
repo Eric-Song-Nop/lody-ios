@@ -264,3 +264,11 @@ The TalkBack verifier now retains every raw hardware gesture before focus assert
 All thirteen PNGs were individually reviewed, along with five-second samples across the 40.458978-second recording and its final decoded Projects frame. The observer closes after 93 requests; 59 events have zero drops. Accessibility settings restore exactly to `null`/`0` and night mode to `no`. Local screenshot, video and state evidence covers the two reported checks. Acceptance-service publication remains unavailable because `lh` is absent.
 
 This supplies native positive evidence for the scheduling guard and closes current-APK page/light/removed coverage only. The other seven removed/disabled host/theme combinations, return-transition competing focus, spoken output and remaining PR-05b integration remain open. It does not resolve the separately retained dark-sheet activation failure.
+
+## Sheet exit observation gap
+
+`talkback-lists-sheet-light-removed-timing-guard-v7` uses clean runner `2cc4133` and the same `ff7d1ae0…` APK. Its deletion/return assertions succeed: source absent, no initial candidate, Count two retains focus in seventeen observations; eight gestures pass the scheduling guard. Observer cleanup completes after 87 requests with 60 events and zero drops; accessibility restores to `null`/`0`, night mode to `no`.
+
+All thirteen PNGs, five-second samples across 66.709944 seconds, and the final decoded frame were inspected. The returned PNG and final frame still show the exiting Grouped lists toolbar over Settings. The runner's overall pass is therefore insufficient for outer-host exit acceptance. The existing predicate checked absence of the body heading, which can leave the viewport before the toolbar. This run establishes deletion/focus behavior only and remains incomplete for its full Back check.
+
+The verifier now requires both body heading and actual host title to disappear while the parent entry remains visible across 500 ms of observations, retaining `parentReturnReadiness`. This is an observation guard, not a native animation change or automatic gesture retry. Native re-verification and visual confirmation are required before closing the full sheet case.

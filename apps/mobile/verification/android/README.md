@@ -280,3 +280,9 @@ traversal observation budget. Each observation is retained in
 replaces a fixed 0.8-second sample that could precede delayed TalkBack hover
 processing. Input is sent once; the final target/subtree and hit bounds remain
 mandatory.
+
+TalkBack outer Back observes both the child body heading and its native toolbar
+title disappearing, with the parent entry present for 500 ms. It retains
+`parentReturnReadiness`; absence of scrolled-out body content alone does not
+prove a sheet has finished dismissing. Review the returned capture and video
+end separately before accepting the exit.
